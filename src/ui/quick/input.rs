@@ -82,7 +82,8 @@ impl App {
             Commit => dirty,
             Push => branch.is_some_and(|b| b.upstream.is_none() || b.ahead > 0),
             Pull => branch.is_some_and(|b| b.upstream.is_some()),
-            ClearFilter => !self.filter.value.is_empty(),
+            ClearFilter => self.list_filtered(),
+            ToggleChangedOnly => true,
             ToggleWrap => true,
             TerminalCommand => self.terminal_target().is_some(),
             AddRepository | NewGroup | FilterRepos | RefreshAll | ChangeTheme | EditConfig
@@ -282,6 +283,7 @@ impl App {
             Pull => self.start_pull(),
             FilterRepos => self.open_filter(),
             ClearFilter => self.clear_filter(),
+            ToggleChangedOnly => self.toggle_changed_only(),
             RefreshAll => self.refresh_all(false),
             ToggleWrap => self.toggle_wrap(),
             TerminalCommand => self.open_quick_terminal(),

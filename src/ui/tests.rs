@@ -420,3 +420,32 @@ fn pull_without_upstream_is_explained() {
     assert!(app.remote_ops.is_empty());
     assert!(app.notice.as_ref().unwrap().text.contains("no upstream"));
 }
+
+#[test]
+fn dot_on_the_repo_pane_toggles_the_changed_only_view() {
+    let clean = TestRepo::new();
+    let dirty = TestRepo::new();
+    let dirty_path = dirty.root.parent().unwrap().join("dirty");
+    std::fs::rename(&dirty.root, &dirty_path).unwrap();
+    std::fs::write(dirty_path.join("a.txt"), "changed\n").unwrap();
+    let mut store = store_of(&[&clean.root]);
+    store.add_repo(dirty_path.clone(), None);
+    let mut app = scanned_app(store);
+    assert_eq!(app.rows.len(), 2);
+
+    app.press(&[ch('.')]);
+    assert!(app.changed_only);
+    assert_eq!(app.rows.len(), 1);
+    assert_eq!(app.current_target().as_deref(), Some(dirty_path.as_path()));
+    assert_eq!(app.filter_label().as_deref(), Some("changed"));
+    let rows = screen(&app, 160, 20);
+    assert!(shows(&rows, "Repos[changed: 1/2]"), "{rows:#?}");
+    assert!(shows(&rows, "<.>     Show All"));
+
+    // `.` elsewhere still toggles line wrap; `0` clears the view.
+    app.press(&[key(KeyCode::Right), ch('.')]);
+    assert!(app.changed_only && app.diff.wrap);
+    app.press(&[ch('0')]);
+    assert!(!app.changed_only);
+    assert_eq!(app.rows.len(), 2);
+}

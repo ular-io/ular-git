@@ -55,16 +55,19 @@ impl App {
                 if !remove.is_empty() {
                     first.push(h("ctrl+d", remove));
                 }
-                // `1..3` stays out: the footer already shows the pane numbers.
-                let mut second = vec![
+                // `1..3` and `0` stay out (footer and help show them).
+                let changed = if self.changed_only {
+                    "Show All"
+                } else {
+                    "Changed Only"
+                };
+                let second = vec![
                     h("enter", enter),
                     h("c", "Commit"),
                     h("P", "Push"),
                     h("p", "Pull"),
+                    h(".", changed),
                 ];
-                if !self.filter.value.is_empty() {
-                    second.push(h("0", "Clear Filter"));
-                }
                 [first, second]
             }
             Pane::Files => [
@@ -140,7 +143,7 @@ pub fn anywhere() -> Vec<Hint> {
     vec![
         h("1 / 2 / 3", "Focus Repos / Files / Diff"),
         h("/", "Filter repositories"),
-        h("0", "Clear the filter"),
+        h("0", "Clear the filter and the changed-only view"),
         h("+", "Add repository"),
         h("c", "Commit the selected repository"),
         h("P", "Push (asks first)"),

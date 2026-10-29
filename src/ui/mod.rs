@@ -116,6 +116,9 @@ pub struct App {
 
     /// Repository filter text (`/`); applies while non-empty.
     pub filter: TextInput,
+    /// `.` on the repository pane: list only working trees with uncommitted
+    /// changes (session only, not saved).
+    pub changed_only: bool,
     /// Filter value when the line was opened, restored by `esc`.
     pub(crate) filter_before: String,
 
@@ -197,6 +200,7 @@ impl App {
             file_page: Cell::new(1),
             diff: DiffView::default(),
             filter: TextInput::new(String::new()),
+            changed_only: false,
             filter_before: String::new(),
             add_repo: None,
             group_name: None,
@@ -270,7 +274,12 @@ impl App {
     fn rebuild_rows_with(&mut self, first_on_miss: bool) {
         let key = self.current_row().map(|r| r.key());
         let before = self.current_target();
-        self.rows = tree::build_rows(&self.store, &self.statuses, &self.filter.value);
+        self.rows = tree::build_rows(
+            &self.store,
+            &self.statuses,
+            &self.filter.value,
+            self.changed_only,
+        );
         let fallback = first_on_miss.then(|| {
             self.rows
                 .iter()

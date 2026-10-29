@@ -39,6 +39,17 @@ match disappear. When the selected row is filtered out the cursor moves to the
 first match. `enter` keeps the filter, `esc` restores the previous one, `0`
 clears it.
 
+## Changed only
+
+`.` on the repository pane toggles a view of the working trees with
+uncommitted changes (any changed, untracked, or conflicting file; unpushed
+commits alone do not count). A clean repository stays as the parent of a
+worktree that has changes, and only changed worktrees are listed. Groups open
+and groups without a match disappear, as with the text filter; both apply
+together. The pane title reads `Repos[changed: N/M]` (`Repos[api · changed:
+N/M]` with a text filter) and the header shows a Filter row. `0` clears both.
+The view lasts for the session only.
+
 ## Groups
 
 - `ctrl+n` New Group: the name must be non-empty and unique.

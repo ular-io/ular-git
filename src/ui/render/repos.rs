@@ -132,10 +132,9 @@ pub(super) fn draw_repos(f: &mut Frame, app: &App, area: Rect) {
         .iter()
         .filter(|r| matches!(r, Row::Repo { .. }))
         .count();
-    let title = if app.filter.value.is_empty() {
-        format!(" Repos[{total}] ")
-    } else {
-        format!(" Repos[{}: {shown}/{total}] ", app.filter.value)
+    let title = match app.filter_label() {
+        None => format!(" Repos[{total}] "),
+        Some(label) => format!(" Repos[{label}: {shown}/{total}] "),
     };
     let block = pane_block(title, tone, Pane::Repos, th);
     let inner = block.inner(area);
@@ -145,6 +144,8 @@ pub(super) fn draw_repos(f: &mut Frame, app: &App, area: Rect) {
     if app.rows.is_empty() {
         let text = if total == 0 {
             "No repositories. Press + to add one."
+        } else if app.changed_only && app.filter.value.trim().is_empty() {
+            "No repository has uncommitted changes"
         } else {
             "No repository matches the filter"
         };

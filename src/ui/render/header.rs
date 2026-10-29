@@ -89,10 +89,10 @@ fn context_lines(app: &App) -> Vec<Line<'static>> {
     ]);
 
     let mut lines = vec![repos, branch, path];
-    if !app.filter.value.is_empty() {
+    if let Some(filter) = app.filter_label() {
         lines.push(Line::from(vec![
             label("Filter"),
-            Span::styled(truncate_w(&app.filter.value, VALUE_W), strong),
+            Span::styled(truncate_w(&filter, VALUE_W), strong),
         ]));
     }
     lines

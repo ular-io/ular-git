@@ -20,6 +20,7 @@ pub enum CommandId {
     Push,
     Pull,
     FilterRepos,
+    ToggleChangedOnly,
     ClearFilter,
     RefreshAll,
     ToggleWrap,
@@ -199,6 +200,14 @@ pub const COMMANDS: &[CommandSpec] = &[
         Some("/"),
         ["search", "find"],
         None
+    ),
+    cmd!(
+        ToggleChangedOnly,
+        "toggle-changed-only",
+        "Toggle Changed Only",
+        Some("."),
+        ["dirty", "modified", "changes", "uncommitted", "filter"],
+        Some("List only repositories and worktrees with uncommitted changes")
     ),
     cmd!(
         ClearFilter,

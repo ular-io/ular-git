@@ -68,6 +68,7 @@ one, a linked worktree (resolved to its repository), or a parent folder
 | `←→` `h l`, `enter` | Move between panes |
 | `1` `2` `3` | Focus Repos / Files / Diff |
 | `/`, `0` | Filter repositories, clear the filter |
+| `.` (Repos pane) | Show only repositories with uncommitted changes (toggle) |
 | `+` | Add repository |
 | `ctrl+n` | New group |
 | `ctrl+e` | Rename a group, or move a repository to a group |
@@ -75,7 +76,7 @@ one, a linked worktree (resolved to its repository), or a parent folder
 | `space` | Fold / unfold a group |
 | `c` | Commit (staged only, or all changes including untracked files) |
 | `P`, `p` | Push (asks first), pull (fast-forward only) |
-| `.` | Toggle diff line wrap |
+| `.` (Files / Diff pane) | Toggle diff line wrap |
 | `:`, `!` | Quick command palette, shell command in the selected repository |
 | `ctrl+u` | Rescan every repository |
 | `?` | Help for the focused pane |

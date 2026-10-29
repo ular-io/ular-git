@@ -75,15 +75,25 @@ fn folder_name(path: &Path) -> String {
 /// Builds the visible rows: repositories without a group first, flat and
 /// unindented (no header), then each group header with its repositories
 /// indented beneath it. With a filter (case-insensitive substring of the
-/// folder or branch name), collapsed groups open and only groups with a match
-/// are kept.
+/// folder or branch name) or `changed_only` (working trees with uncommitted
+/// changes), collapsed groups open and only groups with a match are kept. A
+/// clean repository stays as the parent of a worktree that has changes.
 pub fn build_rows(
     store: &RepoStore,
     statuses: &HashMap<PathBuf, TreeState>,
     filter: &str,
+    changed_only: bool,
 ) -> Vec<Row> {
     let needle = filter.trim().to_lowercase();
     let matches = |text: &str| needle.is_empty() || text.to_lowercase().contains(&needle);
+    let has_changes = |p: &Path| {
+        statuses
+            .get(p)
+            .and_then(|t| t.status.as_ref())
+            .is_some_and(|s| !s.is_clean())
+    };
+    let wanted = |p: &Path| !changed_only || has_changes(p);
+    let filtering = !needle.is_empty() || changed_only;
 
     // Repositories (with their visible worktrees) per group, name-sorted;
     // ungrouped first.
@@ -117,13 +127,15 @@ pub fn build_rows(
                 .into_iter()
                 .flatten()
                 .filter(|w| {
-                    matches(&folder_name(&w.path)) || w.branch.as_deref().is_some_and(matches)
+                    (matches(&folder_name(&w.path)) || w.branch.as_deref().is_some_and(matches))
+                        && wanted(&w.path)
                 })
                 .collect();
-            let repo_hit = matches(&repo.name())
+            let repo_hit = (matches(&repo.name())
                 || status
                     .and_then(|s| s.branch.head.as_deref())
-                    .is_some_and(matches);
+                    .is_some_and(matches))
+                && wanted(&repo.path);
             if !repo_hit && worktrees.is_empty() {
                 continue;
             }
@@ -149,7 +161,7 @@ pub fn build_rows(
             });
             let all_worktrees: Vec<_> = if repo_hit {
                 status
-                    .map(|s| s.worktrees.iter().collect())
+                    .map(|s| s.worktrees.iter().filter(|w| wanted(&w.path)).collect())
                     .unwrap_or_default()
             } else {
                 worktrees
@@ -171,10 +183,10 @@ pub fn build_rows(
         }
         // An empty group stays visible (unless filtering) so a new group can
         // be seen and used.
-        if shown == 0 && !needle.is_empty() {
+        if shown == 0 && filtering {
             continue;
         }
-        let collapsed = needle.is_empty() && store.is_collapsed(group.as_deref());
+        let collapsed = !filtering && store.is_collapsed(group.as_deref());
         rows.push(Row::Group {
             name: group,
             total: shown,
@@ -230,7 +242,7 @@ mod tests {
     #[test]
     fn groups_sort_repositories_and_nest_worktrees() {
         let s = store();
-        let rows = build_rows(&s, &with_worktree("/x/alpha-wt", "feat"), "");
+        let rows = build_rows(&s, &with_worktree("/x/alpha-wt", "feat"), "", false);
         assert_eq!(
             names(&s, &rows),
             ["loose", "#work", "alpha", "^alpha-wt", "zeta"]
@@ -240,7 +252,7 @@ mod tests {
     #[test]
     fn ungrouped_repositories_lead_without_header_or_indent() {
         let s = store();
-        let rows = build_rows(&s, &HashMap::new(), "");
+        let rows = build_rows(&s, &HashMap::new(), "", false);
         assert!(matches!(rows[0], Row::Repo { nested: false, .. }));
         assert!(matches!(rows[2], Row::Repo { nested: true, .. }));
         assert!(rows
@@ -253,7 +265,7 @@ mod tests {
         let mut s = RepoStore::default();
         s.add_repo("/b".into(), None);
         s.add_repo("/a".into(), None);
-        let rows = build_rows(&s, &HashMap::new(), "");
+        let rows = build_rows(&s, &HashMap::new(), "", false);
         assert_eq!(names(&s, &rows), ["a", "b"]);
         assert!(matches!(rows[0], Row::Repo { nested: false, .. }));
     }
@@ -263,14 +275,20 @@ mod tests {
         let mut s = store();
         s.toggle_collapsed(Some("work"));
         let st = with_worktree("/x/alpha-wt", "feat");
-        assert_eq!(names(&s, &build_rows(&s, &st, "")), ["loose", "#work"]);
-        assert_eq!(names(&s, &build_rows(&s, &st, "ZET")), ["#work", "zeta"]);
+        assert_eq!(
+            names(&s, &build_rows(&s, &st, "", false)),
+            ["loose", "#work"]
+        );
+        assert_eq!(
+            names(&s, &build_rows(&s, &st, "ZET", false)),
+            ["#work", "zeta"]
+        );
     }
 
     #[test]
     fn a_worktree_branch_match_keeps_its_repository() {
         let s = store();
-        let rows = build_rows(&s, &with_worktree("/x/alpha-wt", "feat"), "feat");
+        let rows = build_rows(&s, &with_worktree("/x/alpha-wt", "feat"), "feat", false);
         assert_eq!(names(&s, &rows), ["#work", "alpha", "^alpha-wt"]);
     }
 
@@ -278,7 +296,7 @@ mod tests {
     fn empty_named_groups_stay_visible() {
         let mut s = store();
         s.add_group("empty").unwrap();
-        let rows = build_rows(&s, &HashMap::new(), "");
+        let rows = build_rows(&s, &HashMap::new(), "", false);
         assert!(names(&s, &rows).contains(&"#empty".to_string()));
     }
 
@@ -304,7 +322,7 @@ mod tests {
             ..RepoStatus::default()
         };
         st.insert(PathBuf::from("/x/alpha-wt"), TreeState::loaded(wt, 0));
-        let rows = build_rows(&s, &st, "");
+        let rows = build_rows(&s, &st, "", false);
         assert!(
             matches!(
                 rows[1],
@@ -317,5 +335,38 @@ mod tests {
             "{:?}",
             rows[1]
         );
+    }
+
+    #[test]
+    fn changed_only_keeps_dirty_trees_and_the_parent_of_a_dirty_worktree() {
+        let s = store();
+        let file = crate::git::FileEntry {
+            path: "f".into(),
+            orig_path: None,
+            x: '.',
+            y: 'M',
+            kind: crate::git::EntryKind::Tracked,
+        };
+        let mut st = with_worktree("/x/alpha-wt", "feat");
+        let dirty = RepoStatus {
+            files: vec![file],
+            ..RepoStatus::default()
+        };
+        // alpha is clean but its worktree is dirty; zeta is dirty; loose is clean.
+        st.insert(
+            PathBuf::from("/x/alpha-wt"),
+            TreeState::loaded(dirty.clone(), 0),
+        );
+        st.insert(PathBuf::from("/x/zeta"), TreeState::loaded(dirty, 0));
+        let mut folded = s.clone();
+        folded.toggle_collapsed(Some("work"));
+        let rows = build_rows(&folded, &st, "", true);
+        assert_eq!(names(&s, &rows), ["#work", "alpha", "^alpha-wt", "zeta"]);
+        // Combined with a text filter, both must match.
+        assert_eq!(
+            names(&s, &build_rows(&s, &st, "zet", true)),
+            ["#work", "zeta"]
+        );
+        assert!(build_rows(&s, &st, "loose", true).is_empty());
     }
 }

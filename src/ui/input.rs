@@ -135,6 +135,7 @@ impl App {
         match key.code {
             KeyCode::Enter | KeyCode::Char(' ') if is_group => self.toggle_group(),
             KeyCode::Enter | KeyCode::Right | KeyCode::Char('l') => self.move_focus(1),
+            KeyCode::Char('.') => self.toggle_changed_only(),
             _ => return false,
         }
         true
@@ -203,7 +204,7 @@ impl App {
         let Some(Row::Group { name, .. }) = self.current_row().cloned() else {
             return;
         };
-        if !self.filter.value.trim().is_empty() {
+        if self.list_filtered() {
             self.notify(Level::Info, "Groups stay open while a filter is applied");
             return;
         }
@@ -230,13 +231,44 @@ impl App {
         self.focus = Pane::Repos;
     }
 
+    /// `0`: clears the text filter and the changed-only view.
     pub(crate) fn clear_filter(&mut self) {
-        if self.filter.value.is_empty() {
+        if self.filter.value.is_empty() && !self.changed_only {
             return;
         }
         self.filter = super::TextInput::new(String::new());
+        self.changed_only = false;
         self.rebuild_rows_for_filter();
         self.notify(Level::Info, "Filter cleared");
+    }
+
+    /// `.` on the repository pane: only working trees with uncommitted changes.
+    pub(crate) fn toggle_changed_only(&mut self) {
+        self.changed_only = !self.changed_only;
+        self.rebuild_rows_for_filter();
+        let text = if self.changed_only {
+            "Showing repositories with uncommitted changes"
+        } else {
+            "Showing all repositories"
+        };
+        self.notify(Level::Info, text);
+    }
+
+    /// A text filter or the changed-only view narrows the list.
+    pub(crate) fn list_filtered(&self) -> bool {
+        !self.filter.value.trim().is_empty() || self.changed_only
+    }
+
+    /// What narrows the list, for the pane title and the header:
+    /// `api`, `changed`, `api · changed`.
+    pub(crate) fn filter_label(&self) -> Option<String> {
+        let text = self.filter.value.trim();
+        match (text.is_empty(), self.changed_only) {
+            (true, false) => None,
+            (true, true) => Some("changed".into()),
+            (false, false) => Some(text.to_string()),
+            (false, true) => Some(format!("{text} · changed")),
+        }
     }
 
     fn on_key_filter(&mut self, key: KeyEvent) {
