@@ -266,6 +266,11 @@ fn push_parsed(doc: &mut DiffDoc, raw: &[String], show: bool) {
             continue;
         }
         if in_header {
+            // The message is shown compact: no blank lines, so the rule sits
+            // right under its last line.
+            if index < stat_start && text.trim().is_empty() {
+                continue;
+            }
             let kind = if index == stat_start {
                 LineKind::Rule
             } else if index > stat_start {
@@ -455,16 +460,29 @@ mod tests {
     fn show_output_marks_the_commit_header() {
         let mut doc = DiffDoc::default();
         let raw =
-            "2026-01-02 03:04  a <a@x>\nsubject\n\nbody\n---\nmore body\n---\n x | 2 +-\ndiff --git a/x b/x\n@@ -1 +1 @@\n-a\n+b";
+            "2026-01-02 03:04  a <a@x>\nsubject\n\nbody\n---\nmore body\n\n---\n x | 2 +-\ndiff --git a/x b/x\n@@ -1 +1 @@\n-a\n+b";
         push_parsed(&mut doc, &lines(raw), true);
-        let kinds: Vec<_> = doc.lines[..4].iter().map(|l| l.kind).collect();
+        let kinds: Vec<(LineKind, &str)> = doc.lines[..8]
+            .iter()
+            .map(|l| (l.kind, l.text.as_str()))
+            .collect();
         use LineKind::*;
-        assert_eq!(kinds, [Byline, Subject, Header, Header]);
-        let rest: Vec<_> = doc.lines[4..9].iter().map(|l| l.kind).collect();
-        // A `---` inside the message stays message; git's last one starts the stat.
-        assert_eq!(rest, [Header, Header, Rule, Stat, File]);
-        assert_eq!(doc.lines[8].text, "x");
-        assert_eq!(doc.lines[10].kind, LineKind::Del);
+        // Blank message lines are dropped; a `---` inside the message stays
+        // message, and git's last one becomes the rule.
+        assert_eq!(
+            kinds,
+            [
+                (Byline, "2026-01-02 03:04  a <a@x>"),
+                (Subject, "subject"),
+                (Header, "body"),
+                (Header, "---"),
+                (Header, "more body"),
+                (Rule, "---"),
+                (Stat, " x | 2 +-"),
+                (File, "x"),
+            ]
+        );
+        assert_eq!(doc.lines[9].kind, LineKind::Del);
     }
 
     #[test]

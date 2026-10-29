@@ -29,7 +29,7 @@
 | Tracked file | `Staged changes` section (`git diff --cached -M`) and / or `Unstaged changes` section (`git diff`) |
 | Untracked file | The whole file as added (`git diff --no-index /dev/null <file>`) |
 | Conflict | The combined diff |
-| Unpushed commit | Title: the full hash. Body: one muted byline `<yyyy-mm-dd HH:MM>  <author> <<email>>` (the committer is not shown), the message right below it (first line bold), the stat, and the patch |
+| Unpushed commit | Title: the full hash. Body: one muted byline `<yyyy-mm-dd HH:MM>  <author> <<email>>` (the committer is not shown), the message right below it without its blank lines (first line bold), a rule, the stat, and the patch |
 
 - Title for files: the path and `+N -N`.
 - git's per-file header is condensed. `diff --git`, `index`, `---`, and `+++`
