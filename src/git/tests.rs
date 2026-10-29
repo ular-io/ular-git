@@ -162,8 +162,6 @@ fn unpushed_commits_are_listed_against_the_upstream() {
         .lines
         .iter()
         .any(|l| l.kind == LineKind::Subject && l.text == "second"));
-    let date = &s.unpushed[0].date;
-    assert!(date.len() == 10 && date.as_bytes()[4] == b'-', "{date}");
     assert_eq!(doc.added, 1);
 }
 

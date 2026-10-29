@@ -139,8 +139,7 @@ pub fn unpushed(dir: &Path) -> anyhow::Result<Vec<Commit>> {
         &[
             "log",
             &limit,
-            "--date=short",
-            "--format=%H%x1f%h%x1f%s%x1f%ad",
+            "--format=%H%x1f%h%x1f%s",
             "@{upstream}..HEAD",
         ],
     )?;
@@ -152,7 +151,6 @@ pub fn unpushed(dir: &Path) -> anyhow::Result<Vec<Commit>> {
                 hash: f.next()?.to_string(),
                 short: f.next()?.to_string(),
                 subject: f.next().unwrap_or("").to_string(),
-                date: f.next().unwrap_or("").to_string(),
             })
         })
         .collect())

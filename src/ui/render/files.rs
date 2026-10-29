@@ -110,14 +110,13 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                         Span::styled(name, dim(Style::default())),
                     ]
                 }
-                // `↑` sits where a file's status code does; then the
-                // author date and the message's first line.
+                // `↑` sits where a file's status code does, then the
+                // message's first line.
                 FileItem::Commit(c) => {
-                    let head = format!(" ↑  {} ", c.date);
+                    let head = " ↑  ";
                     let room = w.saturating_sub(head.width());
                     vec![
-                        Span::styled(" ↑  ", dim(Style::default().fg(th.branch))),
-                        Span::styled(format!("{} ", c.date), th.soft_dim()),
+                        Span::styled(head, dim(Style::default().fg(th.branch))),
                         Span::styled(truncate_w(&c.subject, room), dim(Style::default())),
                     ]
                 }

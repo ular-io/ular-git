@@ -271,10 +271,7 @@ fn unpushed_commits_show_date_and_subject_and_their_hash_titles_the_diff() {
         .unpushed[0]
         .clone();
     let rows = screen(&app, 160, 30);
-    assert!(
-        shows(&rows, &format!("↑  {} second commit", commit.date)),
-        "{rows:#?}"
-    );
+    assert!(shows(&rows, "↑  second commit"), "{rows:#?}");
     assert!(
         shows(&rows, &format!(" {} +1 -3 ", commit.hash)),
         "{rows:#?}"

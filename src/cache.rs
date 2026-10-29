@@ -10,8 +10,8 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 /// Bump when the meaning of a serialized field changes.
-/// 2: `Commit::when` (relative date) became `Commit::date` (`yyyy-mm-dd`).
-const CACHE_VERSION: u32 = 2;
+/// 3: `Commit` lost its date field (the file list shows only the subject).
+const CACHE_VERSION: u32 = 3;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CachedStatus {

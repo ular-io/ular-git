@@ -75,8 +75,6 @@ pub struct Commit {
     pub hash: String,
     pub short: String,
     pub subject: String,
-    /// Author date, `yyyy-mm-dd`.
-    pub date: String,
 }
 
 /// Linked worktree of a repository (the main worktree is the repository row itself).
