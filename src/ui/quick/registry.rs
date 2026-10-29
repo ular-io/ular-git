@@ -206,8 +206,16 @@ pub const COMMANDS: &[CommandSpec] = &[
         "toggle-changed-only",
         "Toggle Changed Only",
         Some("."),
-        ["dirty", "modified", "changes", "uncommitted", "filter"],
-        Some("List only repositories and worktrees with uncommitted changes")
+        [
+            "dirty",
+            "modified",
+            "changes",
+            "uncommitted",
+            "behind",
+            "pull",
+            "filter"
+        ],
+        Some("List only repositories and worktrees with uncommitted changes or commits to pull")
     ),
     cmd!(
         ClearFilter,

@@ -22,14 +22,13 @@ ular-git applies them.
 
 ## Width
 
-- ≥ 120 columns: three panes, but only while Files has focus. Repos focus
-  shows Repos + Files (Diff hidden); Diff focus shows Files + Diff (Repos
-  hidden), giving the focused side the room.
-- 64–119 columns: two panes; < 64: one. The diff hides first, then the files.
-- The visible window always contains the focused pane: moving right onto a
-  hidden pane slides the window instead of focusing something invisible.
-- Three panes: Repos 24 % (30–44), Files 28 % (32–56), Diff the rest. Two
-  panes: Repos 42 % (28–44) beside Files, or Files 40 % (30–56) beside Diff.
+- Two panes side by side (≥ 64 columns): Repos focus shows Repos + Files;
+  Files or Diff focus shows Files + Diff, so the diff gets the room while
+  files are browsed. Below 64 columns only the focused pane is shown.
+- Moving left or right always reveals the pane the focus moves to.
+- Repos 42 % (28–44) beside Files; Files 40 % (30–56) beside Diff.
+- The file pane is titled with the selected repository's (or worktree's)
+  folder name.
 - Header: when space runs out the logo goes first, then shortcut columns from
   the right. Below 40×10 only `Terminal too small for ular-git` is drawn.
 

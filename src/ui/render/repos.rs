@@ -145,7 +145,7 @@ pub(super) fn draw_repos(f: &mut Frame, app: &App, area: Rect) {
         let text = if total == 0 {
             "No repositories. Press + to add one."
         } else if app.changed_only && app.filter.value.trim().is_empty() {
-            "No repository has uncommitted changes"
+            "No repository has changes or commits to pull"
         } else {
             "No repository matches the filter"
         };

@@ -242,12 +242,13 @@ impl App {
         self.notify(Level::Info, "Filter cleared");
     }
 
-    /// `.` on the repository pane: only working trees with uncommitted changes.
+    /// `.` on the repository pane: only working trees with uncommitted changes
+    /// or upstream commits to pull.
     pub(crate) fn toggle_changed_only(&mut self) {
         self.changed_only = !self.changed_only;
         self.rebuild_rows_for_filter();
         let text = if self.changed_only {
-            "Showing repositories with uncommitted changes"
+            "Showing repositories with changes or commits to pull"
         } else {
             "Showing all repositories"
         };

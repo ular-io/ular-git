@@ -5,13 +5,14 @@ uncommitted changes or unpushed commits, which worktrees exist, which files
 changed, and what the diff is.
 
 ```
-┏━━━━━━━ Repos[12] ━━━━━ → ━┓┌──── Files[3] ─────┐┌──────── app.rs +4 -1 ──────────┐
-┃ dotfiles               ✓ ┃│  M src/app.rs     ││ ── Unstaged changes ────────── │
-┃ ▾ work                   ┃│ A  src/new.rs     ││ @@ -10,6 +10,9 @@ fn run()     │
-┃   api             Ⓜ 3 ↑1 ┃│ ?? notes.txt      ││   10   10      let c = load(); │
-┃   └ api-fix fix/x    Ⓜ 1 ┃│                   ││        11 +    c.check()?;     │
-┃   web                  ✓ ┃│                   ││   11   12      start(c)        │
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━┛└───────────────────┘└────────────────────────────────┘
+┏━ ← ━━━━━━━━ api ━━━━━━━ → ━┓┌───────── src/app.rs +4 -1 ─────────────┐
+┃  M src/app.rs              ┃├────────── Unstaged changes ────────────┤
+┃ A  src/new.rs              ┃│   10   10      let c = load();         │
+┃ ?? notes.txt               ┃│        11 +    c.check()?;             │
+┃  ↑ fix: retry on timeout   ┃│   11   12      start(c)                │
+┃                            ┃│    ⋯                                   │
+┃                            ┃│   40   41  fn stop() {                 │
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛└────────────────────────────────────────┘
 ```
 
 ## Key Features
@@ -68,7 +69,7 @@ one, a linked worktree (resolved to its repository), or a parent folder
 | `←→` `h l`, `enter` | Move between panes |
 | `1` `2` `3` | Focus Repos / Files / Diff |
 | `/`, `0` | Filter repositories, clear the filter |
-| `.` (Repos pane) | Show only repositories with uncommitted changes (toggle) |
+| `.` (Repos pane) | Show only repositories with uncommitted changes or commits to pull (toggle) |
 | `+` | Add repository |
 | `ctrl+n` | New group |
 | `ctrl+e` | Rename a group, or move a repository to a group |

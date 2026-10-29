@@ -16,56 +16,51 @@ fn logo_rows_share_one_width_and_fit_the_header() {
 }
 
 #[test]
-fn panes_hide_from_the_right_and_follow_the_focus() {
-    assert_eq!(visible_panes(160), 3);
-    assert_eq!(visible_panes(100), 2);
+fn two_panes_follow_the_focus() {
+    assert_eq!(visible_panes(160), 2);
+    assert_eq!(visible_panes(64), 2);
     assert_eq!(visible_panes(50), 1);
-    let area = Rect::new(0, 0, 100, 20);
-    let shown = |focus| -> Vec<Pane> {
-        pane_layout(area, focus)
-            .into_iter()
-            .map(|(p, _)| p)
-            .collect()
-    };
-    assert_eq!(shown(Pane::Repos), [Pane::Repos, Pane::Files]);
-    assert_eq!(shown(Pane::Files), [Pane::Repos, Pane::Files]);
-    assert_eq!(shown(Pane::Diff), [Pane::Files, Pane::Diff]);
-    // Wide: three panes only while Files has focus; Repos hides Diff and
-    // Diff hides Repos.
-    let wide = Rect::new(0, 0, 160, 20);
-    let wide_shown = |focus| -> Vec<Pane> {
-        pane_layout(wide, focus)
-            .into_iter()
-            .map(|(p, _)| p)
-            .collect()
-    };
-    assert_eq!(wide_shown(Pane::Repos), [Pane::Repos, Pane::Files]);
-    assert_eq!(
-        wide_shown(Pane::Files),
-        [Pane::Repos, Pane::Files, Pane::Diff]
-    );
-    assert_eq!(wide_shown(Pane::Diff), [Pane::Files, Pane::Diff]);
+    for width in [100, 200] {
+        let area = Rect::new(0, 0, width, 20);
+        let shown = |focus| -> Vec<Pane> {
+            pane_layout(area, focus)
+                .into_iter()
+                .map(|(p, _)| p)
+                .collect()
+        };
+        assert_eq!(shown(Pane::Repos), [Pane::Repos, Pane::Files]);
+        assert_eq!(shown(Pane::Files), [Pane::Files, Pane::Diff]);
+        assert_eq!(shown(Pane::Diff), [Pane::Files, Pane::Diff]);
+        let total: u16 = pane_layout(area, Pane::Repos)
+            .iter()
+            .map(|(_, r)| r.width)
+            .sum();
+        assert_eq!(total, width, "widths add up to the area");
+    }
     let narrow = Rect::new(0, 0, 50, 20);
     assert_eq!(pane_layout(narrow, Pane::Files)[0].0, Pane::Files);
-    // Widths add up to the area.
-    let total: u16 = pane_layout(Rect::new(0, 0, 150, 20), Pane::Repos)
-        .iter()
-        .map(|(_, r)| r.width)
-        .sum();
-    assert_eq!(total, 150);
+    assert_eq!(pane_layout(narrow, Pane::Diff).len(), 1);
 }
 
 #[test]
-fn full_screen_shows_header_three_panes_and_one_footer_row() {
+fn full_screen_shows_header_two_panes_and_one_footer_row() {
     let a = TestRepo::new();
     a.write("a.txt", "changed\n");
     let mut app = scanned_app(store_of(&[&a.root]));
-    // All three panes show while Files has focus.
-    app.focus = Pane::Files;
     app.wait_background(10);
     let rows = screen(&app, 160, 30);
     assert!(shows(&rows, "Repos[1]"));
-    assert!(shows(&rows, "Files[1]"));
+    assert!(
+        shows(&rows, "─ repo ─"),
+        "the file pane is titled by the repository"
+    );
+    assert!(!shows(&rows, "a.txt +1 -3"), "Repos focus hides the diff");
+    app.focus = Pane::Files;
+    let rows = screen(&app, 160, 30);
+    assert!(
+        !shows(&rows, "Repos[1]"),
+        "Files focus hides the repositories"
+    );
     assert!(shows(&rows, "a.txt +1 -3"));
     assert!(shows(&rows, "<ctrl+u> Refresh All"));
     assert!(shows(&rows, "|___/"), "logo shown when wide");
@@ -224,11 +219,11 @@ fn only_code_lines_carry_the_line_number_gutter() {
     let a = TestRepo::new();
     a.write("a.txt", "one\n2\nthree\n");
     let mut app = scanned_app(store_of(&[&a.root]));
-    // All three panes show while Files has focus.
+    // Files focus shows Files + Diff.
     app.focus = Pane::Files;
     app.wait_background(10);
     let rows = screen(&app, 160, 30);
-    let diff_x = pane_layout(Rect::new(0, 5, 160, 24), app.focus)[2].1.x as usize + 2;
+    let diff_x = pane_layout(Rect::new(0, 5, 160, 24), app.focus)[1].1.x as usize + 2;
     let starts = |needle: &str| {
         let row = rows.iter().find(|r| r.contains(needle)).unwrap();
         row[..row.find(needle).unwrap()].chars().count()
@@ -299,7 +294,7 @@ fn unpushed_commits_show_date_and_subject_and_their_hash_titles_the_diff() {
     a.write("a.txt", "next\n");
     a.git(&["commit", "-qam", "second commit\n\nbody text"]);
     let mut app = scanned_app(store_of(&[&a.root]));
-    // All three panes show while Files has focus.
+    // Files focus shows Files + Diff.
     app.focus = Pane::Files;
     app.wait_background(10);
     let commit = app
@@ -340,7 +335,7 @@ fn commit_messages_wrap_even_with_line_wrap_off() {
     a.write("a.txt", &format!("{long}\n"));
     a.git(&["commit", "-qam", &format!("subject\n\n{long}END")]);
     let mut app = scanned_app(store_of(&[&a.root]));
-    // All three panes show while Files has focus.
+    // Files focus shows Files + Diff.
     app.focus = Pane::Files;
     app.wait_background(10);
     assert!(!app.diff.wrap);
@@ -367,7 +362,7 @@ fn commit_files_get_a_full_width_title_line() {
     a.write("a.txt", "next\n");
     a.git(&["commit", "-qam", "second"]);
     let mut app = scanned_app(store_of(&[&a.root]));
-    // All three panes show while Files has focus.
+    // Files focus shows Files + Diff.
     app.focus = Pane::Files;
     app.wait_background(10);
     let rows = screen(&app, 160, 30);
@@ -418,7 +413,7 @@ fn a_gap_line_separates_hunks() {
         .replace("line 28\n", "line 28b\n");
     a.write("a.txt", &changed);
     let mut app = scanned_app(store_of(&[&a.root]));
-    // All three panes show while Files has focus.
+    // Files focus shows Files + Diff.
     app.focus = Pane::Files;
     app.wait_background(10);
     let rows = screen(&app, 160, 40);

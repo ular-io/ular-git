@@ -81,36 +81,32 @@ pub fn draw(f: &mut Frame, app: &App) {
     }
 }
 
-/// How many panes fit side by side at `width`. The diff pane goes first as the
-/// screen narrows, then the file pane.
+/// How many panes fit side by side at `width`: two, or one when narrow.
 pub(crate) fn visible_panes(width: u16) -> usize {
-    match width {
-        120.. => 3,
-        64.. => 2,
-        _ => 1,
+    if width >= 64 {
+        2
+    } else {
+        1
     }
 }
 
-/// Visible panes and their areas. The window of visible panes always holds
-/// the focused one, so moving right on a narrow screen reveals the hidden
-/// pane instead of focusing something invisible. All three show only while
-/// Files has focus: Repos focus hides Diff, Diff focus hides Repos, giving
-/// the focused side the room.
+/// Visible panes and their areas: Repos focus shows Repos + Files; Files or
+/// Diff focus shows Files + Diff. A narrow screen shows the focused pane
+/// alone. The focused pane is always visible, so moving left or right reveals
+/// the pane it moves to.
 pub(crate) fn pane_layout(area: Rect, focus: Pane) -> Vec<(Pane, Rect)> {
     let w = area.width;
-    let mut k = visible_panes(w);
-    if focus != Pane::Files {
-        k = k.min(2);
-    }
-    let start = focus.index().saturating_sub(k - 1);
+    let k = visible_panes(w);
+    let start = if k == 1 {
+        focus.index()
+    } else if focus == Pane::Repos {
+        0
+    } else {
+        1
+    };
     let panes = &Pane::ALL[start..start + k];
     let pct = |p: u16, lo: u16, hi: u16| (w * p / 100).clamp(lo, hi);
     let widths: Vec<Constraint> = match panes {
-        [_, _, _] => vec![
-            Constraint::Length(pct(24, 30, 44)),
-            Constraint::Length(pct(28, 32, 56)),
-            Constraint::Min(0),
-        ],
         [Pane::Repos, _] => vec![Constraint::Length(pct(42, 28, 44)), Constraint::Min(0)],
         [_, _] => vec![Constraint::Length(pct(40, 30, 56)), Constraint::Min(0)],
         _ => vec![Constraint::Min(0)],

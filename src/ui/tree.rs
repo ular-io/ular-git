@@ -76,7 +76,7 @@ fn folder_name(path: &Path) -> String {
 /// unindented (no header), then each group header with its repositories
 /// indented beneath it. With a filter (case-insensitive substring of the
 /// folder or branch name) or `changed_only` (working trees with uncommitted
-/// changes), collapsed groups open and only groups with a match are kept. A
+/// changes or upstream commits to pull), collapsed groups open and only groups with a match are kept. A
 /// clean repository stays as the parent of a worktree that has changes.
 pub fn build_rows(
     store: &RepoStore,
@@ -86,11 +86,12 @@ pub fn build_rows(
 ) -> Vec<Row> {
     let needle = filter.trim().to_lowercase();
     let matches = |text: &str| needle.is_empty() || text.to_lowercase().contains(&needle);
+    // Something to commit, or something to pull.
     let has_changes = |p: &Path| {
         statuses
             .get(p)
             .and_then(|t| t.status.as_ref())
-            .is_some_and(|s| !s.is_clean())
+            .is_some_and(|s| !s.is_clean() || s.branch.behind > 0)
     };
     let wanted = |p: &Path| !changed_only || has_changes(p);
     let filtering = !needle.is_empty() || changed_only;
@@ -368,5 +369,19 @@ mod tests {
             ["#work", "zeta"]
         );
         assert!(build_rows(&s, &st, "loose", true).is_empty());
+    }
+
+    #[test]
+    fn changed_only_includes_trees_behind_their_upstream() {
+        let s = store();
+        let mut st = HashMap::new();
+        let mut behind = RepoStatus::default();
+        behind.branch.behind = 2;
+        let mut ahead = RepoStatus::default();
+        ahead.branch.ahead = 1;
+        st.insert(PathBuf::from("/x/loose"), TreeState::loaded(behind, 0));
+        st.insert(PathBuf::from("/x/zeta"), TreeState::loaded(ahead, 0));
+        // Behind counts (something to pull); ahead alone does not.
+        assert_eq!(names(&s, &build_rows(&s, &st, "", true)), ["loose"]);
     }
 }

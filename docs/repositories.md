@@ -42,8 +42,9 @@ clears it.
 ## Changed only
 
 `.` on the repository pane toggles a view of the working trees with
-uncommitted changes (any changed, untracked, or conflicting file; unpushed
-commits alone do not count). A clean repository stays as the parent of a
+uncommitted changes (any changed, untracked, or conflicting file) or commits
+to pull (behind the upstream, as of the last fetch). Unpushed commits alone do
+not count. A clean repository stays as the parent of a
 worktree that has changes, and only changed worktrees are listed. Groups open
 and groups without a match disappear, as with the text filter; both apply
 together. The pane title reads `Repos[changed: N/M]` (`Repos[api · changed:

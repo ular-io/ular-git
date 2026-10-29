@@ -16,7 +16,8 @@
 - Status code: two letters, index then worktree (`M `, ` M`, `MM`, `A `,
   `D `, `R `, `??`, `UU`). Paths keep their tail when cut (`…/mod.rs`);
   renames show `old → new`.
-- Title: `Files[N]`, plus `Commits[N]` when there are unpushed commits.
+- Title: the selected repository's (or worktree's) folder name; `Files` while
+  a group header is selected.
 - Moving the cursor loads that item's diff immediately. The cursor stays on the
   same file (by path or commit hash) across rescans while it is listed.
 - Empty states: `Select a repository` (group row), `Scanning…`, the scan

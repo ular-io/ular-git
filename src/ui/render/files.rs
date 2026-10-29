@@ -20,13 +20,16 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
     let tone = pane_tone(app, Pane::Files);
     let tree = app.current_tree();
     let status = tree.and_then(|t| t.status.as_ref());
-    let title = match status {
-        Some(s) if !s.unpushed.is_empty() => format!(
-            " Files[{}] Commits[{}] ",
-            s.counts().changed,
-            s.unpushed.len()
+    // The selected repository's (or worktree's) folder name; `Files` when a
+    // group header is selected.
+    let title = match app.current_target() {
+        Some(target) => format!(
+            " {} ",
+            target
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default()
         ),
-        Some(s) => format!(" Files[{}] ", s.counts().changed),
         None => " Files ".to_string(),
     };
     let block = pane_block(title, tone, Pane::Files, th);
