@@ -62,8 +62,8 @@ ular-git applies them.
 the commit byline, bold commit subject, `accent` bold section and file titles.
 Title lines run from border to border and join it (`├ ┤` on a plain frame,
 `┠ ┨` on the focused thick frame, in the border's style). Every label is
-right-aligned: `├─── Unstaged changes ──┤`, `├─── src/app.rs ──┤`,
-`├─── 1 file changed, … ──┤`. Hunk lines right-align their `@@ … @@` range
+centered: `├─── Unstaged changes ───┤`, `├─── src/app.rs ───┤`,
+`├─── 1 file changed, … ───┤`. Hunk lines right-align their `@@ … @@` range
 with the function context on the left. The line-number gutter (`dim`) is on
 code lines only.
 

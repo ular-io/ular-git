@@ -218,7 +218,7 @@ fn only_code_lines_carry_the_line_number_gutter() {
     // hunk range is right-aligned inside the pane.
     let section = rows
         .iter()
-        .find(|r| r.contains(" Unstaged changes ──┤"))
+        .find(|r| r.contains(" Unstaged changes ──"))
         .unwrap();
     assert!(section.contains("│├────"), "{section}");
     let hunk = rows.iter().find(|r| r.contains("@@ -1,3 +1,3 @@")).unwrap();
@@ -337,7 +337,7 @@ fn commit_files_get_a_full_width_title_line() {
     let rows = screen(&app, 160, 30);
     let title = rows
         .iter()
-        .find(|r| r.contains(" a.txt ──┤"))
+        .find(|r| r.contains(" a.txt ──"))
         .expect("file title, right-aligned and joined to the right border");
     assert!(
         title.contains("├────────────────────"),
@@ -351,8 +351,19 @@ fn commit_files_get_a_full_width_title_line() {
         .position(|r| r.contains("├──") && r.contains(" 1 file changed, ") && r.contains("──┤"))
         .expect("rule with the summary");
     assert!(!rows.iter().any(|r| r.contains(" --- ")));
-    let title = rows.iter().position(|r| r.contains(" a.txt ──┤")).unwrap();
+    let title = rows.iter().position(|r| r.contains(" a.txt ──")).unwrap();
     assert_eq!(title, rule + 2, "rule, one stat row, then the file title");
+    // Labels are centered: the dashes on both sides differ by at most one.
+    let line = &rows[title];
+    let start = line.find('├').unwrap();
+    let seg: String = line[start..]
+        .chars()
+        .skip(1)
+        .take_while(|c| *c != '┤')
+        .collect();
+    let left = seg.chars().take_while(|c| *c == '─').count();
+    let right = seg.chars().rev().take_while(|c| *c == '─').count();
+    assert!(left.abs_diff(right) <= 1, "{line}");
     assert!(
         rows[title - 1].contains("a.txt | "),
         "{:?}",

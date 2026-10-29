@@ -88,7 +88,7 @@ fn title(app: &App) -> String {
 }
 
 /// Full-width title line from the left border to the right border with the
-/// label right-aligned: `├───… Unstaged changes ──┤`, `├───… src/app.rs ──┤`,
+/// label centered: `├──── Unstaged changes ────┤`, `├──── src/app.rs ────┤`,
 /// or a bare rule. `┠` / `┨` join a focused, thick frame. The joints take the
 /// border's style, the line and label the title's.
 /// One title line to draw over the pane width.
@@ -138,11 +138,12 @@ fn draw_divider(f: &mut Frame, area: Rect, d: &Divider, tone: Tone, th: &Theme) 
     };
     let inner_w = (area.width - 2) as usize;
     let label = format!(" {} ", truncate_w(label, inner_w.saturating_sub(6)));
-    let fill = "─".repeat(inner_w.saturating_sub(label.width() + 2));
     let text = if label.trim().is_empty() {
         "─".repeat(inner_w)
     } else {
-        format!("{fill}{label}──")
+        let fill = inner_w.saturating_sub(label.width());
+        let left = fill / 2;
+        format!("{}{label}{}", "─".repeat(left), "─".repeat(fill - left))
     };
     f.render_widget(
         Paragraph::new(Line::from(vec![

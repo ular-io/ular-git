@@ -34,18 +34,18 @@
 - Title for files: the path and `+N -N`.
 - git's per-file header is condensed. `diff --git`, `index`, `---`, and `+++`
   lines are dropped. In a commit, each file starts with a full-width title
-  line with the path right-aligned (`├──── <path> ──┤`, `old → new` for a
+  line with the path centered (`├──── <path> ────┤`, `old → new` for a
   rename); a single-file diff already names the file in the pane title.
   git's `---` between a commit's message and its stat is drawn as the same
   border-to-border rule, carrying the stat summary (`N files changed, …`)
-  right-aligned; the summary line is removed from the stat. The blank line git
+  centered; the summary line is removed from the stat. The blank line git
   prints between the stat and the first file is dropped. Lines that carry information stay,
   muted: new / deleted file mode, mode change, similarity, binary.
 - A gutter with old / new line numbers appears on code lines (added, removed,
   context) when the pane is at least 50 columns wide. Headers and meta lines
   start at the left edge.
 - Section titles (`Staged changes`, `Unstaged changes`, `Untracked file`,
-  `Merge conflict`) are right-aligned on a border-to-border line.
+  `Merge conflict`) are centered on a border-to-border line.
 - A hunk line puts its range on the right (`@@ -14,6 +14,7 @@`) and git's
   function / section context on the left; it never wraps, and the context is
   cut first when the pane is narrow.
