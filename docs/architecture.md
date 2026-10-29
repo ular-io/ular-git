@@ -23,7 +23,7 @@
 | `git/remote.rs` | Push, pull `--ff-only`, default remote; network env and timeout |
 | `git/discover.rs` | Folder → repository roots |
 | `store.rs` | `repos.json`: groups and repositories |
-| `cache.rs` | Status cache file, age labels |
+| `cache.rs` | Status cache file |
 | `config.rs` | `config.toml`, app paths, atomic writes |
 | `theme/` | Theme roles, 40 built-in palettes, custom themes, selection |
 | `ui/mod.rs` | `App`, `UiMode` (who gets keys), `Pane` (focus), row rebuild and cursor placement |

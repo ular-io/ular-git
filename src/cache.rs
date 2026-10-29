@@ -51,18 +51,6 @@ pub fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
-/// Compact age label: `now`, `42s`, `5m`, `3h`, `2d`.
-pub fn age_label(scanned_at_ms: u64, now_ms: u64) -> String {
-    let secs = now_ms.saturating_sub(scanned_at_ms) / 1000;
-    match secs {
-        0..=4 => "now".to_string(),
-        5..=59 => format!("{secs}s"),
-        60..=3599 => format!("{}m", secs / 60),
-        3600..=86_399 => format!("{}h", secs / 3600),
-        _ => format!("{}d", secs / 86_400),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -83,14 +71,5 @@ mod tests {
         assert_eq!(load(&path), entries);
         std::fs::write(&path, r#"{"version":999,"entries":{}}"#).unwrap();
         assert!(load(&path).is_empty());
-    }
-
-    #[test]
-    fn age_labels_step_through_units() {
-        assert_eq!(age_label(0, 3_000), "now");
-        assert_eq!(age_label(0, 42_000), "42s");
-        assert_eq!(age_label(0, 300_000), "5m");
-        assert_eq!(age_label(0, 3 * 3_600_000), "3h");
-        assert_eq!(age_label(10, 0), "now");
     }
 }

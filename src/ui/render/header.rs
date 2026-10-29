@@ -2,7 +2,6 @@
 //! shortcut columns, the common column, and the logo. When space runs out
 //! the logo goes first, then shortcut columns from the right.
 
-use crate::cache;
 use crate::config::collapse_home;
 use crate::ui::components::text::{pad_w, truncate_left_w, truncate_w};
 use crate::ui::keys::{self, Hint};
@@ -29,14 +28,8 @@ const LOGO_GAP: u16 = 2;
 const LABEL_W: usize = 8;
 const VALUE_W: usize = 34;
 
-const SPINNER: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-
-fn spinner() -> &'static str {
-    let ms = cache::now_ms();
-    SPINNER[(ms / 100) as usize % SPINNER.len()]
-}
-
-/// The five `label value` rows of the context column.
+/// The `label value` rows of the context column: Repos, Branch, Path, and
+/// Filter while one is applied.
 fn context_lines(app: &App) -> Vec<Line<'static>> {
     let th = &app.theme;
     let label = |s: &str| Span::styled(pad_w(s, LABEL_W), th.soft_dim());
@@ -95,50 +88,14 @@ fn context_lines(app: &App) -> Vec<Line<'static>> {
         ),
     ]);
 
-    let scope = if !app.filter.value.is_empty() {
-        Line::from(vec![
+    let mut lines = vec![repos, branch, path];
+    if !app.filter.value.is_empty() {
+        lines.push(Line::from(vec![
             label("Filter"),
             Span::styled(truncate_w(&app.filter.value, VALUE_W), strong),
-        ])
-    } else {
-        let group = app.current_group().unwrap_or_else(|| {
-            if app.store.groups.is_empty() {
-                "-".into()
-            } else {
-                "Ungrouped".into()
-            }
-        });
-        Line::from(vec![label("Group"), Span::raw(truncate_w(&group, VALUE_W))])
-    };
-
-    let scan = if app.scan.busy() {
-        Line::from(vec![
-            label("Scan"),
-            Span::styled(format!("{} ", spinner()), strong),
-            Span::raw(format!("{}/{}", app.scan.round_done, app.scan.round_total)),
-        ])
-    } else {
-        let age = tree
-            .filter(|t| t.scanned_at_ms > 0)
-            .map(|t| {
-                let a = cache::age_label(t.scanned_at_ms, cache::now_ms());
-                if a == "now" {
-                    "just now".to_string()
-                } else {
-                    format!("{a} ago")
-                }
-            })
-            .unwrap_or_else(|| "-".into());
-        let mut spans = vec![label("Scan"), Span::raw(age)];
-        if let Some(err) = tree.and_then(|t| t.error.as_ref()) {
-            spans.push(Span::styled(
-                truncate_w(&format!("  {err}"), VALUE_W),
-                Style::default().fg(th.error),
-            ));
-        }
-        Line::from(spans)
-    };
-    vec![repos, branch, path, scope, scan]
+        ]));
+    }
+    lines
 }
 
 fn hint_lines(col: &[Hint], app: &App) -> (Vec<Line<'static>>, u16) {

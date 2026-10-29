@@ -49,9 +49,6 @@ impl TreeState {
 pub struct ScanState {
     in_flight: HashSet<PathBuf>,
     again: HashSet<PathBuf>,
-    /// Scans submitted / finished since the queue was last empty (progress).
-    pub round_total: usize,
-    pub round_done: usize,
     last_full: Option<Instant>,
     focus_due: Option<Instant>,
     cache_dirty: bool,
@@ -62,8 +59,6 @@ impl ScanState {
         ScanState {
             in_flight: HashSet::new(),
             again: HashSet::new(),
-            round_total: 0,
-            round_done: 0,
             last_full: None,
             focus_due: None,
             cache_dirty: false,
@@ -102,7 +97,6 @@ impl App {
             return;
         }
         self.scan.in_flight.insert(path.clone());
-        self.scan.round_total += 1;
         let main = self.store.contains(&path);
         self.bg.submit(urgent, move || {
             let result = git::scan(&path, main).map_err(|e| e.to_string());
@@ -112,11 +106,6 @@ impl App {
 
     fn apply_scan(&mut self, path: PathBuf, main: bool, result: Result<RepoStatus, String>) {
         self.scan.in_flight.remove(&path);
-        self.scan.round_done += 1;
-        if !self.scan.busy() {
-            self.scan.round_total = 0;
-            self.scan.round_done = 0;
-        }
         // The repository was removed from the list, or the worktree was
         // removed, while this scan ran.
         if !self.is_known_tree(&path) {
