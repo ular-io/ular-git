@@ -85,6 +85,50 @@ fn title(app: &App) -> String {
     }
 }
 
+/// Full-width title line from the left border to the right border:
+/// `├── Staged changes ───…┤` for a section, `├───… src/app.rs ──┤` (label
+/// right-aligned) for a file. `┠` / `┨` join a focused, thick frame. The
+/// joints take the border's style, the line and label the title's.
+/// One title line to draw over the pane width.
+struct Divider {
+    y: u16,
+    label: String,
+    /// Right-align the label (file titles).
+    right: bool,
+    style: Style,
+}
+
+fn draw_divider(f: &mut Frame, area: Rect, d: &Divider, tone: Tone, th: &Theme) {
+    let (y, label, right, style) = (d.y, d.label.as_str(), d.right, d.style);
+    if area.width < 4 || y >= area.bottom() {
+        return;
+    }
+    let (joints, border) = match tone {
+        Tone::Focused => (
+            ("┠", "┨"),
+            Style::default().fg(th.accent).add_modifier(Modifier::BOLD),
+        ),
+        Tone::Dimmed => (("├", "┤"), th.soft_dim()),
+        Tone::Neutral => (("├", "┤"), Style::default()),
+    };
+    let inner_w = (area.width - 2) as usize;
+    let label = format!(" {} ", truncate_w(label, inner_w.saturating_sub(6)));
+    let fill = "─".repeat(inner_w.saturating_sub(label.width() + 2));
+    let text = if right {
+        format!("{fill}{label}──")
+    } else {
+        format!("──{label}{fill}")
+    };
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(joints.0, border),
+            Span::styled(text, style),
+            Span::styled(joints.1, border),
+        ])),
+        Rect::new(area.x, y, area.width, 1),
+    );
+}
+
 pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
     let th = &app.theme;
     let tone = pane_tone(app, Pane::Diff);
@@ -165,15 +209,23 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
     let scroll = app.diff.scroll.min(app.diff.max_scroll.get());
 
     let num_style = Style::default().fg(th.dim);
+    // Section and file titles are drawn over the full pane width afterwards,
+    // joined to the side borders; their paragraph rows stay empty.
+    let mut dividers: Vec<Divider> = Vec::new();
     let mut lines: Vec<Line> = rows
         .into_iter()
-        .map(|(i, seg, first)| {
+        .enumerate()
+        .map(|(row, (i, seg, first))| {
             let line = &doc.lines[i];
             let style = kind_style(line.kind, tone, th);
             if matches!(line.kind, LineKind::Section | LineKind::File) {
-                let label = format!("── {seg} ");
-                let fill = (inner.width as usize).saturating_sub(label.width());
-                return Line::from(Span::styled(format!("{label}{}", "─".repeat(fill)), style));
+                dividers.push(Divider {
+                    y: inner.y + row as u16,
+                    label: seg,
+                    right: line.kind == LineKind::File,
+                    style,
+                });
+                return Line::default();
             }
             let mut spans = Vec::new();
             if has_gutter(line) {
@@ -193,5 +245,8 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
         )));
     }
     f.render_widget(Paragraph::new(lines), inner);
+    for d in &dividers {
+        draw_divider(f, area, d, tone, th);
+    }
     draw_vscrollbar(f, area, tone == Tone::Focused, scroll, total, view, th);
 }

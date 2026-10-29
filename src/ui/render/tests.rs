@@ -215,7 +215,8 @@ fn only_code_lines_carry_the_line_number_gutter() {
         row[..row.find(needle).unwrap()].chars().count()
     };
     // Section and hunk lines start at the pane's left edge…
-    assert_eq!(starts("── Unstaged changes"), diff_x);
+    // The section title line is joined to the left border (`├──`).
+    assert_eq!(starts("├── Unstaged changes"), diff_x - 2);
     assert_eq!(starts("@@ -1,3"), diff_x);
     // git's redundant file header lines are not shown.
     assert!(!shows(&rows, "diff --git") && !shows(&rows, "index ") && !shows(&rows, "+++ b/"));
@@ -331,11 +332,11 @@ fn commit_files_get_a_full_width_title_line() {
     let rows = screen(&app, 160, 30);
     let title = rows
         .iter()
-        .find(|r| r.contains("── a.txt ─"))
-        .expect("file title");
+        .find(|r| r.contains(" a.txt ──┤"))
+        .expect("file title, right-aligned and joined to the right border");
     assert!(
-        title.contains("────────────────────"),
-        "runs across the pane: {title}"
+        title.contains("├────────────────────"),
+        "runs from the left border: {title}"
     );
     assert!(!shows(&rows, "diff --git"));
 }
