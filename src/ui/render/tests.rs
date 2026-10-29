@@ -30,6 +30,21 @@ fn panes_hide_from_the_right_and_follow_the_focus() {
     assert_eq!(shown(Pane::Repos), [Pane::Repos, Pane::Files]);
     assert_eq!(shown(Pane::Files), [Pane::Repos, Pane::Files]);
     assert_eq!(shown(Pane::Diff), [Pane::Files, Pane::Diff]);
+    // Wide: three panes only while Files has focus; Repos hides Diff and
+    // Diff hides Repos.
+    let wide = Rect::new(0, 0, 160, 20);
+    let wide_shown = |focus| -> Vec<Pane> {
+        pane_layout(wide, focus)
+            .into_iter()
+            .map(|(p, _)| p)
+            .collect()
+    };
+    assert_eq!(wide_shown(Pane::Repos), [Pane::Repos, Pane::Files]);
+    assert_eq!(
+        wide_shown(Pane::Files),
+        [Pane::Repos, Pane::Files, Pane::Diff]
+    );
+    assert_eq!(wide_shown(Pane::Diff), [Pane::Files, Pane::Diff]);
     let narrow = Rect::new(0, 0, 50, 20);
     assert_eq!(pane_layout(narrow, Pane::Files)[0].0, Pane::Files);
     // Widths add up to the area.
@@ -45,6 +60,8 @@ fn full_screen_shows_header_three_panes_and_one_footer_row() {
     let a = TestRepo::new();
     a.write("a.txt", "changed\n");
     let mut app = scanned_app(store_of(&[&a.root]));
+    // All three panes show while Files has focus.
+    app.focus = Pane::Files;
     app.wait_background(10);
     let rows = screen(&app, 160, 30);
     assert!(shows(&rows, "Repos[1]"));
@@ -207,6 +224,8 @@ fn only_code_lines_carry_the_line_number_gutter() {
     let a = TestRepo::new();
     a.write("a.txt", "one\n2\nthree\n");
     let mut app = scanned_app(store_of(&[&a.root]));
+    // All three panes show while Files has focus.
+    app.focus = Pane::Files;
     app.wait_background(10);
     let rows = screen(&app, 160, 30);
     let diff_x = pane_layout(Rect::new(0, 5, 160, 24), app.focus)[2].1.x as usize + 2;
@@ -214,13 +233,15 @@ fn only_code_lines_carry_the_line_number_gutter() {
         let row = rows.iter().find(|r| r.contains(needle)).unwrap();
         row[..row.find(needle).unwrap()].chars().count()
     };
-    // The section title is right-aligned on a border-to-border line, and the
-    // hunk range is right-aligned inside the pane.
+    // The section title sits on a border-to-border line.
     let section = rows
         .iter()
         .find(|r| r.contains(" Unstaged changes ──"))
         .unwrap();
-    assert!(section.contains("│├────"), "{section}");
+    assert!(
+        section.contains("├────") && section.trim_end().ends_with('┤'),
+        "{section}"
+    );
     // Hunk headers are not shown; the first hunk follows the title directly.
     assert!(!shows(&rows, "@@"));
     let at = rows
@@ -278,6 +299,8 @@ fn unpushed_commits_show_date_and_subject_and_their_hash_titles_the_diff() {
     a.write("a.txt", "next\n");
     a.git(&["commit", "-qam", "second commit\n\nbody text"]);
     let mut app = scanned_app(store_of(&[&a.root]));
+    // All three panes show while Files has focus.
+    app.focus = Pane::Files;
     app.wait_background(10);
     let commit = app
         .current_tree()
@@ -317,6 +340,8 @@ fn commit_messages_wrap_even_with_line_wrap_off() {
     a.write("a.txt", &format!("{long}\n"));
     a.git(&["commit", "-qam", &format!("subject\n\n{long}END")]);
     let mut app = scanned_app(store_of(&[&a.root]));
+    // All three panes show while Files has focus.
+    app.focus = Pane::Files;
     app.wait_background(10);
     assert!(!app.diff.wrap);
     let rows = screen(&app, 160, 40);
@@ -342,6 +367,8 @@ fn commit_files_get_a_full_width_title_line() {
     a.write("a.txt", "next\n");
     a.git(&["commit", "-qam", "second"]);
     let mut app = scanned_app(store_of(&[&a.root]));
+    // All three panes show while Files has focus.
+    app.focus = Pane::Files;
     app.wait_background(10);
     let rows = screen(&app, 160, 30);
     let title = rows
@@ -391,6 +418,8 @@ fn a_gap_line_separates_hunks() {
         .replace("line 28\n", "line 28b\n");
     a.write("a.txt", &changed);
     let mut app = scanned_app(store_of(&[&a.root]));
+    // All three panes show while Files has focus.
+    app.focus = Pane::Files;
     app.wait_background(10);
     let rows = screen(&app, 160, 40);
     let gaps: Vec<&String> = rows.iter().filter(|r| r.contains("   ⋯")).collect();

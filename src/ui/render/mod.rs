@@ -93,10 +93,15 @@ pub(crate) fn visible_panes(width: u16) -> usize {
 
 /// Visible panes and their areas. The window of visible panes always holds
 /// the focused one, so moving right on a narrow screen reveals the hidden
-/// pane instead of focusing something invisible.
+/// pane instead of focusing something invisible. All three show only while
+/// Files has focus: Repos focus hides Diff, Diff focus hides Repos, giving
+/// the focused side the room.
 pub(crate) fn pane_layout(area: Rect, focus: Pane) -> Vec<(Pane, Rect)> {
     let w = area.width;
-    let k = visible_panes(w);
+    let mut k = visible_panes(w);
+    if focus != Pane::Files {
+        k = k.min(2);
+    }
     let start = focus.index().saturating_sub(k - 1);
     let panes = &Pane::ALL[start..start + k];
     let pct = |p: u16, lo: u16, hi: u16| (w * p / 100).clamp(lo, hi);
