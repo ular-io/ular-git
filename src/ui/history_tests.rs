@@ -24,7 +24,7 @@ fn the_file_pane_lists_history_with_its_graph_below_the_changes() {
     let items = app.file_items();
     assert_eq!(items.len(), 5);
     assert!(
-        matches!(items[1], super::files::FileItem::Commit(c, false) if c.subject == "merge feat")
+        matches!(items[1], super::files::FileItem::Commit(c, super::files::Mark::Shared) if c.subject == "merge feat")
     );
     drop(items);
 
@@ -67,4 +67,55 @@ fn more_reads_a_longer_history_and_keeps_the_cursor_in_place() {
     assert_eq!(app.file_items().len(), 106, "all 106 commits, no more row");
     assert_eq!(app.file_sel, 100, "cursor on the first newly read commit");
     assert!(app.file_key.as_deref().unwrap().starts_with("c:"));
+}
+
+#[test]
+fn commits_to_pull_are_marked_with_a_down_arrow() {
+    let a = TestRepo::new();
+    let parent = a.root.parent().unwrap();
+    let remote = parent.join("remote.git");
+    crate::git::test_repo::git(
+        parent,
+        &[
+            "init",
+            "-q",
+            "--bare",
+            "-b",
+            "main",
+            remote.to_str().unwrap(),
+        ],
+    );
+    a.git(&["remote", "add", "origin", remote.to_str().unwrap()]);
+    a.git(&["push", "-q", "-u", "origin", "main"]);
+    let other = parent.join("other");
+    crate::git::test_repo::git(
+        parent,
+        &[
+            "clone",
+            "-q",
+            remote.to_str().unwrap(),
+            other.to_str().unwrap(),
+        ],
+    );
+    std::fs::write(other.join("u.txt"), "u\n").unwrap();
+    crate::git::test_repo::git(&other, &["add", "-A"]);
+    crate::git::test_repo::git(&other, &["commit", "-qm", "from upstream"]);
+    crate::git::test_repo::git(&other, &["push", "-q"]);
+    a.git(&["fetch", "-q"]);
+
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.wait_background(10);
+    let items = app.file_items();
+    assert!(matches!(
+        items[0],
+        super::files::FileItem::Commit(c, super::files::Mark::Incoming) if c.subject == "from upstream"
+    ));
+    drop(items);
+    app.focus = Pane::Files;
+    let rows = screen(&app, 150, 30);
+    assert!(
+        rows.iter()
+            .any(|r| r.contains("↓") && r.contains("from upstream")),
+        "{rows:#?}"
+    );
 }

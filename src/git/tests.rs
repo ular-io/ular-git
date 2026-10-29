@@ -292,3 +292,68 @@ fn an_unborn_branch_has_an_empty_history() {
     let h = super::history::load(dir.path(), 100).unwrap();
     assert!(h.rows.is_empty() && !h.more);
 }
+
+/// `repo` with an `origin` that has `n` commits `repo` lacks (fetched).
+fn behind_origin(repo: &TestRepo, n: usize) {
+    with_remote(repo);
+    let parent = repo.root.parent().unwrap();
+    let other = parent.join("other");
+    let remote = parent.join("remote.git");
+    super::test_repo::git(
+        parent,
+        &[
+            "clone",
+            "-q",
+            remote.to_str().unwrap(),
+            other.to_str().unwrap(),
+        ],
+    );
+    for i in 0..n {
+        std::fs::write(other.join(format!("u{i}.txt")), "u\n").unwrap();
+        super::test_repo::git(&other, &["add", "-A"]);
+        super::test_repo::git(&other, &["commit", "-qm", &format!("upstream {i}")]);
+    }
+    super::test_repo::git(&other, &["push", "-q"]);
+    repo.git(&["fetch", "-q"]);
+}
+
+#[test]
+fn history_lists_commits_to_pull_above_head() {
+    let repo = TestRepo::new();
+    behind_origin(&repo, 2);
+    let h = super::history::load(&repo.root, 100).unwrap();
+    let rows: Vec<(&str, bool)> = h
+        .rows
+        .iter()
+        .map(|r| (r.commit.subject.as_str(), r.incoming))
+        .collect();
+    assert_eq!(
+        rows,
+        [("upstream 1", true), ("upstream 0", true), ("init", false)]
+    );
+}
+
+#[test]
+fn a_diverged_branch_shows_both_sides_meeting_at_their_base() {
+    let repo = TestRepo::new();
+    behind_origin(&repo, 1);
+    repo.write("local.txt", "l\n");
+    repo.git(&["add", "-A"]);
+    repo.git(&["commit", "-qm", "local"]);
+    let h = super::history::load(&repo.root, 100).unwrap();
+    let incoming: Vec<&str> = h
+        .rows
+        .iter()
+        .filter(|r| r.incoming)
+        .map(|r| r.commit.subject.as_str())
+        .collect();
+    assert_eq!(incoming, ["upstream 0"]);
+    assert!(h
+        .rows
+        .iter()
+        .any(|r| r.commit.subject == "local" && !r.incoming));
+    // Two tips, one base: the base row closes the second lane.
+    let base = h.rows.iter().find(|r| r.commit.subject == "init").unwrap();
+    let cells: String = base.cells.iter().map(|c| c.ch).collect();
+    assert_eq!(cells, "●─╯");
+}

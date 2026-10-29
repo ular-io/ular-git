@@ -12,7 +12,7 @@ use crate::theme::{color_rgb, Theme};
 use crate::ui::components::modal::fade_toward;
 use crate::ui::components::scrollbar::draw_vscrollbar;
 use crate::ui::components::text::{truncate_left_w, truncate_w};
-use crate::ui::files::FileItem;
+use crate::ui::files::{FileItem, Mark};
 use crate::ui::{App, Pane};
 use ratatui::{
     layout::Rect,
@@ -66,7 +66,6 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
     };
     let items = app.file_items();
     let history = app.current_history();
-    let unpushed = |hash: &str| status.unpushed.iter().any(|c| c.hash == hash);
 
     // Visual rows; `Item` rows are selectable (index into `items`).
     let mut visual: Vec<Visual> = Vec::new();
@@ -136,14 +135,14 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                     let item = items[*i];
                     let spans = match item {
                         FileItem::File(file) => file_spans(file, w, tone, th),
-                        FileItem::Commit(c, _) => {
-                            let up = unpushed(&c.hash);
-                            let mut spans = graph_spans(graph_of(v), graph_w, up, tone, th);
+                        FileItem::Commit(c, mark) => {
+                            let mut spans = graph_spans(graph_of(v), graph_w, mark, tone, th);
                             let used: usize = spans.iter().map(|s| s.content.width()).sum();
-                            let style = if up {
-                                dim(Style::default())
-                            } else {
+                            // Commits to push or pull stand out of the faded history.
+                            let style = if mark == Mark::Shared {
                                 th.soft_dim()
+                            } else {
+                                dim(Style::default())
                             };
                             spans.push(Span::styled(
                                 truncate_w(&c.subject, w.saturating_sub(used + 1)),
@@ -212,12 +211,12 @@ fn graph_of<'a>(v: &Visual<'a>) -> &'a [Cell] {
 }
 
 /// Graph cells colored by lane (a lane keeps its color) and faded so history
-/// stays in the background. An unpushed commit's node is `↑` in the branch
-/// color.
+/// stays in the background. A commit to push is `↑` and one to pull `↓`, in
+/// the branch color.
 fn graph_spans(
     graph: &[Cell],
     width: usize,
-    unpushed: bool,
+    mark: Mark,
     tone: Tone,
     th: &Theme,
 ) -> Vec<Span<'static>> {
@@ -233,11 +232,16 @@ fn graph_spans(
     let mut used = 0;
     for cell in graph.iter().take(width) {
         let node = cell.ch == '●';
-        let glyph = if node && unpushed { '↑' } else { cell.ch };
+        let glyph = match (node, mark) {
+            (true, Mark::Unpushed) => '↑',
+            (true, Mark::Incoming) => '↓',
+            _ => cell.ch,
+        };
+        let marked = node && mark != Mark::Shared;
         let color = lanes[cell.color.unwrap_or(0) % lanes.len()];
         let style = if tone == Tone::Dimmed {
             th.soft_dim()
-        } else if node && unpushed {
+        } else if marked {
             Style::default().fg(th.branch).add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(fade_toward(color_rgb(color), th.bg_rgb()))

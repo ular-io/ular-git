@@ -10,7 +10,8 @@ use std::path::PathBuf;
 pub struct HistoryView {
     /// Working tree the history belongs to (loaded or loading).
     pub target: Option<PathBuf>,
-    /// HEAD (short oid) when it was requested; a different HEAD reloads.
+    /// HEAD (short oid) and ahead/behind counts when it was requested; a
+    /// change (commit, pull, checkout, a fetch elsewhere) reloads.
     pub head: Option<String>,
     /// Commits requested.
     pub limit: usize,
@@ -33,7 +34,15 @@ impl App {
         let head = self
             .current_tree()
             .and_then(|t| t.status.as_ref())
-            .and_then(|s| s.branch.oid.clone());
+            .map(|s| {
+                let b = &s.branch;
+                format!(
+                    "{}:{}:{}",
+                    b.oid.as_deref().unwrap_or(""),
+                    b.ahead,
+                    b.behind
+                )
+            });
         let same_tree = self.history.target.as_deref() == Some(target.as_path());
         if same_tree && self.history.head == head {
             return;

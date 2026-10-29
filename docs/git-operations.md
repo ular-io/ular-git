@@ -19,12 +19,16 @@
      joints sit on the commit row: `─╮` a merge opens a lane, `─┤` a merge
      joins a lane already open (the same branch merged again), `─╯` a lane
      ends (its branch started here), `┬ ┴` the same with the line going on,
-     `┼` a line crossing a lane, `╭ ╰ ├` for lanes to the left. `↑` (branch
-     color, not faded) marks commits not on the upstream yet. The graph uses
-     at most 12 columns;
+     `┼` a line crossing a lane, `╭ ╰ ├` for lanes to the left. Not faded,
+     in the branch color: `↑` commits not on the upstream yet (push sends
+     them) and `↓` upstream commits HEAD lacks (pull brings them in; as of the
+     last fetch). With an upstream ahead the history starts from both HEAD
+     and the upstream, so a diverged branch shows both sides meeting at their
+     base. The graph uses at most 12 columns;
   4. `… more` when older commits exist.
 - History is read for the selected working tree only, in the background, when
-  it is selected or its HEAD changes (commit, pull, checkout): the newest 100
+  it is selected or its HEAD or ahead / behind counts change (commit, pull,
+  checkout, a fetch elsewhere): the newest 100
   commits first. Selecting `… more` re-reads twice as many (the graph needs one
   pass from HEAD) and keeps the cursor on the first newly read commit.
 - Status code: two letters, index then worktree (`M `, ` M`, `MM`, `A `,

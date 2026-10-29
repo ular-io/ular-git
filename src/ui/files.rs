@@ -5,11 +5,22 @@ use super::App;
 use crate::git::diff::DiffSource;
 use crate::git::{Commit, FileEntry};
 
+/// A history commit's relation to the upstream.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mark {
+    /// On both.
+    Shared,
+    /// Local only: push sends it (`↑`).
+    Unpushed,
+    /// Upstream only: pull brings it in (`↓`).
+    Incoming,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum FileItem<'a> {
     File(&'a FileEntry),
-    /// A history commit; `unpushed` = not on the upstream yet.
-    Commit(&'a Commit, bool),
+    /// A history commit and how it relates to the upstream.
+    Commit(&'a Commit, Mark),
     /// Reads more history when selected.
     More,
 }
@@ -42,11 +53,16 @@ impl App {
         let mut items: Vec<FileItem> = status.files.iter().map(FileItem::File).collect();
         if let Some(h) = self.current_history() {
             let unpushed = |hash: &str| status.unpushed.iter().any(|c| c.hash == hash);
-            items.extend(
-                h.rows
-                    .iter()
-                    .map(|r| FileItem::Commit(&r.commit, unpushed(&r.commit.hash))),
-            );
+            items.extend(h.rows.iter().map(|r| {
+                let mark = if r.incoming {
+                    Mark::Incoming
+                } else if unpushed(&r.commit.hash) {
+                    Mark::Unpushed
+                } else {
+                    Mark::Shared
+                };
+                FileItem::Commit(&r.commit, mark)
+            }));
             if h.more {
                 items.push(FileItem::More);
             }

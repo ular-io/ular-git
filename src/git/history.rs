@@ -1,9 +1,14 @@
 //! Commit history with a branch graph laid out by [`super::graph`]: git gives
 //! the commits in topological order with their parents, ular-git places the
 //! lanes (one row per commit, joints drawn on the commit row).
+//!
+//! With an upstream the history starts from both HEAD and the upstream, so
+//! the commits a pull would bring in (as of the last fetch) are listed too,
+//! on their own lane until they meet HEAD's history.
 
 use super::graph::{self, Cell};
 use super::{run, Commit};
+use std::collections::HashSet;
 use std::path::Path;
 
 /// Commits read first; "more" doubles it.
@@ -14,6 +19,8 @@ pub struct GraphRow {
     /// Graph cells for this commit's row.
     pub cells: Vec<Cell>,
     pub commit: Commit,
+    /// On the upstream but not reachable from HEAD: a pull brings it in.
+    pub incoming: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -26,20 +33,32 @@ pub struct History {
 /// Field separator in the format string.
 const SEP: char = '\x1f';
 
-/// The newest `limit` commits reachable from HEAD, with the graph. A
-/// repository without commits has an empty history.
+/// The newest `limit` commits reachable from HEAD (and from the upstream when
+/// it has commits HEAD lacks), with the graph; rows a pull would bring in are
+/// marked `incoming`. A repository without commits has an empty history.
 pub fn load(dir: &Path, limit: usize) -> anyhow::Result<History> {
     let n = format!("-n{limit}");
-    let out = run(
-        dir,
-        &[
-            "log",
-            "--topo-order",
-            &n,
-            "--format=%H%x1f%h%x1f%P%x1f%s",
-            "HEAD",
-        ],
-    )?;
+    // Fails without an upstream (or on an unborn branch): HEAD only.
+    let incoming: Option<HashSet<String>> = run(dir, &["rev-list", &n, "HEAD..@{upstream}"])
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .map(str::to_string)
+                .collect()
+        });
+    let mut args = vec![
+        "log",
+        "--topo-order",
+        &n,
+        "--format=%H%x1f%h%x1f%P%x1f%s",
+        "HEAD",
+    ];
+    if incoming.as_ref().is_some_and(|set| !set.is_empty()) {
+        args.push("@{upstream}");
+    }
+    let out = run(dir, &args)?;
     if !out.status.success() {
         let err = String::from_utf8_lossy(&out.stderr);
         // An unborn branch has no history, which is not an error.
@@ -48,7 +67,13 @@ pub fn load(dir: &Path, limit: usize) -> anyhow::Result<History> {
         }
         anyhow::bail!("{}", super::stderr_summary(&out));
     }
-    Ok(parse(&String::from_utf8_lossy(&out.stdout), limit))
+    let mut history = parse(&String::from_utf8_lossy(&out.stdout), limit);
+    if let Some(set) = incoming {
+        for row in &mut history.rows {
+            row.incoming = set.contains(&row.commit.hash);
+        }
+    }
+    Ok(history)
 }
 
 /// Parses `hash SEP short SEP parents SEP subject` lines and lays out the graph.
@@ -76,7 +101,11 @@ pub fn parse(text: &str, limit: usize) -> History {
     let rows = graph::layout(&shape)
         .into_iter()
         .zip(commits)
-        .map(|(cells, (commit, _))| GraphRow { cells, commit })
+        .map(|(cells, (commit, _))| GraphRow {
+            cells,
+            commit,
+            incoming: false,
+        })
         .collect();
     History { rows, more }
 }
