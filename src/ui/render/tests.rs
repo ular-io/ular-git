@@ -287,3 +287,29 @@ fn unpushed_commits_show_date_and_subject_and_their_hash_titles_the_diff() {
     assert!(!shows(&rows, "CommitDate"));
     assert!(shows(&rows, "body text"));
 }
+
+#[test]
+fn commit_messages_wrap_even_with_line_wrap_off() {
+    let a = TestRepo::new();
+    let parent = a.root.parent().unwrap();
+    let remote = parent.join("remote.git");
+    crate::git::test_repo::git(parent, &["init", "-q", "--bare", remote.to_str().unwrap()]);
+    a.git(&["remote", "add", "origin", remote.to_str().unwrap()]);
+    a.git(&["push", "-q", "-u", "origin", "main"]);
+    let long = "word ".repeat(40);
+    a.write("a.txt", &format!("{long}\n"));
+    a.git(&["commit", "-qam", &format!("subject\n\n{long}END")]);
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.wait_background(10);
+    assert!(!app.diff.wrap);
+    let rows = screen(&app, 160, 40);
+    assert!(
+        shows(&rows, "END"),
+        "the message's tail is wrapped into view"
+    );
+    // A code line still ends at the pane edge.
+    assert!(
+        rows.iter().any(|r| r.contains("+word") && r.contains('…')),
+        "{rows:#?}"
+    );
+}

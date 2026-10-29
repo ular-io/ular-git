@@ -39,12 +39,20 @@ fn kind_style(kind: LineKind, tone: Tone, th: &Theme) -> Style {
         LineKind::Section => colored(th.accent).add_modifier(Modifier::BOLD),
         LineKind::Byline => th.soft_dim(),
         LineKind::Subject => plain(Style::default().add_modifier(Modifier::BOLD)),
-        LineKind::Header | LineKind::Context => plain(Style::default()),
+        LineKind::Header | LineKind::Stat | LineKind::Context => plain(Style::default()),
         LineKind::Meta => th.soft_dim(),
         LineKind::Hunk => colored(th.diff_hunk),
         LineKind::Add => colored(th.diff_add),
         LineKind::Del => colored(th.diff_del),
     }
+}
+
+/// A shown commit's message lines, which always wrap.
+fn is_message(kind: LineKind) -> bool {
+    matches!(
+        kind,
+        LineKind::Byline | LineKind::Subject | LineKind::Header
+    )
 }
 
 /// Lines that carry old/new numbers (and the gutter).
@@ -113,17 +121,24 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
         }
     };
 
-    // Visual rows: (line index, segment, first segment of its line). Without
-    // wrapping only the visible window is materialized.
+    // Visual rows: (line index, segment, first segment of its line). A
+    // commit message always wraps; other lines wrap only with `.`. When
+    // nothing wraps, only the visible window is materialized.
+    let wraps = |line: &DiffLine| {
+        line.kind != LineKind::Section && (app.diff.wrap || is_message(line.kind))
+    };
+    let any_wrap = app.diff.wrap || doc.lines.iter().any(|l| is_message(l.kind));
     let total;
     let mut rows: Vec<(usize, String, bool)> = Vec::new();
-    if app.diff.wrap {
+    if any_wrap {
         let mut all = Vec::new();
         for (i, line) in doc.lines.iter().enumerate() {
-            let segs = if line.kind == LineKind::Section {
+            let segs = if wraps(line) {
+                wrap_w(&line.text, width_of(line))
+            } else if line.kind == LineKind::Section {
                 vec![line.text.clone()]
             } else {
-                wrap_w(&line.text, width_of(line))
+                vec![truncate_w(&line.text, width_of(line))]
             };
             if segs.is_empty() {
                 all.push((i, String::new(), true));

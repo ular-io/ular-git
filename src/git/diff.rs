@@ -21,8 +21,10 @@ pub enum LineKind {
     Byline,
     /// First line of a shown commit's message.
     Subject,
-    /// Rest of the message and the stat block of `git show`.
+    /// Rest of a shown commit's message.
     Header,
+    /// `---` and the `--stat` block of a shown commit.
+    Stat,
     /// `diff --git`, `index`, `---`/`+++`, mode and rename lines.
     Meta,
     Hunk,
@@ -207,8 +209,18 @@ fn clean_line(raw: &[u8]) -> String {
 /// Classifies raw diff output. Inside a hunk the remaining old/new counts from
 /// its header decide where content ends, so a removed line reading `-- x` is
 /// not mistaken for a `---` file header. `show` marks the lines before the
-/// first `diff --git` as the commit header: byline, subject, then the rest.
+/// first `diff --git` as the commit header: byline, subject, the rest of the
+/// message, then the stat block from git's last `---` separator (a message
+/// may itself contain a `---` line).
 fn push_parsed(doc: &mut DiffDoc, raw: &[String], show: bool) {
+    let header_end = raw
+        .iter()
+        .position(|l| l.starts_with("diff "))
+        .unwrap_or(raw.len());
+    let stat_start = raw[..header_end]
+        .iter()
+        .rposition(|l| l == "---")
+        .unwrap_or(header_end);
     let mut in_header = show;
     let mut header_seen = 0usize;
     let mut subject_done = false;
@@ -217,7 +229,7 @@ fn push_parsed(doc: &mut DiffDoc, raw: &[String], show: bool) {
     let mut old_no = 0u32;
     let mut new_no = 0u32;
     let mut combined = false;
-    for text in raw {
+    for (index, text) in raw.iter().enumerate() {
         if text.starts_with("diff ") {
             in_header = false;
             old_left = 0;
@@ -225,7 +237,9 @@ fn push_parsed(doc: &mut DiffDoc, raw: &[String], show: bool) {
             combined = false;
         }
         if in_header {
-            let kind = if header_seen == 0 {
+            let kind = if index >= stat_start {
+                LineKind::Stat
+            } else if header_seen == 0 {
                 LineKind::Byline
             } else if !subject_done && !text.trim().is_empty() {
                 subject_done = true;
@@ -360,13 +374,15 @@ mod tests {
     fn show_output_marks_the_commit_header() {
         let mut doc = DiffDoc::default();
         let raw =
-            "2026-01-02 03:04  a <a@x>\nsubject\n\nbody\ndiff --git a/x b/x\n@@ -1 +1 @@\n-a\n+b";
+            "2026-01-02 03:04  a <a@x>\nsubject\n\nbody\n---\nmore body\n---\n x | 2 +-\ndiff --git a/x b/x\n@@ -1 +1 @@\n-a\n+b";
         push_parsed(&mut doc, &lines(raw), true);
         let kinds: Vec<_> = doc.lines[..4].iter().map(|l| l.kind).collect();
         use LineKind::*;
         assert_eq!(kinds, [Byline, Subject, Header, Header]);
-        assert_eq!(doc.lines[4].kind, LineKind::Meta);
-        assert_eq!(doc.lines[6].kind, LineKind::Del);
+        let rest: Vec<_> = doc.lines[4..9].iter().map(|l| l.kind).collect();
+        // A `---` inside the message stays message; git's last one starts the stat.
+        assert_eq!(rest, [Header, Header, Stat, Stat, Meta]);
+        assert_eq!(doc.lines[10].kind, LineKind::Del);
     }
 
     #[test]

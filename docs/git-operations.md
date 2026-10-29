@@ -37,6 +37,8 @@
   `@@` lines, and section titles start at the left edge.
 - `.` toggles line wrapping (default: lines cut at the pane edge). Wrapped
   continuation lines keep a blank gutter.
+- A commit's message (byline, subject, body) always wraps, whatever `.` says;
+  its `--stat` block (from git's last `---` separator) follows `.` like code.
 - At most `max_diff_lines` (default 20 000) lines are read; the child process
   is killed at the limit and a note ends the diff. Tabs expand to 4 columns;
   control characters are dropped.
