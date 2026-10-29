@@ -59,6 +59,8 @@ The view lasts for the session only.
   the repository into it).
 - `ctrl+d` on a group: Delete Group after a confirmation. Its repositories
   become ungrouped and move to the top of the list.
+- `→` / `l` do nothing on a group header (it has no files), and the Repos
+  pane shows no `→` arrow there.
 - `space` / `enter` on a group header folds or unfolds it (not while a filter
   is applied). Fold state persists in `repos.json`.
 - Palette only: Move Group Up / Down, Fold / Unfold All Groups.

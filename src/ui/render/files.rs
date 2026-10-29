@@ -32,7 +32,7 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
         ),
         None => " Files ".to_string(),
     };
-    let block = pane_block(title, tone, Pane::Files, th);
+    let block = pane_block(app, title, tone, Pane::Files);
     let inner = block.inner(area);
     f.render_widget(block, area);
     let view = inner.height as usize;

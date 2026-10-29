@@ -103,6 +103,16 @@ impl App {
         }
     }
 
+    /// Whether `→` moves on from the focused pane: not from Diff, and not from
+    /// a group header (it has no files).
+    pub(crate) fn can_move_right(&self) -> bool {
+        match self.focus {
+            Pane::Repos => !matches!(self.current_row(), Some(Row::Group { .. })),
+            Pane::Files => true,
+            Pane::Diff => false,
+        }
+    }
+
     pub(crate) fn focus_pane(&mut self, pane: Pane) {
         self.focus = pane;
     }
@@ -134,6 +144,8 @@ impl App {
         let is_group = matches!(self.current_row(), Some(Row::Group { .. }));
         match key.code {
             KeyCode::Enter | KeyCode::Char(' ') if is_group => self.toggle_group(),
+            // A group header has no files to open.
+            KeyCode::Right | KeyCode::Char('l') if is_group => {}
             KeyCode::Enter | KeyCode::Right | KeyCode::Char('l') => self.move_focus(1),
             KeyCode::Char('.') => self.toggle_changed_only(),
             _ => return false,

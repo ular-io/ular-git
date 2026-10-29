@@ -138,8 +138,10 @@ pub(crate) fn pane_tone(app: &App, pane: Pane) -> Tone {
     }
 }
 
-/// Framed pane block with the navigation arrows of a focused pane.
-pub(crate) fn pane_block(title: String, tone: Tone, pane: Pane, th: &Theme) -> Block<'static> {
+/// Framed pane block with the navigation arrows of a focused pane (only
+/// toward panes the focus can actually move to).
+pub(crate) fn pane_block(app: &App, title: String, tone: Tone, pane: Pane) -> Block<'static> {
+    let th = &app.theme;
     let (border, style) = match tone {
         Tone::Focused => (
             BorderType::Thick,
@@ -159,7 +161,7 @@ pub(crate) fn pane_block(title: String, tone: Tone, pane: Pane, th: &Theme) -> B
         if pane != Pane::Repos {
             block = block.title_top(Line::from("━ ← ").left_aligned().style(style));
         }
-        if pane != Pane::Diff {
+        if pane != Pane::Diff && app.can_move_right() {
             block = block.title_top(Line::from(" → ━").right_aligned().style(style));
         }
     }

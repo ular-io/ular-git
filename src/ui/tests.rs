@@ -449,3 +449,28 @@ fn dot_on_the_repo_pane_toggles_the_changed_only_view() {
     assert!(!app.changed_only);
     assert_eq!(app.rows.len(), 2);
 }
+
+#[test]
+fn right_is_blocked_on_a_group_header() {
+    let a = TestRepo::new();
+    let mut store = store_of(&[&a.root]);
+    store.add_group("work").unwrap();
+    store.set_group(&a.root, Some("work".into()));
+    let mut app = scanned_app(store);
+    assert!(matches!(app.current_row(), Some(Row::Group { .. })));
+    app.press(&[key(KeyCode::Right), ch('l')]);
+    assert_eq!(app.focus, Pane::Repos);
+    let rows = screen(&app, 120, 20);
+    let title = rows.iter().find(|r| r.contains("Repos[1]")).unwrap();
+    assert!(!title.contains("→"), "no arrow toward Files: {title}");
+    // On the repository row it moves on, and the arrow is back.
+    app.press(&[key(KeyCode::Down)]);
+    let rows = screen(&app, 120, 20);
+    assert!(rows
+        .iter()
+        .find(|r| r.contains("Repos[1]"))
+        .unwrap()
+        .contains("→"));
+    app.press(&[key(KeyCode::Right)]);
+    assert_eq!(app.focus, Pane::Files);
+}

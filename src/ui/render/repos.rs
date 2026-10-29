@@ -136,7 +136,7 @@ pub(super) fn draw_repos(f: &mut Frame, app: &App, area: Rect) {
         None => format!(" Repos[{total}] "),
         Some(label) => format!(" Repos[{label}: {shown}/{total}] "),
     };
-    let block = pane_block(title, tone, Pane::Repos, th);
+    let block = pane_block(app, title, tone, Pane::Repos);
     let inner = block.inner(area);
     f.render_widget(block, area);
     let view = inner.height as usize;
