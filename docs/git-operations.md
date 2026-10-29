@@ -32,6 +32,11 @@
 | Unpushed commit | Title: the full hash. Body: one muted byline `<yyyy-mm-dd HH:MM>  <author> <<email>>` (the committer is not shown), the message right below it (first line bold), the stat, and the patch |
 
 - Title for files: the path and `+N -N`.
+- git's per-file header is condensed. `diff --git`, `index`, `---`, and `+++`
+  lines are dropped. In a commit, each file starts with a full-width
+  `── <path> ──` title (`── old → new ──` for a rename); a single-file diff
+  already names the file in the pane title. Lines that carry information stay,
+  muted: new / deleted file mode, mode change, similarity, binary.
 - A gutter with old / new line numbers appears on code lines (added, removed,
   context) when the pane is at least 50 columns wide. Headers, meta lines,
   `@@` lines, and section titles start at the left edge.

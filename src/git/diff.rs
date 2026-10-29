@@ -25,7 +25,12 @@ pub enum LineKind {
     Header,
     /// `---` and the `--stat` block of a shown commit.
     Stat,
-    /// `diff --git`, `index`, `---`/`+++`, mode and rename lines.
+    /// Per-file title of a shown commit (`── path ──`), in place of git's
+    /// `diff --git` / `index` / `---` / `+++` lines.
+    File,
+    /// Informative file header lines git prints before a file's hunks: new or
+    /// deleted file, mode change, rename, similarity, binary. (`diff --git`,
+    /// `index`, `---`, and `+++` are dropped.)
     Meta,
     Hunk,
     Add,
@@ -222,6 +227,8 @@ fn push_parsed(doc: &mut DiffDoc, raw: &[String], show: bool) {
         .rposition(|l| l == "---")
         .unwrap_or(header_end);
     let mut in_header = show;
+    let mut rename_from: Option<String> = None;
+    let mut file_title: Option<usize> = None;
     let mut header_seen = 0usize;
     let mut subject_done = false;
     let mut old_left = 0u32;
@@ -235,6 +242,17 @@ fn push_parsed(doc: &mut DiffDoc, raw: &[String], show: bool) {
             old_left = 0;
             new_left = 0;
             combined = false;
+            // A single-file diff already names its file in the pane title.
+            if show {
+                file_title = Some(doc.lines.len());
+                doc.lines.push(DiffLine {
+                    kind: LineKind::File,
+                    text: header_path(text),
+                    old: None,
+                    new: None,
+                });
+            }
+            continue;
         }
         if in_header {
             let kind = if index >= stat_start {
@@ -280,6 +298,22 @@ fn push_parsed(doc: &mut DiffDoc, raw: &[String], show: bool) {
                 &mut new_left,
             )
         } else {
+            if is_redundant_header(text) {
+                continue;
+            }
+            // A rename goes into the commit's file title (`old → new`).
+            if show {
+                if let Some(from) = text.strip_prefix("rename from ") {
+                    rename_from = Some(from.to_string());
+                    continue;
+                }
+                if let Some(to) = text.strip_prefix("rename to ") {
+                    if let (Some(from), Some(t)) = (rename_from.take(), file_title) {
+                        doc.lines[t].text = format!("{from} → {to}");
+                    }
+                    continue;
+                }
+            }
             meta(text)
         };
         match line.kind {
@@ -288,6 +322,42 @@ fn push_parsed(doc: &mut DiffDoc, raw: &[String], show: bool) {
             _ => {}
         }
         doc.lines.push(line);
+    }
+}
+
+/// git file header lines that add nothing on screen: the blob ids and the
+/// `---` / `+++` path lines (the path is in the title).
+fn is_redundant_header(text: &str) -> bool {
+    text.starts_with("index ") || text.starts_with("--- ") || text.starts_with("+++ ")
+}
+
+/// File path of a `diff --git a/<p> b/<p>` or `diff --cc <p>` line. For
+/// `a/<x> b/<y>` with different halves (a rename), the new path; the rename
+/// lines that follow refine the title.
+fn header_path(text: &str) -> String {
+    if let Some(p) = text
+        .strip_prefix("diff --cc ")
+        .or(text.strip_prefix("diff --combined "))
+    {
+        return p.to_string();
+    }
+    let rest = text.strip_prefix("diff --git ").unwrap_or(text);
+    // Equal halves: `a/<p> b/<p>`, even when <p> contains " b/".
+    let n = rest.len();
+    if n % 2 == 1 {
+        let half = (n - 1) / 2;
+        if rest.is_char_boundary(half) && rest.as_bytes()[half] == b' ' {
+            let (a, b) = (&rest[..half], &rest[half + 1..]);
+            if let (Some(a), Some(b)) = (a.strip_prefix("a/"), b.strip_prefix("b/")) {
+                if a == b {
+                    return a.to_string();
+                }
+            }
+        }
+    }
+    match rest.rfind(" b/") {
+        Some(i) => rest[i + 3..].to_string(),
+        None => rest.to_string(),
     }
 }
 
@@ -359,14 +429,12 @@ mod tests {
         push_parsed(&mut doc, &lines(raw), false);
         let kinds: Vec<_> = doc.lines.iter().map(|l| l.kind).collect();
         use LineKind::*;
-        assert_eq!(
-            kinds,
-            [Meta, Meta, Meta, Meta, Hunk, Context, Del, Add, Context]
-        );
-        assert_eq!((doc.lines[5].old, doc.lines[5].new), (Some(10), Some(10)));
-        assert_eq!((doc.lines[6].old, doc.lines[6].new), (Some(11), None));
-        assert_eq!((doc.lines[7].old, doc.lines[7].new), (None, Some(11)));
-        assert_eq!((doc.lines[8].old, doc.lines[8].new), (Some(12), Some(12)));
+        // diff --git / index / --- / +++ are dropped from a single-file diff.
+        assert_eq!(kinds, [Hunk, Context, Del, Add, Context]);
+        assert_eq!((doc.lines[1].old, doc.lines[1].new), (Some(10), Some(10)));
+        assert_eq!((doc.lines[2].old, doc.lines[2].new), (Some(11), None));
+        assert_eq!((doc.lines[3].old, doc.lines[3].new), (None, Some(11)));
+        assert_eq!((doc.lines[4].old, doc.lines[4].new), (Some(12), Some(12)));
         assert_eq!((doc.added, doc.removed), (1, 1));
     }
 
@@ -381,7 +449,8 @@ mod tests {
         assert_eq!(kinds, [Byline, Subject, Header, Header]);
         let rest: Vec<_> = doc.lines[4..9].iter().map(|l| l.kind).collect();
         // A `---` inside the message stays message; git's last one starts the stat.
-        assert_eq!(rest, [Header, Header, Stat, Stat, Meta]);
+        assert_eq!(rest, [Header, Header, Stat, Stat, File]);
+        assert_eq!(doc.lines[8].text, "x");
         assert_eq!(doc.lines[10].kind, LineKind::Del);
     }
 
@@ -392,7 +461,7 @@ mod tests {
         push_parsed(&mut doc, &lines(raw), false);
         use LineKind::*;
         let kinds: Vec<_> = doc.lines.iter().map(|l| l.kind).collect();
-        assert_eq!(kinds, [Meta, Hunk, Add, Add, Del]);
+        assert_eq!(kinds, [Hunk, Add, Add, Del]);
         assert!(doc.lines.iter().all(|l| l.old.is_none() && l.new.is_none()));
     }
 
@@ -406,5 +475,39 @@ mod tests {
     fn hunk_header_defaults_missing_counts_to_one() {
         assert_eq!(parse_hunk("@@ -3 +4,2 @@"), Some((3, 1, 4, 2)));
         assert_eq!(parse_hunk("@@ -0,0 +1 @@"), Some((0, 0, 1, 1)));
+    }
+
+    #[test]
+    fn commit_file_titles_replace_git_headers_and_keep_informative_lines() {
+        let mut doc = DiffDoc::default();
+        let raw = "d  a <a@x>\nsubject\n---\n x | 1 +\n\
+diff --git a/old name.rs b/new name.rs\nsimilarity index 90%\nrename from old name.rs\nrename to new name.rs\nindex 1..2 100644\n--- a/old name.rs\n+++ b/new name.rs\n@@ -1 +1 @@\n-a\n+b\n\
+diff --git a/img.png b/img.png\nnew file mode 100644\nindex 0..3\nBinary files /dev/null and b/img.png differ";
+        push_parsed(&mut doc, &lines(raw), true);
+        let tail: Vec<(LineKind, &str)> = doc.lines[4..]
+            .iter()
+            .map(|l| (l.kind, l.text.as_str()))
+            .collect();
+        use LineKind::*;
+        assert_eq!(
+            tail,
+            [
+                (File, "old name.rs → new name.rs"),
+                (Meta, "similarity index 90%"),
+                (Hunk, "@@ -1 +1 @@"),
+                (Del, "-a"),
+                (Add, "+b"),
+                (File, "img.png"),
+                (Meta, "new file mode 100644"),
+                (Meta, "Binary files /dev/null and b/img.png differ"),
+            ]
+        );
+    }
+
+    #[test]
+    fn header_paths_handle_spaces_and_combined_diffs() {
+        assert_eq!(header_path("diff --git a/a b/c.rs b/a b/c.rs"), "a b/c.rs");
+        assert_eq!(header_path("diff --cc src/x.rs"), "src/x.rs");
+        assert_eq!(header_path("diff --git a/x b/y"), "y");
     }
 }

@@ -59,8 +59,8 @@ ular-git applies them.
 ## Diff colors
 
 `diff_add` added, `diff_del` removed, `diff_hunk` `@@` lines, soft-dim meta and
-the commit byline, bold commit subject, `accent` bold section titles
-(`── Staged changes ──`). The line-number gutter (`dim`) is on code lines
+the commit byline, bold commit subject, `accent` bold full-width section and
+file titles (`── Staged changes ──`, `── src/app.rs ──`). The line-number gutter (`dim`) is on code lines
 only.
 
 ## Theme roles specific to ular-git

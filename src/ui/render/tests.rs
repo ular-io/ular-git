@@ -214,9 +214,11 @@ fn only_code_lines_carry_the_line_number_gutter() {
         let row = rows.iter().find(|r| r.contains(needle)).unwrap();
         row[..row.find(needle).unwrap()].chars().count()
     };
-    // Header and hunk lines start at the pane's left edge…
-    assert_eq!(starts("diff --git"), diff_x);
+    // Section and hunk lines start at the pane's left edge…
+    assert_eq!(starts("── Unstaged changes"), diff_x);
     assert_eq!(starts("@@ -1,3"), diff_x);
+    // git's redundant file header lines are not shown.
+    assert!(!shows(&rows, "diff --git") && !shows(&rows, "index ") && !shows(&rows, "+++ b/"));
     // …code lines after the number gutter.
     assert_eq!(starts("+2"), diff_x + 10);
 }
@@ -312,4 +314,28 @@ fn commit_messages_wrap_even_with_line_wrap_off() {
         rows.iter().any(|r| r.contains("+word") && r.contains('…')),
         "{rows:#?}"
     );
+}
+
+#[test]
+fn commit_files_get_a_full_width_title_line() {
+    let a = TestRepo::new();
+    let parent = a.root.parent().unwrap();
+    let remote = parent.join("remote.git");
+    crate::git::test_repo::git(parent, &["init", "-q", "--bare", remote.to_str().unwrap()]);
+    a.git(&["remote", "add", "origin", remote.to_str().unwrap()]);
+    a.git(&["push", "-q", "-u", "origin", "main"]);
+    a.write("a.txt", "next\n");
+    a.git(&["commit", "-qam", "second"]);
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.wait_background(10);
+    let rows = screen(&app, 160, 30);
+    let title = rows
+        .iter()
+        .find(|r| r.contains("── a.txt ─"))
+        .expect("file title");
+    assert!(
+        title.contains("────────────────────"),
+        "runs across the pane: {title}"
+    );
+    assert!(!shows(&rows, "diff --git"));
 }
