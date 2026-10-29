@@ -45,8 +45,7 @@ impl App {
             items.extend(
                 h.rows
                     .iter()
-                    .filter_map(|r| r.commit.as_ref())
-                    .map(|c| FileItem::Commit(c, unpushed(&c.hash))),
+                    .map(|r| FileItem::Commit(&r.commit, unpushed(&r.commit.hash))),
             );
             if h.more {
                 items.push(FileItem::More);

@@ -20,7 +20,7 @@ fn the_file_pane_lists_history_with_its_graph_below_the_changes() {
     a.write("a.txt", "dirty\n");
     let mut app = scanned_app(store_of(&[&a.root]));
     app.wait_background(10);
-    // One changed file, then four commits (connector lines are not items).
+    // One changed file, then four commits.
     let items = app.file_items();
     assert_eq!(items.len(), 5);
     assert!(
@@ -31,14 +31,14 @@ fn the_file_pane_lists_history_with_its_graph_below_the_changes() {
     app.focus = Pane::Files;
     let rows = screen(&app, 150, 30);
     assert!(shows(&rows, " History "), "{rows:#?}");
-    assert!(rows
-        .iter()
-        .any(|r| r.contains("●") && r.contains("merge feat")));
-    assert!(rows
-        .iter()
-        .any(|r| r.contains("│╲") || r.contains("├") || r.contains("╲")));
+    // One row per commit: the merge opens a lane on its own row and the
+    // branch point closes it; no connector rows.
+    let at = |text: &str| rows.iter().position(|r| r.contains(text)).unwrap();
+    assert!(rows[at("merge feat")].contains("●─╮"), "{rows:#?}");
+    assert!(rows[at(" init")].contains("●─╯"), "{rows:#?}");
+    assert_eq!(at(" init") - at("merge feat"), 3, "four commits, four rows");
 
-    // Down walks commits only, skipping graph connector rows.
+    // Down walks the commits.
     app.press(&[key(KeyCode::Down), key(KeyCode::Down)]);
     let key_now = app.file_key.clone().unwrap();
     assert!(key_now.starts_with("c:"), "{key_now}");

@@ -114,6 +114,9 @@ The view lasts for the session only.
 
 ## Verification
 
+- Graph layout: `git/graph.rs` unit tests pin a four-branch history, a branch
+  merged twice, octopus merges, lane colors, and page cuts.
+
 - Unit tests: `ui/tree.rs` (row shapes), `store.rs`, `cache.rs`,
   `git/status.rs`, `git/worktree.rs`.
 - Real git: `git/tests.rs` (scan, worktrees, discovery), `ui/tests.rs`

@@ -14,10 +14,14 @@
      tracked changes, then untracked files, each by path (`Working tree clean`
      when there are none, plus `N behind upstream`);
   2. a muted `History` divider joined to the pane border;
-  3. the commit history from HEAD with git's branch graph (`git log --graph`),
-     faded: `●` commits, `↑` (branch color, not faded) commits not on the
-     upstream yet, `│ ╱ ╲ ─` lanes colored per lane. Connector-only graph lines
-     are skipped by the cursor. The graph uses at most 12 columns;
+  3. the commit history from HEAD with its branch graph, faded, one row per
+     commit (no connector rows). Lanes stay in place and keep their color;
+     joints sit on the commit row: `─╮` a merge opens a lane, `─┤` a merge
+     joins a lane already open (the same branch merged again), `─╯` a lane
+     ends (its branch started here), `┬ ┴` the same with the line going on,
+     `┼` a line crossing a lane, `╭ ╰ ├` for lanes to the left. `↑` (branch
+     color, not faded) marks commits not on the upstream yet. The graph uses
+     at most 12 columns;
   4. `… more` when older commits exist.
 - History is read for the selected working tree only, in the background, when
   it is selected or its HEAD changes (commit, pull, checkout): the newest 100

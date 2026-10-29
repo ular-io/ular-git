@@ -1,9 +1,11 @@
 //! File pane: changed files (status code + path), then the commit history
-//! with git's branch graph, faded, under a `History` divider.
+//! with its branch graph (one row per commit), faded, under a `History`
+//! divider.
 
 use super::{
     body_style, draw_divider, empty_line, pane_block, pane_tone, selection_style, Divider, Tone,
 };
+use crate::git::graph::Cell;
 use crate::git::EntryKind;
 use crate::git::FileEntry;
 use crate::theme::{color_rgb, Theme};
@@ -87,18 +89,13 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
             graph_w = h
                 .rows
                 .iter()
-                .map(|r| r.graph.chars().count())
+                .map(|r| r.cells.len())
                 .max()
                 .unwrap_or(0)
                 .min(GRAPH_MAX);
             for row in &h.rows {
-                match &row.commit {
-                    Some(_) => {
-                        visual.push(Visual::Graph(Some(next), &row.graph));
-                        next += 1;
-                    }
-                    None => visual.push(Visual::Graph(None, &row.graph)),
-                }
+                visual.push(Visual::Graph(next, &row.cells));
+                next += 1;
             }
             if h.more {
                 visual.push(Visual::Item(next));
@@ -135,8 +132,7 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                         dim_style,
                     )))
                 }
-                Visual::Graph(None, graph) => (None, graph_spans(graph, graph_w, false, tone, th)),
-                Visual::Graph(Some(i), _) | Visual::Item(i) if items.get(*i).is_some() => {
+                Visual::Graph(i, _) | Visual::Item(i) if items.get(*i).is_some() => {
                     let item = items[*i];
                     let spans = match item {
                         FileItem::File(file) => file_spans(file, w, tone, th),
@@ -202,24 +198,24 @@ const GRAPH_MAX: usize = 12;
 enum Visual<'a> {
     /// A selectable file or `… more` row (index into the items).
     Item(usize),
-    /// A graph line: a commit (item index) or a connector (`None`).
-    Graph(Option<usize>, &'a str),
+    /// A history commit (item index) and its graph cells.
+    Graph(usize, &'a [Cell]),
     Note(String),
     Divider,
 }
 
-fn graph_of<'a>(v: &Visual<'a>) -> &'a str {
+fn graph_of<'a>(v: &Visual<'a>) -> &'a [Cell] {
     match v {
         Visual::Graph(_, g) => g,
-        _ => "",
+        _ => &[],
     }
 }
 
-/// git's graph characters as box drawing, colored per lane (two columns per
-/// lane) and faded so history stays in the background. An unpushed commit's
-/// node is `↑` in the branch color.
+/// Graph cells colored by lane (a lane keeps its color) and faded so history
+/// stays in the background. An unpushed commit's node is `↑` in the branch
+/// color.
 fn graph_spans(
-    graph: &str,
+    graph: &[Cell],
     width: usize,
     unpushed: bool,
     tone: Tone,
@@ -235,21 +231,13 @@ fn graph_spans(
     ];
     let mut spans = vec![Span::raw(" ")];
     let mut used = 0;
-    for (col, ch) in graph.chars().take(width).enumerate() {
-        let glyph = match ch {
-            '*' if unpushed => '↑',
-            '*' => '●',
-            '|' => '│',
-            '/' => '╱',
-            '\\' => '╲',
-            '-' => '─',
-            '.' => '·',
-            other => other,
-        };
-        let color = lanes[(col / 2) % lanes.len()];
+    for cell in graph.iter().take(width) {
+        let node = cell.ch == '●';
+        let glyph = if node && unpushed { '↑' } else { cell.ch };
+        let color = lanes[cell.color.unwrap_or(0) % lanes.len()];
         let style = if tone == Tone::Dimmed {
             th.soft_dim()
-        } else if ch == '*' && unpushed {
+        } else if node && unpushed {
             Style::default().fg(th.branch).add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(fade_toward(color_rgb(color), th.bg_rgb()))

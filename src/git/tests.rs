@@ -269,21 +269,18 @@ fn history_graph_follows_a_merged_branch() {
     repo.git(&["commit", "-qm", "on main"]);
     repo.git(&["merge", "-q", "--no-ff", "-m", "merge feat", "feat"]);
     let h = super::history::load(&repo.root, 100).unwrap();
-    let subjects: Vec<&str> = h
-        .rows
-        .iter()
-        .filter_map(|r| r.commit.as_ref())
-        .map(|c| c.subject.as_str())
-        .collect();
+    let subjects: Vec<&str> = h.rows.iter().map(|r| r.commit.subject.as_str()).collect();
     assert_eq!(subjects.len(), 4);
     assert_eq!(subjects[0], "merge feat");
     assert!(subjects.contains(&"on feat") && subjects.contains(&"init"));
-    // The merge opens a second lane and a connector line joins it back.
-    assert!(h.rows.iter().any(|r| r.commit.is_none()));
-    assert!(h
+    // One row per commit: the merge opens a lane, the branch point closes it.
+    let graph: Vec<String> = h
         .rows
         .iter()
-        .any(|r| r.graph.contains('|') && r.commit.is_some()));
+        .map(|r| r.cells.iter().map(|c| c.ch).collect())
+        .collect();
+    assert_eq!(graph[0], "●─╮", "{graph:?}");
+    assert_eq!(graph[3], "●─╯", "{graph:?}");
     assert!(!h.more);
     assert!(super::history::load(&repo.root, 2).unwrap().more);
 }

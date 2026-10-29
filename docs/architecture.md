@@ -18,7 +18,8 @@
 | `git/mod.rs` | `git_command` (shared env: `GIT_OPTIONAL_LOCKS=0`, `GIT_TERMINAL_PROMPT=0`, no pager), `scan`, status types |
 | `git/status.rs` | `status --porcelain=v2 --branch -z` parsing, unpushed log, stash count |
 | `git/worktree.rs` | `worktree list --porcelain -z` parsing |
-| `git/history.rs` | `git log --graph` history (graph prefix + commit per line) |
+| `git/history.rs` | History: `git log --topo-order` commits with parents |
+| `git/graph.rs` | Graph layout: lanes, joints, and lane colors per commit row (pure) |
 | `git/diff.rs` | Diff loading (file sections, untracked, conflict, `git show`), line classification and numbering, line limit |
 | `git/ops.rs` | Commit, worktree remove / prune |
 | `git/remote.rs` | Push, pull `--ff-only`, default remote; network env and timeout |

@@ -1,10 +1,8 @@
-//! Commit history with git's branch graph (`git log --graph`).
-//!
-//! git lays the graph out; each output line is kept as its graph prefix (the
-//! raw `* | / \ _ -` characters, mapped to box drawing at render time) and,
-//! on commit lines, the commit itself. Lines with only graph are connectors
-//! between commits.
+//! Commit history with a branch graph laid out by [`super::graph`]: git gives
+//! the commits in topological order with their parents, ular-git places the
+//! lanes (one row per commit, joints drawn on the commit row).
 
+use super::graph::{self, Cell};
 use super::{run, Commit};
 use std::path::Path;
 
@@ -13,10 +11,9 @@ pub const FIRST_PAGE: usize = 100;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GraphRow {
-    /// git's graph characters for this line (trailing spaces trimmed).
-    pub graph: String,
-    /// The commit on this line; `None` for a connector line.
-    pub commit: Option<Commit>,
+    /// Graph cells for this commit's row.
+    pub cells: Vec<Cell>,
+    pub commit: Commit,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -26,7 +23,7 @@ pub struct History {
     pub more: bool,
 }
 
-/// Field separator in the format string; never appears in graph characters.
+/// Field separator in the format string.
 const SEP: char = '\x1f';
 
 /// The newest `limit` commits reachable from HEAD, with the graph. A
@@ -37,10 +34,9 @@ pub fn load(dir: &Path, limit: usize) -> anyhow::Result<History> {
         dir,
         &[
             "log",
-            "--graph",
-            "--no-color",
+            "--topo-order",
             &n,
-            "--format=%x1f%H%x1f%h%x1f%s",
+            "--format=%H%x1f%h%x1f%P%x1f%s",
             "HEAD",
         ],
     )?;
@@ -55,40 +51,34 @@ pub fn load(dir: &Path, limit: usize) -> anyhow::Result<History> {
     Ok(parse(&String::from_utf8_lossy(&out.stdout), limit))
 }
 
+/// Parses `hash SEP short SEP parents SEP subject` lines and lays out the graph.
 pub fn parse(text: &str, limit: usize) -> History {
-    let mut rows = Vec::new();
-    let mut commits = 0;
+    let mut commits: Vec<(Commit, Vec<String>)> = Vec::new();
     for line in text.lines() {
-        match line.split_once(SEP) {
-            Some((graph, rest)) => {
-                let mut f = rest.split(SEP);
-                let (Some(hash), Some(short)) = (f.next(), f.next()) else {
-                    continue;
-                };
-                commits += 1;
-                rows.push(GraphRow {
-                    graph: graph.trim_end().to_string(),
-                    commit: Some(Commit {
-                        hash: hash.to_string(),
-                        short: short.to_string(),
-                        subject: f.next().unwrap_or("").to_string(),
-                    }),
-                });
-            }
-            None => rows.push(GraphRow {
-                graph: line.trim_end().to_string(),
-                commit: None,
-            }),
-        }
+        let mut f = line.split(SEP);
+        let (Some(hash), Some(short), Some(parents)) = (f.next(), f.next(), f.next()) else {
+            continue;
+        };
+        commits.push((
+            Commit {
+                hash: hash.to_string(),
+                short: short.to_string(),
+                subject: f.next().unwrap_or("").to_string(),
+            },
+            parents.split_whitespace().map(str::to_string).collect(),
+        ));
     }
-    // Connector lines after the last commit lead nowhere on this page.
-    while rows.last().is_some_and(|r| r.commit.is_none()) {
-        rows.pop();
-    }
-    History {
-        rows,
-        more: commits >= limit,
-    }
+    let shape: Vec<(String, Vec<String>)> = commits
+        .iter()
+        .map(|(c, p)| (c.hash.clone(), p.clone()))
+        .collect();
+    let more = commits.len() >= limit;
+    let rows = graph::layout(&shape)
+        .into_iter()
+        .zip(commits)
+        .map(|(cells, (commit, _))| GraphRow { cells, commit })
+        .collect();
+    History { rows, more }
 }
 
 #[cfg(test)]
@@ -96,30 +86,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn splits_graph_from_commits_and_keeps_connectors() {
-        let text = "* \x1faaa\x1fa1\x1ftop\n\
-*   \x1fbbb\x1fb1\x1fMerge branch 'x'\n\
-|\\  \n\
-| * \x1fccc\x1fc1\x1fon x\n\
-* | \x1fddd\x1fd1\x1fon main\n\
-|/  \n\
-* \x1feee\x1fe1\x1froot\n";
+    fn parses_commits_with_parents_into_graph_rows() {
+        let text = "m\x1fm1\x1fa b\x1fMerge b\n\
+b\x1fb1\x1fa\x1fon b\n\
+a\x1fa1\x1f\x1froot\n";
         let h = parse(text, 100);
-        let graphs: Vec<&str> = h.rows.iter().map(|r| r.graph.as_str()).collect();
-        assert_eq!(graphs, ["*", "*", "|\\", "| *", "* |", "|/", "*"]);
-        assert_eq!(
-            h.rows[1].commit.as_ref().unwrap().subject,
-            "Merge branch 'x'"
-        );
-        assert!(h.rows[2].commit.is_none());
+        let rows: Vec<String> = h
+            .rows
+            .iter()
+            .map(|r| r.cells.iter().map(|c| c.ch).collect())
+            .collect();
+        assert_eq!(rows, ["●─╮", "│ ●", "●─╯"]);
+        assert_eq!(h.rows[0].commit.subject, "Merge b");
         assert!(!h.more);
-    }
-
-    #[test]
-    fn a_full_page_means_more_and_trailing_connectors_are_dropped() {
-        let text = "* \x1fa\x1fa\x1fs\n|\\\n";
-        let h = parse(text, 1);
-        assert!(h.more);
-        assert_eq!(h.rows.len(), 1);
+        assert!(parse(text, 3).more);
     }
 }
