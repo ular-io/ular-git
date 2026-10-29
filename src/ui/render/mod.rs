@@ -1,0 +1,281 @@
+//! Frame rendering. Order is fixed: theme base → header / filter line / panes
+//! / footer → backdrop fade → the active overlay.
+
+mod diff;
+mod files;
+mod header;
+mod repos;
+
+use super::components::input::input_view;
+use super::components::modal::{backdrop_dimmed, dim_backdrop};
+use super::{App, Level, Pane, UiMode};
+use crate::theme::Theme;
+use ratatui::{
+    layout::{Constraint, Direction, Layout, Margin, Rect},
+    style::{Modifier, Style},
+    text::{Line, Span},
+    widgets::{Block, BorderType, Borders, Padding, Paragraph},
+    Frame,
+};
+
+#[cfg(test)]
+pub(crate) use header::LOGO;
+
+/// Below this the panes are not drawn at all.
+const MIN_W: u16 = 40;
+const MIN_H: u16 = 10;
+
+pub fn draw(f: &mut Frame, app: &App) {
+    let th = &app.theme;
+    f.render_widget(Block::default().style(th.base_style()), f.area());
+    let area = f.area();
+    if area.width < MIN_W || area.height < MIN_H {
+        f.render_widget(
+            Paragraph::new(Span::styled(
+                "Terminal too small for ular-git",
+                th.soft_dim(),
+            )),
+            area,
+        );
+        return;
+    }
+    let header_h = 5.min(area.height.saturating_sub(4));
+    let filter_h = if app.mode == UiMode::Filter { 3 } else { 0 };
+    let root = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(header_h),
+            Constraint::Length(filter_h),
+            Constraint::Min(3),
+            Constraint::Length(1),
+        ])
+        .split(area);
+    header::draw_header(f, app, root[0]);
+    if filter_h > 0 {
+        draw_filter_line(f, app, root[1]);
+    }
+    for (pane, rect) in pane_layout(root[2], app.focus) {
+        match pane {
+            Pane::Repos => repos::draw_repos(f, app, rect),
+            Pane::Files => files::draw_files(f, app, rect),
+            Pane::Diff => diff::draw_diff(f, app, rect),
+        }
+    }
+    draw_footer(f, app, root[3]);
+
+    if backdrop_dimmed(app.mode) {
+        dim_backdrop(f, th);
+    }
+    use super::overlays::*;
+    match app.mode {
+        UiMode::Normal | UiMode::Filter => {}
+        UiMode::AddRepo => add_repo::draw_add_repo(f, app),
+        UiMode::GroupName => group::draw_group_name(f, app),
+        UiMode::GroupPick => group::draw_group_pick(f, app),
+        UiMode::Confirm => confirm::draw_confirm(f, app),
+        UiMode::Commit => commit::draw_commit(f, app),
+        UiMode::QuickCommand => super::quick::draw_quick_command(f, app),
+        UiMode::ThemeSelect => theme::draw_theme_select(f, app),
+        UiMode::Help => help::draw_help(f, app),
+        UiMode::Message => message::draw_message_modal(f, app),
+    }
+}
+
+/// How many panes fit side by side at `width`. The diff pane goes first as the
+/// screen narrows, then the file pane.
+pub(crate) fn visible_panes(width: u16) -> usize {
+    match width {
+        120.. => 3,
+        64.. => 2,
+        _ => 1,
+    }
+}
+
+/// Visible panes and their areas. The window of visible panes always holds
+/// the focused one, so moving right on a narrow screen reveals the hidden
+/// pane instead of focusing something invisible.
+pub(crate) fn pane_layout(area: Rect, focus: Pane) -> Vec<(Pane, Rect)> {
+    let w = area.width;
+    let k = visible_panes(w);
+    let start = focus.index().saturating_sub(k - 1);
+    let panes = &Pane::ALL[start..start + k];
+    let pct = |p: u16, lo: u16, hi: u16| (w * p / 100).clamp(lo, hi);
+    let widths: Vec<Constraint> = match panes {
+        [_, _, _] => vec![
+            Constraint::Length(pct(24, 30, 44)),
+            Constraint::Length(pct(28, 32, 56)),
+            Constraint::Min(0),
+        ],
+        [Pane::Repos, _] => vec![Constraint::Length(pct(42, 28, 44)), Constraint::Min(0)],
+        [_, _] => vec![Constraint::Length(pct(40, 30, 56)), Constraint::Min(0)],
+        _ => vec![Constraint::Min(0)],
+    };
+    let rects = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(widths)
+        .split(area);
+    panes.iter().copied().zip(rects.iter().copied()).collect()
+}
+
+/// Pane look: focused → thick accent; another pane focused → plain soft-dim
+/// (frame, title, and body); a dialog or the filter line owns input → plain
+/// default.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Tone {
+    Focused,
+    Dimmed,
+    Neutral,
+}
+
+pub(crate) fn pane_tone(app: &App, pane: Pane) -> Tone {
+    if app.mode != UiMode::Normal {
+        Tone::Neutral
+    } else if app.focus == pane {
+        Tone::Focused
+    } else {
+        Tone::Dimmed
+    }
+}
+
+/// Framed pane block with the navigation arrows of a focused pane.
+pub(crate) fn pane_block(title: String, tone: Tone, pane: Pane, th: &Theme) -> Block<'static> {
+    let (border, style) = match tone {
+        Tone::Focused => (
+            BorderType::Thick,
+            Style::default().fg(th.accent).add_modifier(Modifier::BOLD),
+        ),
+        Tone::Dimmed => (BorderType::Plain, th.soft_dim()),
+        Tone::Neutral => (BorderType::Plain, Style::default()),
+    };
+    let mut block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(border)
+        .border_style(style)
+        .title(Span::styled(title, style))
+        .title_alignment(ratatui::layout::Alignment::Center)
+        .padding(Padding::horizontal(1));
+    if tone == Tone::Focused {
+        if pane != Pane::Repos {
+            block = block.title_top(Line::from("━ ← ").left_aligned().style(style));
+        }
+        if pane != Pane::Diff {
+            block = block.title_top(Line::from(" → ━").right_aligned().style(style));
+        }
+    }
+    block
+}
+
+/// Body text style of a pane in `tone`: dimmed panes fade everything.
+pub(crate) fn body_style(tone: Tone, style: Style, th: &Theme) -> Style {
+    if tone == Tone::Dimmed {
+        th.soft_dim()
+    } else {
+        style
+    }
+}
+
+/// Selected-row style, as in s7s: focused → selection colors + bold; another
+/// pane focused → soft-dim reversed over the inactive bar; a dialog owns input
+/// → inactive bar + bold.
+pub(crate) fn selection_style(tone: Tone, th: &Theme) -> Style {
+    match tone {
+        Tone::Focused => Style::default()
+            .fg(th.selection_fg)
+            .bg(th.selection_bg)
+            .add_modifier(Modifier::BOLD),
+        Tone::Dimmed => th
+            .soft_dim()
+            .bg(th.selection_inactive_bg)
+            .add_modifier(Modifier::REVERSED),
+        Tone::Neutral => Style::default()
+            .fg(th.selection_fg)
+            .bg(th.selection_inactive_bg)
+            .add_modifier(Modifier::BOLD),
+    }
+}
+
+/// Empty-state line drawn in place of a list.
+pub(crate) fn empty_line(f: &mut Frame, area: Rect, text: &str, style: Style) {
+    f.render_widget(
+        Paragraph::new(Span::styled(text.to_string(), style))
+            .wrap(ratatui::widgets::Wrap { trim: true }),
+        area,
+    );
+}
+
+fn draw_filter_line(f: &mut Frame, app: &App, area: Rect) {
+    let th = &app.theme;
+    let accent = Style::default().fg(th.accent).add_modifier(Modifier::BOLD);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Thick)
+        .border_style(accent)
+        .title(Span::styled(" Filter ", accent))
+        .title_alignment(ratatui::layout::Alignment::Center)
+        .padding(Padding::horizontal(1));
+    let inner = block.inner(area);
+    f.render_widget(block, area);
+    let prompt = "/ ";
+    let width = (inner.width as usize).saturating_sub(prompt.len());
+    let (visible, cursor_x) = input_view(&app.filter, width);
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(prompt, accent),
+            Span::raw(visible),
+        ])),
+        inner,
+    );
+    f.set_cursor_position((inner.x + prompt.len() as u16 + cursor_x, inner.y));
+}
+
+/// Footer: the latest result while it lasts, then the pane shortcuts with the
+/// focused pane highlighted.
+fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
+    let th = &app.theme;
+    let line = match &app.notice {
+        Some(n) => {
+            let color = match n.level {
+                Level::Info => th.accent,
+                Level::Ok => th.success,
+                Level::Warn => th.warning,
+                Level::Error => th.error,
+            };
+            Line::from(vec![
+                Span::styled(
+                    format!("{} ", n.level.tag()),
+                    Style::default().fg(color).add_modifier(Modifier::BOLD),
+                ),
+                Span::raw(super::components::text::sanitize_single_line(&n.text)),
+            ])
+        }
+        None => {
+            let mut spans = Vec::new();
+            for (i, pane) in Pane::ALL.iter().enumerate() {
+                let current = *pane == app.focus;
+                let key_style = if current {
+                    Style::default()
+                        .fg(th.selection_fg)
+                        .bg(th.selection_bg)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    th.key_style()
+                };
+                let name_style = if current {
+                    Style::default().fg(th.accent).add_modifier(Modifier::BOLD)
+                } else {
+                    th.soft_dim()
+                };
+                if i > 0 {
+                    spans.push(Span::raw("  "));
+                }
+                spans.push(Span::styled(format!("<{}>", i + 1), key_style));
+                spans.push(Span::styled(format!(" {}", pane.title()), name_style));
+            }
+            Line::from(spans)
+        }
+    };
+    f.render_widget(Paragraph::new(line), area.inner(Margin::new(1, 0)));
+}
+
+#[cfg(test)]
+mod tests;

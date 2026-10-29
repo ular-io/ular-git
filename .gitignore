@@ -1,0 +1,19 @@
+/target
+/dist
+
+
+# Local work artifacts (agent harnesses, manual verification samples)
+/.agents/
+/handoff-samples/
+/skills-lock.json
+.VSCodeCounter
+
+# AI Agent instructions and local workspace states
+/GEMINI.md
+
+# AI Agent local settings and runtimes
+/.claude/
+/.codex/
+.claude*
+.codex*
+

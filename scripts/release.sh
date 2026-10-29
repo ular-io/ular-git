@@ -1,0 +1,50 @@
+#!/bin/bash
+set -e
+
+# Builds macOS arm64/amd64 binaries, tags, and publishes a GitHub Release.
+# The Homebrew tap update that must follow is in docs/releasing.md.
+
+# Usage helper
+if [ -z "$1" ]; then
+  echo "Usage: $0 <version> (e.g., v0.1.0)"
+  exit 1
+fi
+
+VERSION=$1
+
+echo "=== 1. Ensuring target toolchains are installed ==="
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+echo "=== 2. Compiling binaries for multi-architectures ==="
+cargo build --release --target aarch64-apple-darwin
+cargo build --release --target x86_64-apple-darwin
+
+echo "=== 3. Packing binaries into archives ==="
+mkdir -p dist
+tar -czf dist/ular-git-mac-arm64.tar.gz -C target/aarch64-apple-darwin/release ular-git
+tar -czf dist/ular-git-mac-amd64.tar.gz -C target/x86_64-apple-darwin/release ular-git
+
+echo "=== 4. SHA256 checksums (Required for Homebrew Formula) ==="
+ARM_HASH=$(shasum -a 256 dist/ular-git-mac-arm64.tar.gz | awk '{print $1}')
+AMD_HASH=$(shasum -a 256 dist/ular-git-mac-amd64.tar.gz | awk '{print $1}')
+
+echo "--------------------------------------------------"
+echo "ARM64 SHA256: $ARM_HASH"
+echo "AMD64 SHA256: $AMD_HASH"
+echo "--------------------------------------------------"
+
+echo "=== 5. Creating Git tag and pushing ==="
+# Annotated tag (-a): carries its own message/tagger so the Tags/Release page
+# shows this message instead of falling back to the pointed-to commit subject.
+git tag -a "$VERSION" -m "Release $VERSION"
+git push origin "$VERSION"
+
+echo "=== 6. Creating GitHub Release and uploading assets ==="
+# --generate-notes auto-fills the release body from merged PRs/commits since the
+# previous tag (falls back to a Full Changelog link when there are no PRs).
+gh release create "$VERSION" dist/ular-git-mac-arm64.tar.gz dist/ular-git-mac-amd64.tar.gz \
+  --title "$VERSION" \
+  --generate-notes
+
+echo "=== Release $VERSION finished successfully ==="
+echo "Copy the SHA256 hashes above into Formula/ular-git.rb (docs/releasing.md §2)."
