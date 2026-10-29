@@ -23,8 +23,11 @@ pub enum LineKind {
     Subject,
     /// Rest of a shown commit's message.
     Header,
-    /// `---` and the `--stat` block of a shown commit.
+    /// The `--stat` block of a shown commit.
     Stat,
+    /// git's `---` separator between a shown commit's message and its stat,
+    /// drawn as a full-width rule.
+    Rule,
     /// Per-file title of a shown commit (`── path ──`), in place of git's
     /// `diff --git` / `index` / `---` / `+++` lines.
     File,
@@ -244,6 +247,14 @@ fn push_parsed(doc: &mut DiffDoc, raw: &[String], show: bool) {
             combined = false;
             // A single-file diff already names its file in the pane title.
             if show {
+                // The file title is the separator: no blank line before it.
+                while doc
+                    .lines
+                    .last()
+                    .is_some_and(|l| l.kind == LineKind::Stat && l.text.trim().is_empty())
+                {
+                    doc.lines.pop();
+                }
                 file_title = Some(doc.lines.len());
                 doc.lines.push(DiffLine {
                     kind: LineKind::File,
@@ -255,7 +266,9 @@ fn push_parsed(doc: &mut DiffDoc, raw: &[String], show: bool) {
             continue;
         }
         if in_header {
-            let kind = if index >= stat_start {
+            let kind = if index == stat_start {
+                LineKind::Rule
+            } else if index > stat_start {
                 LineKind::Stat
             } else if header_seen == 0 {
                 LineKind::Byline
@@ -449,7 +462,7 @@ mod tests {
         assert_eq!(kinds, [Byline, Subject, Header, Header]);
         let rest: Vec<_> = doc.lines[4..9].iter().map(|l| l.kind).collect();
         // A `---` inside the message stays message; git's last one starts the stat.
-        assert_eq!(rest, [Header, Header, Stat, Stat, File]);
+        assert_eq!(rest, [Header, Header, Rule, Stat, File]);
         assert_eq!(doc.lines[8].text, "x");
         assert_eq!(doc.lines[10].kind, LineKind::Del);
     }

@@ -35,7 +35,10 @@
 - git's per-file header is condensed. `diff --git`, `index`, `---`, and `+++`
   lines are dropped. In a commit, each file starts with a full-width title
   line with the path right-aligned (`├──── <path> ──┤`, `old → new` for a
-  rename); a single-file diff already names the file in the pane title. Lines that carry information stay,
+  rename); a single-file diff already names the file in the pane title.
+  git's `---` between a commit's message and its stat is drawn as the same
+  border-to-border rule without a label, and the blank line git prints
+  between the stat and the first file is dropped. Lines that carry information stay,
   muted: new / deleted file mode, mode change, similarity, binary.
 - A gutter with old / new line numbers appears on code lines (added, removed,
   context) when the pane is at least 50 columns wide. Headers, meta lines,

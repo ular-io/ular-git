@@ -36,7 +36,9 @@ fn kind_style(kind: LineKind, tone: Tone, th: &Theme) -> Style {
         }
     };
     match kind {
-        LineKind::Section | LineKind::File => colored(th.accent).add_modifier(Modifier::BOLD),
+        LineKind::Section | LineKind::File | LineKind::Rule => {
+            colored(th.accent).add_modifier(Modifier::BOLD)
+        }
         LineKind::Byline => th.soft_dim(),
         LineKind::Subject => plain(Style::default().add_modifier(Modifier::BOLD)),
         LineKind::Header | LineKind::Stat | LineKind::Context => plain(Style::default()),
@@ -114,7 +116,9 @@ fn draw_divider(f: &mut Frame, area: Rect, d: &Divider, tone: Tone, th: &Theme) 
     let inner_w = (area.width - 2) as usize;
     let label = format!(" {} ", truncate_w(label, inner_w.saturating_sub(6)));
     let fill = "─".repeat(inner_w.saturating_sub(label.width() + 2));
-    let text = if right {
+    let text = if label.trim().is_empty() {
+        "─".repeat(inner_w)
+    } else if right {
         format!("{fill}{label}──")
     } else {
         format!("──{label}{fill}")
@@ -169,8 +173,10 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
     // commit message always wraps; other lines wrap only with `.`. When
     // nothing wraps, only the visible window is materialized.
     let wraps = |line: &DiffLine| {
-        !matches!(line.kind, LineKind::Section | LineKind::File)
-            && (app.diff.wrap || is_message(line.kind))
+        !matches!(
+            line.kind,
+            LineKind::Section | LineKind::File | LineKind::Rule
+        ) && (app.diff.wrap || is_message(line.kind))
     };
     let any_wrap = app.diff.wrap || doc.lines.iter().any(|l| is_message(l.kind));
     let total;
@@ -180,7 +186,10 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
         for (i, line) in doc.lines.iter().enumerate() {
             let segs = if wraps(line) {
                 wrap_w(&line.text, width_of(line))
-            } else if matches!(line.kind, LineKind::Section | LineKind::File) {
+            } else if matches!(
+                line.kind,
+                LineKind::Section | LineKind::File | LineKind::Rule
+            ) {
                 vec![line.text.clone()]
             } else {
                 vec![truncate_w(&line.text, width_of(line))]
@@ -218,10 +227,18 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
         .map(|(row, (i, seg, first))| {
             let line = &doc.lines[i];
             let style = kind_style(line.kind, tone, th);
-            if matches!(line.kind, LineKind::Section | LineKind::File) {
+            if matches!(
+                line.kind,
+                LineKind::Section | LineKind::File | LineKind::Rule
+            ) {
                 dividers.push(Divider {
                     y: inner.y + row as u16,
-                    label: seg,
+                    // git's `---` becomes a plain rule.
+                    label: if line.kind == LineKind::Rule {
+                        String::new()
+                    } else {
+                        seg
+                    },
                     right: line.kind == LineKind::File,
                     style,
                 });
