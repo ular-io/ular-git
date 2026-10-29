@@ -255,3 +255,43 @@ fn pull_fast_forwards_and_refuses_a_diverged_branch() {
         "nothing changes on refusal"
     );
 }
+
+#[test]
+fn history_graph_follows_a_merged_branch() {
+    let repo = TestRepo::new();
+    repo.git(&["switch", "-q", "-c", "feat"]);
+    repo.write("f.txt", "f\n");
+    repo.git(&["add", "f.txt"]);
+    repo.git(&["commit", "-qm", "on feat"]);
+    repo.git(&["switch", "-q", "main"]);
+    repo.write("m.txt", "m\n");
+    repo.git(&["add", "m.txt"]);
+    repo.git(&["commit", "-qm", "on main"]);
+    repo.git(&["merge", "-q", "--no-ff", "-m", "merge feat", "feat"]);
+    let h = super::history::load(&repo.root, 100).unwrap();
+    let subjects: Vec<&str> = h
+        .rows
+        .iter()
+        .filter_map(|r| r.commit.as_ref())
+        .map(|c| c.subject.as_str())
+        .collect();
+    assert_eq!(subjects.len(), 4);
+    assert_eq!(subjects[0], "merge feat");
+    assert!(subjects.contains(&"on feat") && subjects.contains(&"init"));
+    // The merge opens a second lane and a connector line joins it back.
+    assert!(h.rows.iter().any(|r| r.commit.is_none()));
+    assert!(h
+        .rows
+        .iter()
+        .any(|r| r.graph.contains('|') && r.commit.is_some()));
+    assert!(!h.more);
+    assert!(super::history::load(&repo.root, 2).unwrap().more);
+}
+
+#[test]
+fn an_unborn_branch_has_an_empty_history() {
+    let dir = tempfile::tempdir().unwrap();
+    super::test_repo::git(dir.path(), &["init", "-q", "-b", "main"]);
+    let h = super::history::load(dir.path(), 100).unwrap();
+    assert!(h.rows.is_empty() && !h.more);
+}

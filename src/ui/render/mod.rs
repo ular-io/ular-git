@@ -8,6 +8,7 @@ mod repos;
 
 use super::components::input::input_view;
 use super::components::modal::{backdrop_dimmed, dim_backdrop};
+use super::components::text::truncate_w;
 use super::{App, Level, Pane, UiMode};
 use crate::theme::Theme;
 use ratatui::{
@@ -17,6 +18,7 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Padding, Paragraph},
     Frame,
 };
+use unicode_width::UnicodeWidthStr;
 
 #[cfg(test)]
 pub(crate) use header::LOGO;
@@ -81,32 +83,40 @@ pub fn draw(f: &mut Frame, app: &App) {
     }
 }
 
-/// How many panes fit side by side at `width`: two, or one when narrow.
+/// Columns from which all three panes show whatever has focus.
+pub(crate) const THREE_PANES_W: u16 = 160;
+
+/// How many panes fit side by side at `width`: three when wide, two, or one
+/// when narrow.
 pub(crate) fn visible_panes(width: u16) -> usize {
-    if width >= 64 {
-        2
-    } else {
-        1
+    match width {
+        THREE_PANES_W.. => 3,
+        64.. => 2,
+        _ => 1,
     }
 }
 
-/// Visible panes and their areas: Repos focus shows Repos + Files; Files or
-/// Diff focus shows Files + Diff. A narrow screen shows the focused pane
-/// alone. The focused pane is always visible, so moving left or right reveals
-/// the pane it moves to.
+/// Visible panes and their areas. Wide screens show all three. Otherwise
+/// Repos focus shows Repos + Files and Files or Diff focus shows Files + Diff;
+/// a narrow screen shows the focused pane alone. The focused pane is always
+/// visible, so moving left or right reveals the pane it moves to.
 pub(crate) fn pane_layout(area: Rect, focus: Pane) -> Vec<(Pane, Rect)> {
     let w = area.width;
     let k = visible_panes(w);
-    let start = if k == 1 {
-        focus.index()
-    } else if focus == Pane::Repos {
-        0
-    } else {
-        1
+    let start = match k {
+        3 => 0,
+        1 => focus.index(),
+        _ if focus == Pane::Repos => 0,
+        _ => 1,
     };
     let panes = &Pane::ALL[start..start + k];
     let pct = |p: u16, lo: u16, hi: u16| (w * p / 100).clamp(lo, hi);
     let widths: Vec<Constraint> = match panes {
+        [_, _, _] => vec![
+            Constraint::Length(pct(22, 30, 44)),
+            Constraint::Length(pct(28, 40, 60)),
+            Constraint::Min(0),
+        ],
         [Pane::Repos, _] => vec![Constraint::Length(pct(42, 28, 44)), Constraint::Min(0)],
         [_, _] => vec![Constraint::Length(pct(40, 30, 56)), Constraint::Min(0)],
         _ => vec![Constraint::Min(0)],
@@ -166,6 +176,49 @@ pub(crate) fn pane_block(app: &App, title: String, tone: Tone, pane: Pane) -> Bl
         }
     }
     block
+}
+
+/// One title line to draw over the pane width.
+pub(crate) struct Divider {
+    pub y: u16,
+    pub label: String,
+    pub style: Style,
+}
+
+/// Full-width title line from the left border to the right border with the
+/// label centered: `├──── Unstaged changes ────┤`, `├──── src/app.rs ────┤`,
+/// or a bare rule. `┠` / `┨` join a focused, thick frame. The joints take the
+/// border's style, the line and label the title's.
+pub(crate) fn draw_divider(f: &mut Frame, area: Rect, d: &Divider, tone: Tone, th: &Theme) {
+    let (y, label, style) = (d.y, d.label.as_str(), d.style);
+    if area.width < 4 || y >= area.bottom() {
+        return;
+    }
+    let (joints, border) = match tone {
+        Tone::Focused => (
+            ("┠", "┨"),
+            Style::default().fg(th.accent).add_modifier(Modifier::BOLD),
+        ),
+        Tone::Dimmed => (("├", "┤"), th.soft_dim()),
+        Tone::Neutral => (("├", "┤"), Style::default()),
+    };
+    let inner_w = (area.width - 2) as usize;
+    let label = format!(" {} ", truncate_w(label, inner_w.saturating_sub(6)));
+    let text = if label.trim().is_empty() {
+        "─".repeat(inner_w)
+    } else {
+        let fill = inner_w.saturating_sub(label.width());
+        let left = fill / 2;
+        format!("{}{label}{}", "─".repeat(left), "─".repeat(fill - left))
+    };
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(joints.0, border),
+            Span::styled(text, style),
+            Span::styled(joints.1, border),
+        ])),
+        Rect::new(area.x, y, area.width, 1),
+    );
 }
 
 /// Body text style of a pane in `tone`: dimmed panes fade everything.

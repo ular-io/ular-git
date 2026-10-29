@@ -1,6 +1,6 @@
 //! Diff pane: colored, line-numbered diff of the selected file or commit.
 
-use super::{empty_line, pane_block, pane_tone, Tone};
+use super::{draw_divider, empty_line, pane_block, pane_tone, Divider, Tone};
 use crate::git::diff::{DiffLine, LineKind};
 use crate::theme::{color_rgb, Theme};
 use crate::ui::components::modal::fade_toward;
@@ -15,7 +15,6 @@ use ratatui::{
     widgets::Paragraph,
     Frame,
 };
-use unicode_width::UnicodeWidthStr;
 
 /// `old new ` line-number gutter.
 const GUTTER_W: usize = 10;
@@ -83,51 +82,9 @@ fn title(app: &App) -> String {
         .unwrap_or_default();
     match item {
         FileItem::File(f) => format!(" {}{stats} ", truncate_left_w(&f.path, 48)),
-        FileItem::Commit(c) => format!(" {}{stats} ", c.hash),
+        FileItem::Commit(c, _) => format!(" {}{stats} ", c.hash),
+        FileItem::More => " Diff ".into(),
     }
-}
-
-/// One title line to draw over the pane width.
-struct Divider {
-    y: u16,
-    label: String,
-    style: Style,
-}
-
-/// Full-width title line from the left border to the right border with the
-/// label centered: `├──── Unstaged changes ────┤`, `├──── src/app.rs ────┤`,
-/// or a bare rule. `┠` / `┨` join a focused, thick frame. The joints take the
-/// border's style, the line and label the title's.
-fn draw_divider(f: &mut Frame, area: Rect, d: &Divider, tone: Tone, th: &Theme) {
-    let (y, label, style) = (d.y, d.label.as_str(), d.style);
-    if area.width < 4 || y >= area.bottom() {
-        return;
-    }
-    let (joints, border) = match tone {
-        Tone::Focused => (
-            ("┠", "┨"),
-            Style::default().fg(th.accent).add_modifier(Modifier::BOLD),
-        ),
-        Tone::Dimmed => (("├", "┤"), th.soft_dim()),
-        Tone::Neutral => (("├", "┤"), Style::default()),
-    };
-    let inner_w = (area.width - 2) as usize;
-    let label = format!(" {} ", truncate_w(label, inner_w.saturating_sub(6)));
-    let text = if label.trim().is_empty() {
-        "─".repeat(inner_w)
-    } else {
-        let fill = inner_w.saturating_sub(label.width());
-        let left = fill / 2;
-        format!("{}{label}{}", "─".repeat(left), "─".repeat(fill - left))
-    };
-    f.render_widget(
-        Paragraph::new(Line::from(vec![
-            Span::styled(joints.0, border),
-            Span::styled(text, style),
-            Span::styled(joints.1, border),
-        ])),
-        Rect::new(area.x, y, area.width, 1),
-    );
 }
 
 pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {

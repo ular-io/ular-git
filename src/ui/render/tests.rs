@@ -16,11 +16,27 @@ fn logo_rows_share_one_width_and_fit_the_header() {
 }
 
 #[test]
-fn two_panes_follow_the_focus() {
-    assert_eq!(visible_panes(160), 2);
+fn two_panes_follow_the_focus_and_wide_screens_show_three() {
+    assert_eq!(visible_panes(160), 3);
+    assert_eq!(visible_panes(159), 2);
     assert_eq!(visible_panes(64), 2);
     assert_eq!(visible_panes(50), 1);
-    for width in [100, 200] {
+    let wide = Rect::new(0, 0, 200, 20);
+    for focus in Pane::ALL {
+        let panes: Vec<Pane> = pane_layout(wide, focus)
+            .into_iter()
+            .map(|(p, _)| p)
+            .collect();
+        assert_eq!(panes, Pane::ALL, "{focus:?}");
+    }
+    assert_eq!(
+        pane_layout(wide, Pane::Repos)
+            .iter()
+            .map(|(_, r)| r.width)
+            .sum::<u16>(),
+        200
+    );
+    for width in [100, 150] {
         let area = Rect::new(0, 0, width, 20);
         let shown = |focus| -> Vec<Pane> {
             pane_layout(area, focus)
@@ -48,7 +64,7 @@ fn full_screen_shows_header_two_panes_and_one_footer_row() {
     a.write("a.txt", "changed\n");
     let mut app = scanned_app(store_of(&[&a.root]));
     app.wait_background(10);
-    let rows = screen(&app, 160, 30);
+    let rows = screen(&app, 150, 30);
     assert!(shows(&rows, "Repos[1]"));
     assert!(
         shows(&rows, "─ repo ─"),
@@ -56,7 +72,7 @@ fn full_screen_shows_header_two_panes_and_one_footer_row() {
     );
     assert!(!shows(&rows, "a.txt +1 -3"), "Repos focus hides the diff");
     app.focus = Pane::Files;
-    let rows = screen(&app, 160, 30);
+    let rows = screen(&app, 150, 30);
     assert!(
         !shows(&rows, "Repos[1]"),
         "Files focus hides the repositories"
@@ -222,8 +238,8 @@ fn only_code_lines_carry_the_line_number_gutter() {
     // Files focus shows Files + Diff.
     app.focus = Pane::Files;
     app.wait_background(10);
-    let rows = screen(&app, 160, 30);
-    let diff_x = pane_layout(Rect::new(0, 5, 160, 24), app.focus)[1].1.x as usize + 2;
+    let rows = screen(&app, 150, 30);
+    let diff_x = pane_layout(Rect::new(0, 5, 150, 24), app.focus)[1].1.x as usize + 2;
     let starts = |needle: &str| {
         let row = rows.iter().find(|r| r.contains(needle)).unwrap();
         row[..row.find(needle).unwrap()].chars().count()
@@ -306,7 +322,7 @@ fn unpushed_commits_show_date_and_subject_and_their_hash_titles_the_diff() {
         .unpushed[0]
         .clone();
     let rows = screen(&app, 160, 30);
-    assert!(shows(&rows, "  ↑ second commit"), "{rows:#?}");
+    assert!(shows(&rows, " ↑ second commit"), "{rows:#?}");
     assert!(
         shows(&rows, &format!(" {} +1 -3 ", commit.hash)),
         "{rows:#?}"

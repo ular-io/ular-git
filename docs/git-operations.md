@@ -9,19 +9,30 @@
 
 ## Files pane
 
-- Rows: the changed files of the selected working tree — conflicts first, then
-  tracked changes, then untracked files, each by path — followed by unpushed
-  commits as `↑ <first line of the message>`, the `↑` in the second
-  status-code column (newest first).
+- Rows, top to bottom:
+  1. the changed files of the selected working tree — conflicts first, then
+     tracked changes, then untracked files, each by path (`Working tree clean`
+     when there are none, plus `N behind upstream`);
+  2. a muted `History` divider joined to the pane border;
+  3. the commit history from HEAD with git's branch graph (`git log --graph`),
+     faded: `●` commits, `↑` (branch color, not faded) commits not on the
+     upstream yet, `│ ╱ ╲ ─` lanes colored per lane. Connector-only graph lines
+     are skipped by the cursor. The graph uses at most 12 columns;
+  4. `… more` when older commits exist.
+- History is read for the selected working tree only, in the background, when
+  it is selected or its HEAD changes (commit, pull, checkout): the newest 100
+  commits first. Selecting `… more` re-reads twice as many (the graph needs one
+  pass from HEAD) and keeps the cursor on the first newly read commit.
 - Status code: two letters, index then worktree (`M `, ` M`, `MM`, `A `,
   `D `, `R `, `??`, `UU`). Paths keep their tail when cut (`…/mod.rs`);
   renames show `old → new`.
 - Title: the selected repository's (or worktree's) folder name; `Files` while
   a group header is selected.
-- Moving the cursor loads that item's diff immediately. The cursor stays on the
-  same file (by path or commit hash) across rescans while it is listed.
+- Moving the cursor loads that item's diff immediately (a commit opens as
+  `git show`). The cursor stays on the same file or commit across rescans and
+  history reloads while it is listed.
 - Empty states: `Select a repository` (group row), `Scanning…`, the scan
-  error, `Working tree clean` (plus `N behind upstream`).
+  error, `Loading history…`.
 
 ## Diff pane
 

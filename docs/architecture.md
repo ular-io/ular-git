@@ -18,6 +18,7 @@
 | `git/mod.rs` | `git_command` (shared env: `GIT_OPTIONAL_LOCKS=0`, `GIT_TERMINAL_PROMPT=0`, no pager), `scan`, status types |
 | `git/status.rs` | `status --porcelain=v2 --branch -z` parsing, unpushed log, stash count |
 | `git/worktree.rs` | `worktree list --porcelain -z` parsing |
+| `git/history.rs` | `git log --graph` history (graph prefix + commit per line) |
 | `git/diff.rs` | Diff loading (file sections, untracked, conflict, `git show`), line classification and numbering, line limit |
 | `git/ops.rs` | Commit, worktree remove / prune |
 | `git/remote.rs` | Push, pull `--ff-only`, default remote; network env and timeout |
@@ -30,7 +31,7 @@
 | `ui/background.rs` | Scan pool, one-off threads, `Patch` channel |
 | `ui/scan.rs` | Scan scheduling, focus rescan, auto rescan, cache load / save |
 | `ui/tree.rs` | Repository pane rows (pure) |
-| `ui/files.rs`, `ui/diff_view.rs` | File items and selection, latest-wins diff loader |
+| `ui/files.rs`, `ui/diff_view.rs`, `ui/history_view.rs` | File-pane items (files, history commits, `… more`) and selection; latest-wins diff and history loaders |
 | `ui/sync.rs` | Push / pull from the UI |
 | `ui/input.rs`, `ui/keys.rs` | Key routing; header / help hints |
 | `ui/render/` | Frame, pane layout, header, panes |

@@ -8,6 +8,7 @@ pub mod background;
 pub mod components;
 pub mod diff_view;
 mod files;
+pub mod history_view;
 pub mod input;
 pub mod keys;
 mod notice;
@@ -113,6 +114,8 @@ pub struct App {
     pub(crate) file_list: RefCell<ratatui::widgets::ListState>,
     pub(crate) file_page: Cell<usize>,
     pub diff: DiffView,
+    /// Commit graph of the selected working tree (file pane, below the files).
+    pub history: history_view::HistoryView,
 
     /// Repository filter text (`/`); applies while non-empty.
     pub filter: TextInput,
@@ -199,6 +202,7 @@ impl App {
             file_list: RefCell::new(Default::default()),
             file_page: Cell::new(1),
             diff: DiffView::default(),
+            history: history_view::HistoryView::default(),
             filter: TextInput::new(String::new()),
             changed_only: false,
             filter_before: String::new(),
@@ -340,6 +344,10 @@ impl App {
     }
 }
 
+#[cfg(test)]
+mod history_tests;
+#[cfg(test)]
+mod sync_tests;
 #[cfg(test)]
 pub(crate) mod test_support;
 #[cfg(test)]

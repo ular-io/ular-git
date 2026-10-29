@@ -1,7 +1,13 @@
-//! File pane: changed files (status code + path), then unpushed commits.
+//! File pane: changed files (status code + path), then the commit history
+//! with git's branch graph, faded, under a `History` divider.
 
-use super::{body_style, empty_line, pane_block, pane_tone, selection_style, Tone};
+use super::{
+    body_style, draw_divider, empty_line, pane_block, pane_tone, selection_style, Divider, Tone,
+};
 use crate::git::EntryKind;
+use crate::git::FileEntry;
+use crate::theme::{color_rgb, Theme};
+use crate::ui::components::modal::fade_toward;
 use crate::ui::components::scrollbar::draw_vscrollbar;
 use crate::ui::components::text::{truncate_left_w, truncate_w};
 use crate::ui::files::FileItem;
@@ -57,13 +63,56 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
         return;
     };
     let items = app.file_items();
-    if items.is_empty() {
+    let history = app.current_history();
+    let unpushed = |hash: &str| status.unpushed.iter().any(|c| c.hash == hash);
+
+    // Visual rows; `Item` rows are selectable (index into `items`).
+    let mut visual: Vec<Visual> = Vec::new();
+    let mut next = 0;
+    for _ in &status.files {
+        visual.push(Visual::Item(next));
+        next += 1;
+    }
+    if status.files.is_empty() {
         let mut text = "Working tree clean".to_string();
         if status.branch.behind > 0 {
             text.push_str(&format!(" · {} behind upstream", status.branch.behind));
         }
-        empty_line(f, inner, &text, dim_style);
-        return;
+        visual.push(Visual::Note(text));
+    }
+    let mut graph_w = 0;
+    match (history, &app.history.error) {
+        (Some(h), _) if !h.rows.is_empty() => {
+            visual.push(Visual::Divider);
+            graph_w = h
+                .rows
+                .iter()
+                .map(|r| r.graph.chars().count())
+                .max()
+                .unwrap_or(0)
+                .min(GRAPH_MAX);
+            for row in &h.rows {
+                match &row.commit {
+                    Some(_) => {
+                        visual.push(Visual::Graph(Some(next), &row.graph));
+                        next += 1;
+                    }
+                    None => visual.push(Visual::Graph(None, &row.graph)),
+                }
+            }
+            if h.more {
+                visual.push(Visual::Item(next));
+            }
+        }
+        (Some(_), _) => {}
+        (None, Some(err)) => {
+            visual.push(Visual::Divider);
+            visual.push(Visual::Note(err.clone()));
+        }
+        (None, None) => {
+            visual.push(Visual::Divider);
+            visual.push(Visual::Note("Loading history…".into()));
+        }
     }
 
     let list_area = Rect {
@@ -73,63 +122,51 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
     };
     let w = list_area.width.saturating_sub(1) as usize;
     let dim = |s: Style| body_style(tone, s, th);
-    let lines: Vec<ListItem> = items
+    let mut selected_row = 0;
+    let lines: Vec<ListItem> = visual
         .iter()
         .enumerate()
-        .map(|(i, item)| {
-            let mut spans: Vec<Span> = match item {
-                FileItem::File(file) => {
-                    let code: Vec<char> = file.code().chars().collect();
-                    let (xs, ys) = match file.kind {
-                        EntryKind::Untracked => {
-                            let s = Style::default().fg(th.untracked);
-                            (s, s)
-                        }
-                        EntryKind::Conflict => {
-                            let s = Style::default().fg(th.error).add_modifier(Modifier::BOLD);
-                            (s, s)
-                        }
-                        EntryKind::Tracked => (
-                            Style::default().fg(th.success).add_modifier(Modifier::BOLD),
-                            Style::default().fg(th.warning).add_modifier(Modifier::BOLD),
-                        ),
-                    };
-                    let path = match &file.orig_path {
-                        Some(orig) => format!("{orig} → {}", file.path),
-                        None => file.path.clone(),
-                    };
-                    let room = w.saturating_sub(4);
-                    let path = truncate_left_w(&path, room);
-                    let (dir, name) = match path.rfind('/') {
-                        Some(i) => (path[..=i].to_string(), path[i + 1..].to_string()),
-                        None => (String::new(), path),
-                    };
-                    vec![
-                        Span::raw(" "),
-                        Span::styled(code[0].to_string(), dim(xs)),
-                        Span::styled(code[1].to_string(), dim(ys)),
-                        Span::raw(" "),
-                        Span::styled(dir, th.soft_dim()),
-                        Span::styled(name, dim(Style::default())),
-                    ]
+        .map(|(row, v)| {
+            let (item_index, mut spans): (Option<usize>, Vec<Span>) = match v {
+                Visual::Divider => return ListItem::new(Line::default()),
+                Visual::Note(text) => {
+                    return ListItem::new(Line::from(Span::styled(
+                        format!(" {}", truncate_w(text, w.saturating_sub(1))),
+                        dim_style,
+                    )))
                 }
-                // `↑` sits in the second (worktree) column of the status
-                // code, one space before the message's first line like
-                // ` M path`.
-                FileItem::Commit(c) => {
-                    let head = "  ↑ ";
-                    let room = w.saturating_sub(head.width());
-                    vec![
-                        Span::styled(head, dim(Style::default().fg(th.branch))),
-                        Span::styled(truncate_w(&c.subject, room), dim(Style::default())),
-                    ]
+                Visual::Graph(None, graph) => (None, graph_spans(graph, graph_w, false, tone, th)),
+                Visual::Graph(Some(i), _) | Visual::Item(i) if items.get(*i).is_some() => {
+                    let item = items[*i];
+                    let spans = match item {
+                        FileItem::File(file) => file_spans(file, w, tone, th),
+                        FileItem::Commit(c, _) => {
+                            let up = unpushed(&c.hash);
+                            let mut spans = graph_spans(graph_of(v), graph_w, up, tone, th);
+                            let used: usize = spans.iter().map(|s| s.content.width()).sum();
+                            let style = if up {
+                                dim(Style::default())
+                            } else {
+                                th.soft_dim()
+                            };
+                            spans.push(Span::styled(
+                                truncate_w(&c.subject, w.saturating_sub(used + 1)),
+                                style,
+                            ));
+                            spans
+                        }
+                        FileItem::More => vec![Span::styled(" … more", th.soft_dim())],
+                    };
+                    (Some(*i), spans)
                 }
+                _ => (None, Vec::new()),
             };
             let used: usize = spans.iter().map(|s| s.content.width()).sum();
             // Pad through the right padding cell so the selection bar reaches
             // the border.
             spans.push(Span::raw(" ".repeat((w + 1).saturating_sub(used))));
-            if i == app.file_sel {
+            if item_index == Some(app.file_sel) {
+                selected_row = row;
                 let sel = selection_style(tone, th);
                 for s in &mut spans {
                     s.style = sel;
@@ -140,9 +177,122 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
         .collect();
     let total = lines.len();
     let mut state = app.file_list.borrow_mut();
-    state.select(Some(app.file_sel));
+    state.select(Some(selected_row));
     f.render_stateful_widget(List::new(lines), list_area, &mut state);
     let offset = state.offset();
     drop(state);
+    // The History divider joins the pane border like the diff titles.
+    if let Some(at) = visual.iter().position(|v| matches!(v, Visual::Divider)) {
+        if at >= offset && at < offset + view {
+            let d = Divider {
+                y: inner.y + (at - offset) as u16,
+                label: "History".into(),
+                style: th.soft_dim(),
+            };
+            draw_divider(f, area, &d, tone, th);
+        }
+    }
     draw_vscrollbar(f, area, tone == Tone::Focused, offset, total, view, th);
+}
+
+/// Graph columns shown at most; wider graphs are cut on the right.
+const GRAPH_MAX: usize = 12;
+
+/// One row of the file pane.
+enum Visual<'a> {
+    /// A selectable file or `… more` row (index into the items).
+    Item(usize),
+    /// A graph line: a commit (item index) or a connector (`None`).
+    Graph(Option<usize>, &'a str),
+    Note(String),
+    Divider,
+}
+
+fn graph_of<'a>(v: &Visual<'a>) -> &'a str {
+    match v {
+        Visual::Graph(_, g) => g,
+        _ => "",
+    }
+}
+
+/// git's graph characters as box drawing, colored per lane (two columns per
+/// lane) and faded so history stays in the background. An unpushed commit's
+/// node is `↑` in the branch color.
+fn graph_spans(
+    graph: &str,
+    width: usize,
+    unpushed: bool,
+    tone: Tone,
+    th: &Theme,
+) -> Vec<Span<'static>> {
+    let lanes = [
+        th.branch,
+        th.diff_add,
+        th.warning,
+        th.diff_hunk,
+        th.untracked,
+        th.accent,
+    ];
+    let mut spans = vec![Span::raw(" ")];
+    let mut used = 0;
+    for (col, ch) in graph.chars().take(width).enumerate() {
+        let glyph = match ch {
+            '*' if unpushed => '↑',
+            '*' => '●',
+            '|' => '│',
+            '/' => '╱',
+            '\\' => '╲',
+            '-' => '─',
+            '.' => '·',
+            other => other,
+        };
+        let color = lanes[(col / 2) % lanes.len()];
+        let style = if tone == Tone::Dimmed {
+            th.soft_dim()
+        } else if ch == '*' && unpushed {
+            Style::default().fg(th.branch).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(fade_toward(color_rgb(color), th.bg_rgb()))
+        };
+        spans.push(Span::styled(glyph.to_string(), style));
+        used += 1;
+    }
+    spans.push(Span::raw(" ".repeat(width.saturating_sub(used) + 1)));
+    spans
+}
+
+fn file_spans(file: &FileEntry, w: usize, tone: Tone, th: &Theme) -> Vec<Span<'static>> {
+    let dim = |s: Style| body_style(tone, s, th);
+    let code: Vec<char> = file.code().chars().collect();
+    let (xs, ys) = match file.kind {
+        EntryKind::Untracked => {
+            let s = Style::default().fg(th.untracked);
+            (s, s)
+        }
+        EntryKind::Conflict => {
+            let s = Style::default().fg(th.error).add_modifier(Modifier::BOLD);
+            (s, s)
+        }
+        EntryKind::Tracked => (
+            Style::default().fg(th.success).add_modifier(Modifier::BOLD),
+            Style::default().fg(th.warning).add_modifier(Modifier::BOLD),
+        ),
+    };
+    let path = match &file.orig_path {
+        Some(orig) => format!("{orig} → {}", file.path),
+        None => file.path.clone(),
+    };
+    let path = truncate_left_w(&path, w.saturating_sub(4));
+    let (dir, name) = match path.rfind('/') {
+        Some(i) => (path[..=i].to_string(), path[i + 1..].to_string()),
+        None => (String::new(), path),
+    };
+    vec![
+        Span::raw(" "),
+        Span::styled(code[0].to_string(), dim(xs)),
+        Span::styled(code[1].to_string(), dim(ys)),
+        Span::raw(" "),
+        Span::styled(dir, th.soft_dim()),
+        Span::styled(name, dim(Style::default())),
+    ]
 }

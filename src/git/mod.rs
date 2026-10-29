@@ -7,6 +7,7 @@
 
 pub mod diff;
 pub mod discover;
+pub mod history;
 pub mod ops;
 pub mod remote;
 pub mod status;
