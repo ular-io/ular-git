@@ -37,8 +37,9 @@
   line with the path right-aligned (`├──── <path> ──┤`, `old → new` for a
   rename); a single-file diff already names the file in the pane title.
   git's `---` between a commit's message and its stat is drawn as the same
-  border-to-border rule without a label, and the blank line git prints
-  between the stat and the first file is dropped. Lines that carry information stay,
+  border-to-border rule, carrying the stat summary (`N files changed, …`)
+  right-aligned; the summary line is removed from the stat. The blank line git
+  prints between the stat and the first file is dropped. Lines that carry information stay,
   muted: new / deleted file mode, mode change, similarity, binary.
 - A gutter with old / new line numbers appears on code lines (added, removed,
   context) when the pane is at least 50 columns wide. Headers, meta lines,

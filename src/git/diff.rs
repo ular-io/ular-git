@@ -26,7 +26,8 @@ pub enum LineKind {
     /// The `--stat` block of a shown commit.
     Stat,
     /// git's `---` separator between a shown commit's message and its stat,
-    /// drawn as a full-width rule.
+    /// drawn as a full-width rule. Its text becomes the stat summary
+    /// (`N files changed, …`) when there is one, shown right-aligned on it.
     Rule,
     /// Per-file title of a shown commit (`── path ──`), in place of git's
     /// `diff --git` / `index` / `---` / `+++` lines.
@@ -341,6 +342,29 @@ fn push_parsed(doc: &mut DiffDoc, raw: &[String], show: bool) {
         }
         doc.lines.push(line);
     }
+    if show {
+        fold_stat_summary(doc);
+    }
+}
+
+/// Moves the stat's summary line (`N files changed, …`) into the rule above
+/// the stat, where it is drawn as the rule's right-aligned label.
+fn fold_stat_summary(doc: &mut DiffDoc) {
+    let Some(rule) = doc.lines.iter().position(|l| l.kind == LineKind::Rule) else {
+        return;
+    };
+    let stat_end = doc.lines[rule + 1..]
+        .iter()
+        .position(|l| l.kind != LineKind::Stat)
+        .map_or(doc.lines.len(), |n| rule + 1 + n);
+    let summary = (rule + 1..stat_end).rev().find(|&i| {
+        let t = doc.lines[i].text.trim();
+        t.starts_with(|c: char| c.is_ascii_digit()) && t.contains(" changed")
+    });
+    if let Some(i) = summary {
+        let line = doc.lines.remove(i);
+        doc.lines[rule].text = line.text.trim().to_string();
+    }
 }
 
 /// git file header lines that add nothing on screen: the blob ids and the
@@ -483,6 +507,26 @@ mod tests {
             ]
         );
         assert_eq!(doc.lines[9].kind, LineKind::Del);
+    }
+
+    #[test]
+    fn the_stat_summary_moves_onto_the_rule() {
+        let mut doc = DiffDoc::default();
+        let raw = "d  a <a@x>\nsubject\n---\n x | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n\ndiff --git a/x b/x\n@@ -1 +1 @@\n-a\n+b";
+        push_parsed(&mut doc, &lines(raw), true);
+        let kinds: Vec<(LineKind, &str)> = doc.lines[2..5]
+            .iter()
+            .map(|l| (l.kind, l.text.as_str()))
+            .collect();
+        use LineKind::*;
+        assert_eq!(
+            kinds,
+            [
+                (Rule, "1 file changed, 1 insertion(+), 1 deletion(-)"),
+                (Stat, " x | 2 +-"),
+                (File, "x"),
+            ]
+        );
     }
 
     #[test]

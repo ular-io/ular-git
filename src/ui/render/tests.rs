@@ -339,16 +339,17 @@ fn commit_files_get_a_full_width_title_line() {
         "runs from the left border: {title}"
     );
     assert!(!shows(&rows, "diff --git"));
-    // git's `---` is a border-to-border rule, and no blank row separates the
-    // stat from the file title.
+    // git's `---` is a border-to-border rule carrying the stat summary on its
+    // right, and no blank row separates the stat from the file title.
     let rule = rows
         .iter()
-        .position(|r| r.contains("├──────") && !r.contains("a.txt"))
-        .expect("rule for ---");
+        .position(|r| r.contains("├──") && r.contains(" 1 file changed, ") && r.contains("──┤"))
+        .expect("rule with the summary");
     assert!(!rows.iter().any(|r| r.contains(" --- ")));
     let title = rows.iter().position(|r| r.contains(" a.txt ──┤")).unwrap();
+    assert_eq!(title, rule + 2, "rule, one stat row, then the file title");
     assert!(
-        rows[title - 1].contains("changed"),
+        rows[title - 1].contains("a.txt | "),
         "{:?}",
         &rows[rule..=title]
     );

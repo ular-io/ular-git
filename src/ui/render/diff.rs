@@ -233,13 +233,13 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
             ) {
                 dividers.push(Divider {
                     y: inner.y + row as u16,
-                    // git's `---` becomes a plain rule.
-                    label: if line.kind == LineKind::Rule {
+                    // A rule carries the stat summary, or nothing (`---`).
+                    label: if line.kind == LineKind::Rule && line.text == "---" {
                         String::new()
                     } else {
-                        seg
+                        line.text.clone()
                     },
-                    right: line.kind == LineKind::File,
+                    right: matches!(line.kind, LineKind::File | LineKind::Rule),
                     style,
                 });
                 return Line::default();
