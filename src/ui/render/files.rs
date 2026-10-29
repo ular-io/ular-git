@@ -110,10 +110,11 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                         Span::styled(name, dim(Style::default())),
                     ]
                 }
-                // `↑` sits where a file's status code does, then the
-                // message's first line.
+                // `↑` sits in the second (worktree) column of the status
+                // code, one space before the message's first line like
+                // ` M path`.
                 FileItem::Commit(c) => {
-                    let head = " ↑  ";
+                    let head = "  ↑ ";
                     let room = w.saturating_sub(head.width());
                     vec![
                         Span::styled(head, dim(Style::default().fg(th.branch))),

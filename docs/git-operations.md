@@ -11,7 +11,8 @@
 
 - Rows: the changed files of the selected working tree — conflicts first, then
   tracked changes, then untracked files, each by path — followed by unpushed
-  commits as `↑  <first line of the message>` (newest first).
+  commits as `↑ <first line of the message>`, the `↑` in the second
+  status-code column (newest first).
 - Status code: two letters, index then worktree (`M `, ` M`, `MM`, `A `,
   `D `, `R `, `??`, `UU`). Paths keep their tail when cut (`…/mod.rs`);
   renames show `old → new`.
