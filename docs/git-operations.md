@@ -42,8 +42,13 @@
   prints between the stat and the first file is dropped. Lines that carry information stay,
   muted: new / deleted file mode, mode change, similarity, binary.
 - A gutter with old / new line numbers appears on code lines (added, removed,
-  context) when the pane is at least 50 columns wide. Headers, meta lines,
-  `@@` lines, and section titles start at the left edge.
+  context) when the pane is at least 50 columns wide. Headers and meta lines
+  start at the left edge.
+- Section titles (`Staged changes`, `Unstaged changes`, `Untracked file`,
+  `Merge conflict`) are right-aligned on a border-to-border line.
+- A hunk line puts its range on the right (`@@ -14,6 +14,7 @@`) and git's
+  function / section context on the left; it never wraps, and the context is
+  cut first when the pane is narrow.
 - `.` toggles line wrapping (default: lines cut at the pane edge). Wrapped
   continuation lines keep a blank gutter.
 - A commit's message (byline, subject, body) always wraps, whatever `.` says;

@@ -61,10 +61,11 @@ ular-git applies them.
 `diff_add` added, `diff_del` removed, `diff_hunk` `@@` lines, soft-dim meta and
 the commit byline, bold commit subject, `accent` bold section and file titles.
 Title lines run from border to border and join it (`├ ┤` on a plain frame,
-`┠ ┨` on the focused thick frame, in the border's style); section titles are
-left-aligned (`├── Staged changes ───┤`), file paths right-aligned
-(`├─── src/app.rs ──┤`). The line-number gutter (`dim`) is on code lines
-only.
+`┠ ┨` on the focused thick frame, in the border's style). Every label is
+right-aligned: `├─── Unstaged changes ──┤`, `├─── src/app.rs ──┤`,
+`├─── 1 file changed, … ──┤`. Hunk lines right-align their `@@ … @@` range
+with the function context on the left. The line-number gutter (`dim`) is on
+code lines only.
 
 ## Theme roles specific to ular-git
 

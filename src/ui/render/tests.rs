@@ -214,13 +214,18 @@ fn only_code_lines_carry_the_line_number_gutter() {
         let row = rows.iter().find(|r| r.contains(needle)).unwrap();
         row[..row.find(needle).unwrap()].chars().count()
     };
-    // Section and hunk lines start at the pane's left edge…
-    // The section title line is joined to the left border (`├──`).
-    assert_eq!(starts("├── Unstaged changes"), diff_x - 2);
-    assert_eq!(starts("@@ -1,3"), diff_x);
+    // The section title is right-aligned on a border-to-border line, and the
+    // hunk range is right-aligned inside the pane.
+    let section = rows
+        .iter()
+        .find(|r| r.contains(" Unstaged changes ──┤"))
+        .unwrap();
+    assert!(section.contains("│├────"), "{section}");
+    let hunk = rows.iter().find(|r| r.contains("@@ -1,3 +1,3 @@")).unwrap();
+    assert!(hunk.trim_end().ends_with("@@ │"), "{hunk}");
     // git's redundant file header lines are not shown.
     assert!(!shows(&rows, "diff --git") && !shows(&rows, "index ") && !shows(&rows, "+++ b/"));
-    // …code lines after the number gutter.
+    // Code lines start after the number gutter.
     assert_eq!(starts("+2"), diff_x + 10);
 }
 
