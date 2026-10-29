@@ -46,9 +46,10 @@
   start at the left edge.
 - Section titles (`Staged changes`, `Unstaged changes`, `Untracked file`,
   `Merge conflict`) are centered on a border-to-border line.
-- A hunk line puts its range on the right (`@@ -14,6 +14,7 @@`) and git's
-  function / section context on the left; it never wraps, and the context is
-  cut first when the pane is narrow.
+- Hunk headers (`@@ -14,6 +14,7 @@ context`) are not shown: the line numbers
+  say where a hunk starts, and git's context guess is often wrong outside code.
+  Between two hunks of the same file a muted `⋯` line marks the skipped lines;
+  the first hunk follows its title directly.
 - `.` toggles line wrapping (default: lines cut at the pane edge). Wrapped
   continuation lines keep a blank gutter.
 - A commit's message (byline, subject, body) always wraps, whatever `.` says;

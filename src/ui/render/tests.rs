@@ -221,8 +221,17 @@ fn only_code_lines_carry_the_line_number_gutter() {
         .find(|r| r.contains(" Unstaged changes ──"))
         .unwrap();
     assert!(section.contains("│├────"), "{section}");
-    let hunk = rows.iter().find(|r| r.contains("@@ -1,3 +1,3 @@")).unwrap();
-    assert!(hunk.trim_end().ends_with("@@ │"), "{hunk}");
+    // Hunk headers are not shown; the first hunk follows the title directly.
+    assert!(!shows(&rows, "@@"));
+    let at = rows
+        .iter()
+        .position(|r| r.contains(" Unstaged changes "))
+        .unwrap();
+    assert!(
+        rows[at + 1].contains("    1    1  one"),
+        "{:?}",
+        &rows[at..at + 2]
+    );
     // git's redundant file header lines are not shown.
     assert!(!shows(&rows, "diff --git") && !shows(&rows, "index ") && !shows(&rows, "+++ b/"));
     // Code lines start after the number gutter.
@@ -369,4 +378,22 @@ fn commit_files_get_a_full_width_title_line() {
         "{:?}",
         &rows[rule..=title]
     );
+}
+
+#[test]
+fn a_gap_line_separates_hunks() {
+    let a = TestRepo::new();
+    let body: String = (1..=30).map(|i| format!("line {i}\n")).collect();
+    a.write("a.txt", &body);
+    a.git(&["commit", "-qam", "thirty lines"]);
+    let changed = body
+        .replace("line 2\n", "line two\n")
+        .replace("line 28\n", "line 28b\n");
+    a.write("a.txt", &changed);
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.wait_background(10);
+    let rows = screen(&app, 160, 40);
+    let gaps: Vec<&String> = rows.iter().filter(|r| r.contains("   ⋯")).collect();
+    assert_eq!(gaps.len(), 1, "one gap between the two hunks: {rows:#?}");
+    assert!(!shows(&rows, "@@"));
 }

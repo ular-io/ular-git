@@ -27,7 +27,7 @@ pub enum LineKind {
     Stat,
     /// git's `---` separator between a shown commit's message and its stat,
     /// drawn as a full-width rule. Its text becomes the stat summary
-    /// (`N files changed, …`) when there is one, shown right-aligned on it.
+    /// (`N files changed, …`) when there is one, shown centered on it.
     Rule,
     /// Per-file title of a shown commit (`── path ──`), in place of git's
     /// `diff --git` / `index` / `---` / `+++` lines.
@@ -36,7 +36,10 @@ pub enum LineKind {
     /// deleted file, mode change, rename, similarity, binary. (`diff --git`,
     /// `index`, `---`, and `+++` are dropped.)
     Meta,
-    Hunk,
+    /// Lines skipped between two hunks of the same file (git's `@@` line
+    /// after the first one). The first hunk's `@@` line is dropped: the line
+    /// numbers say where it starts.
+    Gap,
     Add,
     Del,
     Context,
@@ -298,12 +301,17 @@ fn push_parsed(doc: &mut DiffDoc, raw: &[String], show: bool) {
             if let Some((o, ol, n, nl)) = parse_hunk(text) {
                 (old_no, old_left, new_no, new_left) = (o, ol, n, nl);
             }
-            doc.lines.push(DiffLine {
-                kind: LineKind::Hunk,
-                text: text.clone(),
-                old: None,
-                new: None,
+            let after_hunk = doc.lines.last().is_some_and(|l| {
+                matches!(l.kind, LineKind::Add | LineKind::Del | LineKind::Context)
             });
+            if after_hunk {
+                doc.lines.push(DiffLine {
+                    kind: LineKind::Gap,
+                    text: "⋯".to_string(),
+                    old: None,
+                    new: None,
+                });
+            }
             continue;
         }
         let in_hunk = combined || old_left > 0 || new_left > 0;
@@ -472,11 +480,12 @@ mod tests {
         let kinds: Vec<_> = doc.lines.iter().map(|l| l.kind).collect();
         use LineKind::*;
         // diff --git / index / --- / +++ are dropped from a single-file diff.
-        assert_eq!(kinds, [Hunk, Context, Del, Add, Context]);
-        assert_eq!((doc.lines[1].old, doc.lines[1].new), (Some(10), Some(10)));
-        assert_eq!((doc.lines[2].old, doc.lines[2].new), (Some(11), None));
-        assert_eq!((doc.lines[3].old, doc.lines[3].new), (None, Some(11)));
-        assert_eq!((doc.lines[4].old, doc.lines[4].new), (Some(12), Some(12)));
+        // The first hunk's `@@` line is dropped too.
+        assert_eq!(kinds, [Context, Del, Add, Context]);
+        assert_eq!((doc.lines[0].old, doc.lines[0].new), (Some(10), Some(10)));
+        assert_eq!((doc.lines[1].old, doc.lines[1].new), (Some(11), None));
+        assert_eq!((doc.lines[2].old, doc.lines[2].new), (None, Some(11)));
+        assert_eq!((doc.lines[3].old, doc.lines[3].new), (Some(12), Some(12)));
         assert_eq!((doc.added, doc.removed), (1, 1));
     }
 
@@ -506,7 +515,7 @@ mod tests {
                 (File, "x"),
             ]
         );
-        assert_eq!(doc.lines[9].kind, LineKind::Del);
+        assert_eq!(doc.lines[8].kind, LineKind::Del);
     }
 
     #[test]
@@ -536,7 +545,7 @@ mod tests {
         push_parsed(&mut doc, &lines(raw), false);
         use LineKind::*;
         let kinds: Vec<_> = doc.lines.iter().map(|l| l.kind).collect();
-        assert_eq!(kinds, [Hunk, Add, Add, Del]);
+        assert_eq!(kinds, [Add, Add, Del]);
         assert!(doc.lines.iter().all(|l| l.old.is_none() && l.new.is_none()));
     }
 
@@ -569,7 +578,6 @@ diff --git a/img.png b/img.png\nnew file mode 100644\nindex 0..3\nBinary files /
             [
                 (File, "old name.rs → new name.rs"),
                 (Meta, "similarity index 90%"),
-                (Hunk, "@@ -1 +1 @@"),
                 (Del, "-a"),
                 (Add, "+b"),
                 (File, "img.png"),
@@ -584,5 +592,17 @@ diff --git a/img.png b/img.png\nnew file mode 100644\nindex 0..3\nBinary files /
         assert_eq!(header_path("diff --git a/a b/c.rs b/a b/c.rs"), "a b/c.rs");
         assert_eq!(header_path("diff --cc src/x.rs"), "src/x.rs");
         assert_eq!(header_path("diff --git a/x b/y"), "y");
+    }
+
+    #[test]
+    fn a_gap_marks_skipped_lines_between_hunks_only() {
+        let mut doc = DiffDoc::default();
+        let raw = "@@ -1,2 +1,2 @@ fn a\n x\n-y\n+z\n@@ -40,1 +40,2 @@ fn b\n w\n+v";
+        push_parsed(&mut doc, &lines(raw), false);
+        let kinds: Vec<_> = doc.lines.iter().map(|l| l.kind).collect();
+        use LineKind::*;
+        assert_eq!(kinds, [Context, Del, Add, Gap, Context, Add]);
+        assert_eq!(doc.lines[4].old, Some(40));
+        assert!(!doc.lines.iter().any(|l| l.text.contains("@@")));
     }
 }

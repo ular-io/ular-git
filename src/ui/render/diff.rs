@@ -43,7 +43,7 @@ fn kind_style(kind: LineKind, tone: Tone, th: &Theme) -> Style {
         LineKind::Subject => plain(Style::default().add_modifier(Modifier::BOLD)),
         LineKind::Header | LineKind::Stat | LineKind::Context => plain(Style::default()),
         LineKind::Meta => th.soft_dim(),
-        LineKind::Hunk => colored(th.diff_hunk),
+        LineKind::Gap => Style::default().fg(th.dim),
         LineKind::Add => colored(th.diff_add),
         LineKind::Del => colored(th.diff_del),
     }
@@ -87,10 +87,6 @@ fn title(app: &App) -> String {
     }
 }
 
-/// Full-width title line from the left border to the right border with the
-/// label centered: `├──── Unstaged changes ────┤`, `├──── src/app.rs ────┤`,
-/// or a bare rule. `┠` / `┨` join a focused, thick frame. The joints take the
-/// border's style, the line and label the title's.
 /// One title line to draw over the pane width.
 struct Divider {
     y: u16,
@@ -98,31 +94,10 @@ struct Divider {
     style: Style,
 }
 
-/// A hunk header with its range right-aligned and git's function / section
-/// context on the left: `output:            @@ -14,6 +14,7 @@`. Never wraps;
-/// the context is cut first.
-fn hunk_line(text: &str, width: usize, style: Style) -> Line<'static> {
-    let marker = if text.starts_with("@@@") { "@@@" } else { "@@" };
-    let (range, context) = match text[marker.len()..].find(marker) {
-        Some(i) => {
-            let end = marker.len() + i + marker.len();
-            (&text[..end], text[end..].trim())
-        }
-        None => (text, ""),
-    };
-    let range_w = range.width();
-    if range_w >= width {
-        return Line::from(Span::styled(truncate_w(range, width), style));
-    }
-    let context = truncate_w(context, width.saturating_sub(range_w + 1));
-    let gap = width - range_w - context.width();
-    Line::from(vec![
-        Span::styled(context, style),
-        Span::raw(" ".repeat(gap)),
-        Span::styled(range.to_string(), style),
-    ])
-}
-
+/// Full-width title line from the left border to the right border with the
+/// label centered: `├──── Unstaged changes ────┤`, `├──── src/app.rs ────┤`,
+/// or a bare rule. `┠` / `┨` join a focused, thick frame. The joints take the
+/// border's style, the line and label the title's.
 fn draw_divider(f: &mut Frame, area: Rect, d: &Divider, tone: Tone, th: &Theme) {
     let (y, label, style) = (d.y, d.label.as_str(), d.style);
     if area.width < 4 || y >= area.bottom() {
@@ -197,7 +172,7 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
     let wraps = |line: &DiffLine| {
         !matches!(
             line.kind,
-            LineKind::Section | LineKind::File | LineKind::Rule | LineKind::Hunk
+            LineKind::Section | LineKind::File | LineKind::Rule | LineKind::Gap
         ) && (app.diff.wrap || is_message(line.kind))
     };
     let any_wrap = app.diff.wrap || doc.lines.iter().any(|l| is_message(l.kind));
@@ -265,8 +240,10 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
                 });
                 return Line::default();
             }
-            if line.kind == LineKind::Hunk {
-                return hunk_line(&line.text, full_w, style);
+            // The gap marker sits in the old-number column of the gutter.
+            if line.kind == LineKind::Gap {
+                let at = if numbered { "   ⋯" } else { "⋯" };
+                return Line::from(Span::styled(at, style));
             }
             let mut spans = Vec::new();
             if has_gutter(line) {
@@ -290,30 +267,4 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
         draw_divider(f, area, d, tone, th);
     }
     draw_vscrollbar(f, area, tone == Tone::Focused, scroll, total, view, th);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::hunk_line;
-    use ratatui::style::Style;
-
-    fn text(line: ratatui::text::Line) -> String {
-        line.spans.iter().map(|s| s.content.as_ref()).collect()
-    }
-
-    #[test]
-    fn hunk_ranges_go_right_and_context_left() {
-        let s = Style::default();
-        assert_eq!(
-            text(hunk_line("@@ -14,6 +14,7 @@ output:", 30, s)),
-            "output:      @@ -14,6 +14,7 @@"
-        );
-        assert_eq!(text(hunk_line("@@ -1 +1 @@", 14, s)), "   @@ -1 +1 @@");
-        // Too narrow: the context goes first, then the range is cut.
-        assert_eq!(text(hunk_line("@@ -1 +1 @@ fn x", 12, s)), " @@ -1 +1 @@");
-        assert_eq!(
-            text(hunk_line("@@@ -1 -1 +1 @@@ x", 20, s)),
-            "x   @@@ -1 -1 +1 @@@"
-        );
-    }
 }
