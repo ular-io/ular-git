@@ -82,7 +82,10 @@ fn full_screen_shows_header_two_panes_and_one_footer_row() {
         "the diff is titled by the file name"
     );
     assert!(shows(&rows, "<ctrl+u> Refresh All"));
-    assert!(shows(&rows, "|___/"), "logo shown when wide");
+    assert!(
+        shows(&screen(&app, 180, 30), "\\___/|_\\__,_|"),
+        "logo shown when wide"
+    );
     assert!(
         rows[29].contains("<1> Repos"),
         "footer falls back to pane keys"
@@ -103,7 +106,7 @@ fn narrow_header_drops_the_logo_before_shortcut_columns() {
     let a = TestRepo::new();
     let app = scanned_app(store_of(&[&a.root]));
     let rows = screen(&app, 140, 24);
-    assert!(!shows(&rows, "|___/"));
+    assert!(!shows(&rows, "\\___/|_\\__,_|"));
     assert!(shows(&rows, "<:>"));
     let rows = screen(&app, 100, 24);
     assert!(!shows(&rows, "<:>"), "rightmost column goes first");

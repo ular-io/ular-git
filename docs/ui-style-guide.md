@@ -15,7 +15,7 @@ ular-git applies them.
 
 | Area | Content |
 | --- | --- |
-| Header (5 rows, no border) | Context column (Repos totals; the selected Repo — `repo › worktree` for a worktree — with its Branch and Path; Filter while one is applied), the focused pane's two shortcut columns, the common column (`:` `!` `ctrl+u` `?` `q`), the logo (`ugit`, the short alias) |
+| Header (5 rows, no border) | Context column (Repos totals; the selected Repo — `repo › worktree` for a worktree — with its Branch and Path; Filter while one is applied), the focused pane's two shortcut columns, the common column (`:` `!` `ctrl+u` `?` `q`), the logo (`UlarGit` in figlet `small`, 29 × 4; shown from about 162 columns with Repos focus, 160 with Files focus) |
 | Filter line (3 rows, only while typing `/`) | The repository filter input |
 | Panes | 1 Repos · 2 Files · 3 Diff |
 | Footer (1 row) | The latest result with a text tag (`[INFO]` `[OK]` `[WARN]` `[ERROR]`) for 6 s, then `<1> Repos <2> Files <3> Diff` with the focused pane highlighted. Never action hints |

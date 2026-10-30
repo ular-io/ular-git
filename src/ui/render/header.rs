@@ -16,14 +16,13 @@ use ratatui::{
 };
 use unicode_width::UnicodeWidthStr;
 
-/// "ugit" (the short alias of ular-git) in ASCII, every row the same width
-/// (fixed by a test).
-pub(crate) const LOGO: [&str; 5] = [
-    " _   _  __ _(_) |_ ",
-    "| | | |/ _` | | __|",
-    "| |_| | (_| | | |_ ",
-    " \\__,_|\\__, |_|\\__|",
-    "       |___/       ",
+/// "UlarGit" in ASCII (figlet `small`), every row the same width (fixed by a
+/// test); drawn from the header's top row.
+pub(crate) const LOGO: [&str; 4] = [
+    " _   _ _           ___ _ _   ",
+    "| | | | |__ _ _ _ / __(_) |_ ",
+    "| |_| | / _` | '_| (_ | |  _|",
+    " \\___/|_\\__,_|_|  \\___|_|\\__|",
 ];
 const LOGO_GAP: u16 = 2;
 const LABEL_W: usize = 8;
