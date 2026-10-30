@@ -266,3 +266,7 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
     }
     draw_vscrollbar(f, area, tone == Tone::Focused, scroll, total, view, th);
 }
+
+#[cfg(test)]
+#[path = "diff_tests.rs"]
+mod tests;

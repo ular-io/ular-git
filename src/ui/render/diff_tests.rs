@@ -1,0 +1,207 @@
+//! Diff pane rendering tests: line numbers, file and commit headers, hunk
+//! gaps, and message wrapping.
+
+use crate::git::test_repo::TestRepo;
+use crate::ui::render::pane_layout;
+use crate::ui::test_support::*;
+use crate::ui::Pane;
+use ratatui::layout::Rect;
+
+#[test]
+fn only_code_lines_carry_the_line_number_gutter() {
+    let a = TestRepo::new();
+    a.write("a.txt", "one\n2\nthree\n");
+    let mut app = scanned_app(store_of(&[&a.root]));
+    // Files focus shows Files + Diff.
+    app.focus = Pane::Files;
+    app.wait_background(10);
+    let rows = screen(&app, 150, 30);
+    let diff_x = pane_layout(Rect::new(0, 5, 150, 24), app.focus)[1].1.x as usize + 2;
+    let starts = |needle: &str| {
+        let row = rows.iter().find(|r| r.contains(needle)).unwrap();
+        row[..row.find(needle).unwrap()].chars().count()
+    };
+    // The section title sits on a border-to-border line.
+    let section = rows
+        .iter()
+        .find(|r| r.contains(" Unstaged changes ──"))
+        .unwrap();
+    assert!(
+        section.contains("├────") && section.trim_end().ends_with('┤'),
+        "{section}"
+    );
+    // Hunk headers are not shown; the first hunk follows the title directly.
+    assert!(!shows(&rows, "@@"));
+    let at = rows
+        .iter()
+        .position(|r| r.contains(" Unstaged changes "))
+        .unwrap();
+    assert!(
+        rows[at + 1].contains("    1    1  one"),
+        "{:?}",
+        &rows[at..at + 2]
+    );
+    // git's redundant file header lines are not shown.
+    assert!(!shows(&rows, "diff --git") && !shows(&rows, "index ") && !shows(&rows, "+++ b/"));
+    // Code lines start after the number gutter.
+    assert_eq!(starts("+2"), diff_x + 10);
+}
+
+#[test]
+fn a_file_diff_starts_with_its_wrapped_path_and_counts() {
+    let a = TestRepo::new();
+    let path = "src/main/java/kr/example/service/inspection/InspectionService.java";
+    a.write(path, "one\n");
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.focus = Pane::Diff;
+    app.wait_background(10);
+    let rows = screen(&app, 60, 20);
+    assert!(shows(&rows, "━ InspectionService.java ━"), "{rows:#?}");
+    // The first body row; broken after a `/`, the file name whole below.
+    assert!(
+        rows[6].contains("┃ src/main/java/kr/example/service/inspection/  "),
+        "{rows:#?}"
+    );
+    assert!(rows[7].contains("┃ InspectionService.java  "), "{rows:#?}");
+    assert!(rows[8].contains("┃ +1  "), "{rows:#?}");
+    assert!(rows[9].contains(" Untracked file "), "{rows:#?}");
+}
+
+#[test]
+fn unpushed_commits_show_date_and_subject_and_their_hash_titles_the_diff() {
+    let a = TestRepo::new();
+    let parent = a.root.parent().unwrap();
+    let remote = parent.join("remote.git");
+    crate::git::test_repo::git(parent, &["init", "-q", "--bare", remote.to_str().unwrap()]);
+    a.git(&["remote", "add", "origin", remote.to_str().unwrap()]);
+    a.git(&["push", "-q", "-u", "origin", "main"]);
+    a.write("a.txt", "next\n");
+    a.git(&["commit", "-qam", "second commit\n\nbody text"]);
+    let mut app = scanned_app(store_of(&[&a.root]));
+    // Files focus shows Files + Diff.
+    app.focus = Pane::Files;
+    app.wait_background(10);
+    let commit = app
+        .current_tree()
+        .unwrap()
+        .status
+        .as_ref()
+        .unwrap()
+        .unpushed[0]
+        .clone();
+    let rows = screen(&app, 160, 30);
+    assert!(shows(&rows, " ↑ second commit"), "{rows:#?}");
+    assert!(
+        shows(&rows, &format!(" {} +1 -3 ", commit.hash)),
+        "{rows:#?}"
+    );
+    let byline = rows
+        .iter()
+        .position(|r| r.contains("  t <t@t>"))
+        .expect("byline");
+    assert!(
+        rows[byline + 1].contains("second commit"),
+        "message right below"
+    );
+    assert!(!shows(&rows, "CommitDate"));
+    assert!(shows(&rows, "body text"));
+}
+
+#[test]
+fn commit_messages_wrap_even_with_line_wrap_off() {
+    let a = TestRepo::new();
+    let parent = a.root.parent().unwrap();
+    let remote = parent.join("remote.git");
+    crate::git::test_repo::git(parent, &["init", "-q", "--bare", remote.to_str().unwrap()]);
+    a.git(&["remote", "add", "origin", remote.to_str().unwrap()]);
+    a.git(&["push", "-q", "-u", "origin", "main"]);
+    let long = "word ".repeat(40);
+    a.write("a.txt", &format!("{long}\n"));
+    a.git(&["commit", "-qam", &format!("subject\n\n{long}END")]);
+    let mut app = scanned_app(store_of(&[&a.root]));
+    // Files focus shows Files + Diff.
+    app.focus = Pane::Files;
+    app.wait_background(10);
+    assert!(!app.diff.wrap);
+    let rows = screen(&app, 160, 40);
+    assert!(
+        shows(&rows, "END"),
+        "the message's tail is wrapped into view"
+    );
+    // A code line still ends at the pane edge.
+    assert!(
+        rows.iter().any(|r| r.contains("+word") && r.contains('…')),
+        "{rows:#?}"
+    );
+}
+
+#[test]
+fn commit_files_get_a_full_width_title_line() {
+    let a = TestRepo::new();
+    let parent = a.root.parent().unwrap();
+    let remote = parent.join("remote.git");
+    crate::git::test_repo::git(parent, &["init", "-q", "--bare", remote.to_str().unwrap()]);
+    a.git(&["remote", "add", "origin", remote.to_str().unwrap()]);
+    a.git(&["push", "-q", "-u", "origin", "main"]);
+    a.write("a.txt", "next\n");
+    a.git(&["commit", "-qam", "second"]);
+    let mut app = scanned_app(store_of(&[&a.root]));
+    // Files focus shows Files + Diff.
+    app.focus = Pane::Files;
+    app.wait_background(10);
+    let rows = screen(&app, 160, 30);
+    let title = rows
+        .iter()
+        .find(|r| r.contains(" a.txt ──"))
+        .expect("file title, right-aligned and joined to the right border");
+    assert!(
+        title.contains("├────────────────────"),
+        "runs from the left border: {title}"
+    );
+    assert!(!shows(&rows, "diff --git"));
+    // git's `---` is a border-to-border rule carrying the stat summary on its
+    // right, and no blank row separates the stat from the file title.
+    let rule = rows
+        .iter()
+        .position(|r| r.contains("├──") && r.contains(" 1 file changed, ") && r.contains("──┤"))
+        .expect("rule with the summary");
+    assert!(!rows.iter().any(|r| r.contains(" --- ")));
+    let title = rows.iter().position(|r| r.contains(" a.txt ──")).unwrap();
+    assert_eq!(title, rule + 2, "rule, one stat row, then the file title");
+    // Labels are centered: the dashes on both sides differ by at most one.
+    let line = &rows[title];
+    let start = line.find('├').unwrap();
+    let seg: String = line[start..]
+        .chars()
+        .skip(1)
+        .take_while(|c| *c != '┤')
+        .collect();
+    let left = seg.chars().take_while(|c| *c == '─').count();
+    let right = seg.chars().rev().take_while(|c| *c == '─').count();
+    assert!(left.abs_diff(right) <= 1, "{line}");
+    assert!(
+        rows[title - 1].contains("a.txt | "),
+        "{:?}",
+        &rows[rule..=title]
+    );
+}
+
+#[test]
+fn a_gap_line_separates_hunks() {
+    let a = TestRepo::new();
+    let body: String = (1..=30).map(|i| format!("line {i}\n")).collect();
+    a.write("a.txt", &body);
+    a.git(&["commit", "-qam", "thirty lines"]);
+    let changed = body
+        .replace("line 2\n", "line two\n")
+        .replace("line 28\n", "line 28b\n");
+    a.write("a.txt", &changed);
+    let mut app = scanned_app(store_of(&[&a.root]));
+    // Files focus shows Files + Diff.
+    app.focus = Pane::Files;
+    app.wait_background(10);
+    let rows = screen(&app, 160, 40);
+    let gaps: Vec<&String> = rows.iter().filter(|r| r.contains("   ⋯")).collect();
+    assert_eq!(gaps.len(), 1, "one gap between the two hunks: {rows:#?}");
+    assert!(!shows(&rows, "@@"));
+}
