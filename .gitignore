@@ -4,7 +4,6 @@
 
 # Local work artifacts (agent harnesses, manual verification samples)
 /.agents/
-/handoff-samples/
 /skills-lock.json
 .VSCodeCounter
 
