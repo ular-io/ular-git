@@ -115,6 +115,48 @@ pub(crate) fn truncate_left_w(s: &str, max_w: usize) -> String {
     format!("…{}", kept.concat())
 }
 
+/// Wraps a path to `max_w`, breaking after `/` and before spaces so folder
+/// names stay whole; a name wider than the line is cut by [`wrap_w`].
+pub(crate) fn wrap_path(s: &str, max_w: usize) -> Vec<String> {
+    let mut tokens: Vec<String> = Vec::new();
+    let mut cur = String::new();
+    for c in s.chars() {
+        if c == ' ' && !cur.is_empty() {
+            tokens.push(std::mem::take(&mut cur));
+        }
+        cur.push(c);
+        if c == '/' {
+            tokens.push(std::mem::take(&mut cur));
+        }
+    }
+    if !cur.is_empty() {
+        tokens.push(cur);
+    }
+    let mut lines = Vec::new();
+    let mut line = String::new();
+    for tok in tokens {
+        if !line.is_empty() && line.width() + tok.width() > max_w {
+            lines.push(std::mem::take(&mut line).trim_end().to_string());
+        }
+        let tok: &str = if line.is_empty() {
+            tok.trim_start()
+        } else {
+            tok.as_str()
+        };
+        if tok.width() > max_w {
+            let mut parts = wrap_w(tok, max_w);
+            line = parts.pop().unwrap_or_default();
+            lines.extend(parts);
+        } else {
+            line.push_str(tok);
+        }
+    }
+    if !line.is_empty() || lines.is_empty() {
+        lines.push(line);
+    }
+    lines
+}
+
 /// Wraps text to a `max_w` display-column limit (no ellipsis).
 pub(crate) fn wrap_w(s: &str, max_w: usize) -> Vec<String> {
     // unicode-width counts `\t` as 0 width, but terminals expand it. Expand
@@ -254,6 +296,24 @@ mod tests {
             vec!["a".to_string(), FAMILY.to_string(), "b".to_string()]
         );
         assert_eq!(truncate_w(FAMILY, 1), "…");
+    }
+
+    #[test]
+    fn paths_wrap_after_slashes_and_around_a_rename_arrow() {
+        assert_eq!(super::wrap_path("src/ui/mod.rs", 20), ["src/ui/mod.rs"]);
+        assert_eq!(
+            super::wrap_path("src/main/java/service/Inspection.java", 20),
+            ["src/main/java/", "service/", "Inspection.java"]
+        );
+        assert_eq!(
+            super::wrap_path("docs/old.md → docs/new.md", 14),
+            ["docs/old.md →", "docs/new.md"]
+        );
+        // A name wider than the line is cut.
+        assert_eq!(
+            super::wrap_path("a/abcdefghij", 4),
+            ["a/", "abcd", "efgh", "ij"]
+        );
     }
 
     #[test]

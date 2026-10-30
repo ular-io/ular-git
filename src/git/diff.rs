@@ -15,6 +15,11 @@ pub enum DiffSource {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LineKind {
+    /// A file diff's path in the repository (`old → new` for a rename), the
+    /// first line; the pane title names only the file.
+    Path,
+    /// A file diff's line counts (`+20 -3`), right below its path.
+    Counts,
     /// Section title inserted by ular-git (`Staged changes`).
     Section,
     /// Date, author name, and email of a shown commit (one line).
@@ -126,12 +131,7 @@ pub fn load(dir: &Path, source: &DiffSource, max_lines: usize) -> anyhow::Result
                     doc.truncated = true;
                     break;
                 }
-                doc.lines.push(DiffLine {
-                    kind: LineKind::Section,
-                    text: title.to_string(),
-                    old: None,
-                    new: None,
-                });
+                doc.lines.push(line_of(LineKind::Section, title));
                 let (raw, cut) = run_limited(dir, &args, budget)?;
                 if raw.iter().all(|l| l.trim().is_empty()) {
                     doc.lines.push(meta("(no textual changes)"));
@@ -139,18 +139,44 @@ pub fn load(dir: &Path, source: &DiffSource, max_lines: usize) -> anyhow::Result
                 push_parsed(&mut doc, &raw, false);
                 doc.truncated |= cut;
             }
+            let path = match f.orig_path.as_deref() {
+                Some(orig) => format!("{orig} → {}", f.path),
+                None => f.path.clone(),
+            };
+            let mut head = vec![line_of(LineKind::Path, &path)];
+            let counts = counts_label(doc.added, doc.removed);
+            if !counts.is_empty() {
+                head.push(line_of(LineKind::Counts, &counts));
+            }
+            doc.lines.splice(0..0, head);
         }
     }
     Ok(doc)
 }
 
-fn meta(text: &str) -> DiffLine {
+/// `+N -N` with a zero side left out (`+42` for a new file); empty when no
+/// line changed (binary, mode only).
+pub fn counts_label(added: usize, removed: usize) -> String {
+    let parts = [(added, '+'), (removed, '-')];
+    parts
+        .iter()
+        .filter(|(n, _)| *n > 0)
+        .map(|(n, sign)| format!("{sign}{n}"))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn line_of(kind: LineKind, text: &str) -> DiffLine {
     DiffLine {
-        kind: LineKind::Meta,
+        kind,
         text: text.to_string(),
         old: None,
         new: None,
     }
+}
+
+fn meta(text: &str) -> DiffLine {
+    line_of(LineKind::Meta, text)
 }
 
 /// Runs git reading at most `max` stdout lines; the child is killed once the

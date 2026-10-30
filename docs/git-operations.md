@@ -52,7 +52,12 @@
 | Conflict | The combined diff |
 | Unpushed commit | Title: the full hash. Body: one muted byline `<yyyy-mm-dd HH:MM>  <author> <<email>>` (the committer is not shown), the message right below it without its blank lines (first line bold), a rule, the stat, and the patch |
 
-- Title for files: the path and `+N -N`.
+- Title for files: the file name only. The body starts with the full path in
+  the repository (`old → new` for a rename), muted and always wrapped after a
+  `/`, then the line counts (`+20 -3`, each in its diff color, a zero side
+  left out; no line when nothing changed, as for a pure rename or a binary
+  file). No rule separates them from the first section title. Commit titles
+  keep the hash and `+N -N`.
 - git's per-file header is condensed. `diff --git`, `index`, `---`, and `+++`
   lines are dropped. In a commit, each file starts with a full-width title
   line with the path centered (`├──── <path> ────┤`, `old → new` for a

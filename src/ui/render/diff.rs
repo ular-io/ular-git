@@ -5,7 +5,7 @@ use crate::git::diff::{DiffLine, LineKind};
 use crate::theme::{color_rgb, Theme};
 use crate::ui::components::modal::fade_toward;
 use crate::ui::components::scrollbar::draw_vscrollbar;
-use crate::ui::components::text::{truncate_left_w, truncate_w, wrap_w};
+use crate::ui::components::text::{truncate_w, wrap_path, wrap_w};
 use crate::ui::files::FileItem;
 use crate::ui::{App, Pane};
 use ratatui::{
@@ -38,7 +38,9 @@ fn kind_style(kind: LineKind, tone: Tone, th: &Theme) -> Style {
         LineKind::Section | LineKind::File | LineKind::Rule => {
             colored(th.accent).add_modifier(Modifier::BOLD)
         }
-        LineKind::Byline => th.soft_dim(),
+        LineKind::Byline | LineKind::Path => th.soft_dim(),
+        // Drawn per sign by `counts_spans`.
+        LineKind::Counts => plain(Style::default()),
         LineKind::Subject => plain(Style::default().add_modifier(Modifier::BOLD)),
         LineKind::Header | LineKind::Stat | LineKind::Context => plain(Style::default()),
         LineKind::Meta => th.soft_dim(),
@@ -61,6 +63,23 @@ fn is_code(kind: LineKind) -> bool {
     matches!(kind, LineKind::Add | LineKind::Del | LineKind::Context)
 }
 
+/// `+20 -3` with each side in its diff color.
+fn counts_spans(text: &str, tone: Tone, th: &Theme) -> Vec<Span<'static>> {
+    let mut spans = Vec::new();
+    for (i, part) in text.split(' ').enumerate() {
+        if i > 0 {
+            spans.push(Span::raw(" "));
+        }
+        let kind = if part.starts_with('-') {
+            LineKind::Del
+        } else {
+            LineKind::Add
+        };
+        spans.push(Span::styled(part.to_string(), kind_style(kind, tone, th)));
+    }
+    spans
+}
+
 fn gutter(line: &DiffLine, first: bool) -> String {
     if !first {
         return " ".repeat(GUTTER_W);
@@ -74,15 +93,21 @@ fn title(app: &App) -> String {
     let Some(item) = items.get(app.file_sel) else {
         return " Diff ".into();
     };
-    let stats = app
-        .diff
-        .doc
-        .as_ref()
-        .map(|d| format!(" +{} -{}", d.added, d.removed))
-        .unwrap_or_default();
     match item {
-        FileItem::File(f) => format!(" {}{stats} ", truncate_left_w(&f.path, 48)),
-        FileItem::Commit(c, _) => format!(" {}{stats} ", c.hash),
+        // The full path and the counts are the first lines of the diff.
+        FileItem::File(f) => {
+            let name = f.path.rsplit('/').next().unwrap_or(&f.path);
+            format!(" {} ", truncate_w(name, 48))
+        }
+        FileItem::Commit(c, _) => {
+            let stats = app
+                .diff
+                .doc
+                .as_ref()
+                .map(|d| format!(" +{} -{}", d.added, d.removed))
+                .unwrap_or_default();
+            format!(" {}{stats} ", c.hash)
+        }
         FileItem::More => " Diff ".into(),
     }
 }
@@ -124,21 +149,28 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
     };
 
     // Visual rows: (line index, segment, first segment of its line). A
-    // commit message always wraps; other lines wrap only with `.`. When
-    // nothing wraps, only the visible window is materialized.
+    // commit message and a file path always wrap (a path at `/`); other
+    // lines wrap only with `.`. When nothing wraps, only the visible window
+    // is materialized.
     let wraps = |line: &DiffLine| {
         !matches!(
             line.kind,
             LineKind::Section | LineKind::File | LineKind::Rule | LineKind::Gap
         ) && (app.diff.wrap || is_message(line.kind))
     };
-    let any_wrap = app.diff.wrap || doc.lines.iter().any(|l| is_message(l.kind));
+    let any_wrap = app.diff.wrap
+        || doc
+            .lines
+            .iter()
+            .any(|l| is_message(l.kind) || l.kind == LineKind::Path);
     let total;
     let mut rows: Vec<(usize, String, bool)> = Vec::new();
     if any_wrap {
         let mut all = Vec::new();
         for (i, line) in doc.lines.iter().enumerate() {
-            let segs = if wraps(line) {
+            let segs = if line.kind == LineKind::Path {
+                wrap_path(&line.text, full_w)
+            } else if wraps(line) {
                 wrap_w(&line.text, width_of(line))
             } else if matches!(
                 line.kind,
@@ -201,6 +233,9 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
             if line.kind == LineKind::Gap {
                 let at = if numbered { "   ⋯" } else { "⋯" };
                 return Line::from(Span::styled(at, style));
+            }
+            if line.kind == LineKind::Counts {
+                return Line::from(counts_spans(&seg, tone, th));
             }
             let mut spans = Vec::new();
             if has_gutter(line) {

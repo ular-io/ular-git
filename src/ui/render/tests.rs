@@ -70,14 +70,17 @@ fn full_screen_shows_header_two_panes_and_one_footer_row() {
         shows(&rows, "─ repo ─"),
         "the file pane is titled by the repository"
     );
-    assert!(!shows(&rows, "a.txt +1 -3"), "Repos focus hides the diff");
+    assert!(!shows(&rows, "─ a.txt ─"), "Repos focus hides the diff");
     app.focus = Pane::Files;
     let rows = screen(&app, 150, 30);
     assert!(
         !shows(&rows, "Repos[1]"),
         "Files focus hides the repositories"
     );
-    assert!(shows(&rows, "a.txt +1 -3"));
+    assert!(
+        shows(&rows, "─ a.txt ─"),
+        "the diff is titled by the file name"
+    );
     assert!(shows(&rows, "<ctrl+u> Refresh All"));
     assert!(shows(&rows, "|___/"), "logo shown when wide");
     assert!(
@@ -268,6 +271,26 @@ fn only_code_lines_carry_the_line_number_gutter() {
     assert!(!shows(&rows, "diff --git") && !shows(&rows, "index ") && !shows(&rows, "+++ b/"));
     // Code lines start after the number gutter.
     assert_eq!(starts("+2"), diff_x + 10);
+}
+
+#[test]
+fn a_file_diff_starts_with_its_wrapped_path_and_counts() {
+    let a = TestRepo::new();
+    let path = "src/main/java/kr/example/service/inspection/InspectionService.java";
+    a.write(path, "one\n");
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.focus = Pane::Diff;
+    app.wait_background(10);
+    let rows = screen(&app, 60, 20);
+    assert!(shows(&rows, "━ InspectionService.java ━"), "{rows:#?}");
+    // The first body row; broken after a `/`, the file name whole below.
+    assert!(
+        rows[6].contains("┃ src/main/java/kr/example/service/inspection/  "),
+        "{rows:#?}"
+    );
+    assert!(rows[7].contains("┃ InspectionService.java  "), "{rows:#?}");
+    assert!(rows[8].contains("┃ +1  "), "{rows:#?}");
+    assert!(rows[9].contains(" Untracked file "), "{rows:#?}");
 }
 
 #[test]
