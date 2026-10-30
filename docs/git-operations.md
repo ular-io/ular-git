@@ -110,6 +110,17 @@
   the first hunk follows its title directly.
 - `.` toggles line wrapping (default: lines cut at the pane edge). Wrapped
   continuation lines keep a blank gutter.
+- Side by side (`src/ui/render/split.rs`, drawn in `src/ui/render/diff.rs`):
+  when the diff pane is at least 120 columns wide inside and line numbers
+  show, old lines go left (old numbers) and new lines right (new numbers),
+  split by a muted `│`. A context line shows on both sides; a run of removed
+  lines pairs row by row with the run of added lines right after it, the
+  shorter side padded. Every other line (path, counts, section and file
+  titles, gaps, commit byline, message, stat) keeps the full width. With `.`
+  each side wraps on its own and the row takes the taller side. `s` (any
+  pane, palette Toggle Side-by-Side Diff) switches between side by side and
+  always unified, scrolls to the top, and is saved in `view.json`
+  (`split_diff`, default on).
 - A commit's message (byline, subject, body) always wraps, whatever `.` says;
   its `--stat` block (from git's last `---` separator) follows `.` like code.
 - At most `max_diff_lines` (default 20 000) lines are read; the child process

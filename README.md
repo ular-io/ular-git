@@ -81,6 +81,7 @@ one, a linked worktree (resolved to its repository), or a parent folder
 | `P`, `p` | Push (asks first), pull (fast-forward only) |
 | `.` (Files / Diff pane) | Toggle diff line wrap |
 | `>` | History labels: none → branches → branches and tags → tags (remembered) |
+| `s` | Side-by-side diff when the diff pane is 120+ columns wide, or always unified (remembered) |
 | `:`, `!` | Quick command palette, shell command in the selected repository |
 | `ctrl+u` | Rescan every repository |
 | `?` | Help for the focused pane |

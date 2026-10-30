@@ -38,37 +38,56 @@ impl RefLabels {
 }
 
 /// View choices remembered across launches (`~/.config/ular-git/view.json`).
-#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
-struct SavedView {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub(crate) struct SavedView {
     #[serde(default)]
-    history_labels: RefLabels,
+    pub history_labels: RefLabels,
+    /// Side-by-side diffs on wide panes (`s`).
+    #[serde(default = "on")]
+    pub split_diff: bool,
+}
+
+fn on() -> bool {
+    true
+}
+
+impl Default for SavedView {
+    fn default() -> Self {
+        SavedView {
+            history_labels: RefLabels::default(),
+            split_diff: true,
+        }
+    }
 }
 
 fn view_path() -> std::path::PathBuf {
     crate::config::config_base_dir().join("view.json")
 }
 
-/// The saved history labels; unit tests never read the user's file.
-pub(crate) fn load_labels() -> RefLabels {
+/// The saved view choices; unit tests never read the user's file.
+pub(crate) fn load_view() -> SavedView {
     if cfg!(test) {
-        return RefLabels::default();
+        return SavedView::default();
     }
     std::fs::read_to_string(view_path())
         .ok()
         .and_then(|data| serde_json::from_str::<SavedView>(&data).ok())
-        .map(|v| v.history_labels)
         .unwrap_or_default()
 }
 
-fn save_labels(labels: RefLabels) {
-    if cfg!(test) {
-        return;
-    }
-    let view = SavedView {
-        history_labels: labels,
-    };
-    if let Ok(data) = serde_json::to_string_pretty(&view) {
-        let _ = crate::config::write_atomic(&view_path(), data.as_bytes());
+impl App {
+    /// Writes the current view choices to `view.json`.
+    pub(crate) fn save_view(&self) {
+        if cfg!(test) {
+            return;
+        }
+        let view = SavedView {
+            history_labels: self.history.labels,
+            split_diff: self.diff.split,
+        };
+        if let Ok(data) = serde_json::to_string_pretty(&view) {
+            let _ = crate::config::write_atomic(&view_path(), data.as_bytes());
+        }
     }
 }
 
@@ -96,7 +115,7 @@ impl App {
     /// `>`: none → branches → branches and tags → tags → none.
     pub(crate) fn cycle_ref_labels(&mut self) {
         self.history.labels = self.history.labels.next();
-        save_labels(self.history.labels);
+        self.save_view();
         let text = match self.history.labels {
             RefLabels::None => "History labels hidden",
             RefLabels::Branches => "History labels: branches",
@@ -220,10 +239,16 @@ mod tests {
         assert_eq!(l, RefLabels::None);
         let view = SavedView {
             history_labels: RefLabels::BranchesAndTags,
+            split_diff: false,
         };
         let json = serde_json::to_string(&view).unwrap();
-        assert_eq!(json, r#"{"history_labels":"branches_and_tags"}"#);
-        let back: SavedView = serde_json::from_str("{}").unwrap();
-        assert_eq!(back.history_labels, RefLabels::None);
+        assert_eq!(
+            json,
+            r#"{"history_labels":"branches_and_tags","split_diff":false}"#
+        );
+        // A file from before split_diff existed keeps side-by-side on.
+        let back: SavedView = serde_json::from_str(r#"{"history_labels":"tags"}"#).unwrap();
+        assert_eq!(back.history_labels, RefLabels::Tags);
+        assert!(back.split_diff);
     }
 }

@@ -5,6 +5,7 @@ mod diff;
 mod files;
 mod header;
 mod repos;
+mod split;
 
 use super::components::input::input_view;
 use super::components::modal::{backdrop_dimmed, dim_backdrop};

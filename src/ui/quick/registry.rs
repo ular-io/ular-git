@@ -26,6 +26,7 @@ pub enum CommandId {
     ClearFilter,
     RefreshAll,
     ToggleWrap,
+    ToggleSplitDiff,
     CycleRefLabels,
     TerminalCommand,
     ChangeTheme,
@@ -263,6 +264,14 @@ pub const COMMANDS: &[CommandSpec] = &[
         Some("."),
         ["wrap", "diff", "long"],
         None
+    ),
+    cmd!(
+        ToggleSplitDiff,
+        "toggle-split-diff",
+        "Toggle Side-by-Side Diff",
+        Some("s"),
+        ["split", "side", "unified", "columns", "compare", "diff"],
+        Some("Old and new side by side when the diff pane is 120+ columns wide")
     ),
     cmd!(
         CycleRefLabels,

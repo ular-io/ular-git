@@ -92,7 +92,18 @@ impl App {
                 ],
             ],
             Pane::Diff => [
-                vec![h(".", "Wrap Lines"), h("c", "Commit")],
+                vec![
+                    h(".", "Wrap Lines"),
+                    h("c", "Commit"),
+                    h(
+                        "s",
+                        if self.diff.split {
+                            "Unified Diff"
+                        } else {
+                            "Side by Side"
+                        },
+                    ),
+                ],
                 vec![
                     h("P", "Push"),
                     h("p", "Pull"),
@@ -168,6 +179,7 @@ pub fn anywhere() -> Vec<Hint> {
         h("P", "Push (asks first)"),
         h("p", "Pull, fast-forward only"),
         h(">", "History labels: none → branches → + tags → tags"),
+        h("s", "Side-by-side diff on wide panes / unified"),
         h(":", "Quick command (every command)"),
         h("!", "Run a shell command in the repository"),
         h("ctrl+u", "Rescan every repository"),

@@ -98,6 +98,7 @@ impl App {
             'P' => self.open_push(),
             'p' => self.start_pull(),
             '>' => self.cycle_ref_labels(),
+            's' => self.toggle_split(),
             '1' => self.focus_pane(Pane::Repos),
             '2' => self.focus_pane(Pane::Files),
             '3' => self.focus_pane(Pane::Diff),
@@ -197,6 +198,19 @@ impl App {
             _ => return false,
         }
         true
+    }
+
+    /// `s`: side-by-side diffs on wide panes, or always unified.
+    pub(crate) fn toggle_split(&mut self) {
+        self.diff.split = !self.diff.split;
+        self.diff.scroll = 0;
+        self.save_view();
+        let text = if self.diff.split {
+            "Side-by-side diff when the diff pane is 120+ columns wide"
+        } else {
+            "Unified diff"
+        };
+        self.notify(Level::Info, text);
     }
 
     pub(crate) fn toggle_wrap(&mut self) {

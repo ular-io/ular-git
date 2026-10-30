@@ -1,6 +1,6 @@
 //! Diff pane: colored, line-numbered diff of the selected file or commit.
 
-use super::{draw_divider, empty_line, pane_block, pane_tone, Divider, Tone};
+use super::{draw_divider, empty_line, pane_block, pane_tone, split, Divider, Tone};
 use crate::git::diff::{DiffLine, LineKind};
 use crate::theme::{color_rgb, Theme};
 use crate::ui::components::modal::fade_toward;
@@ -15,6 +15,7 @@ use ratatui::{
     widgets::Paragraph,
     Frame,
 };
+use unicode_width::UnicodeWidthStr;
 
 /// `old new ` line-number gutter.
 const GUTTER_W: usize = 10;
@@ -78,6 +79,41 @@ fn counts_spans(text: &str, tone: Tone, th: &Theme) -> Vec<Span<'static>> {
         spans.push(Span::styled(part.to_string(), kind_style(kind, tone, th)));
     }
     spans
+}
+
+/// One visual row: a segment of a line across the pane, or the two sides of
+/// the side-by-side layout (line index, segment, first segment of its line).
+enum Row {
+    Line(usize, String, bool),
+    Pair(Option<(usize, String, bool)>, Option<(usize, String, bool)>),
+}
+
+/// One side of a side-by-side row: its line number (old on the left, new
+/// on the right; only on a line's first segment) and the segment, padded to
+/// `width`.
+fn side_spans(
+    doc: &crate::git::diff::DiffDoc,
+    side: Option<(usize, String, bool)>,
+    width: usize,
+    old: bool,
+    tone: Tone,
+    th: &Theme,
+) -> Vec<Span<'static>> {
+    let Some((i, seg, first)) = side else {
+        return vec![Span::raw(" ".repeat(width))];
+    };
+    let line = &doc.lines[i];
+    let n = if old { line.old } else { line.new };
+    let num = match (first, n) {
+        (true, Some(n)) => format!("{n:>4} "),
+        _ => " ".repeat(split::SIDE_GUTTER_W),
+    };
+    let pad = width.saturating_sub(split::SIDE_GUTTER_W + seg.width());
+    vec![
+        Span::styled(num, Style::default().fg(th.dim)),
+        Span::styled(seg, kind_style(line.kind, tone, th)),
+        Span::raw(" ".repeat(pad)),
+    ]
 }
 
 fn gutter(line: &DiffLine, first: bool) -> String {
@@ -169,28 +205,69 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
             .lines
             .iter()
             .any(|l| is_message(l.kind) || l.kind == LineKind::Path);
+    let split_on = numbered && app.diff.split && full_w >= split::SPLIT_MIN_W;
+    // One wrapped or cut line: its segments within `width`.
+    let segments = |line: &DiffLine, width: usize| -> Vec<String> {
+        if line.kind == LineKind::Path {
+            wrap_path(&line.text, width)
+        } else if wraps(line) {
+            wrap_w(&line.text, width)
+        } else if matches!(
+            line.kind,
+            LineKind::Section | LineKind::File | LineKind::Rule
+        ) {
+            vec![line.text.clone()]
+        } else {
+            vec![truncate_w(&line.text, width)]
+        }
+    };
     let total;
-    let mut rows: Vec<(usize, String, bool)> = Vec::new();
-    if any_wrap {
+    let mut rows: Vec<Row> = Vec::new();
+    if split_on {
+        let (lw, rw) = split::sides(full_w);
+        let code_w = |side: usize| side.saturating_sub(split::SIDE_GUTTER_W).max(1);
+        let mut all = Vec::new();
+        for item in split::pair(&doc.lines) {
+            match item {
+                split::Item::Full(i) => {
+                    let line = &doc.lines[i];
+                    let segs = segments(line, width_of(line));
+                    if segs.is_empty() {
+                        all.push(Row::Line(i, String::new(), true));
+                    }
+                    for (k, seg) in segs.into_iter().enumerate() {
+                        all.push(Row::Line(i, seg, k == 0));
+                    }
+                }
+                split::Item::Pair(l, r) => {
+                    let side = |i: Option<usize>, w: usize| -> Vec<String> {
+                        i.map(|i| segments(&doc.lines[i], code_w(w)))
+                            .unwrap_or_default()
+                    };
+                    let (ls, rs) = (side(l, lw), side(r, rw));
+                    for k in 0..ls.len().max(rs.len()).max(1) {
+                        let at = |i: Option<usize>, segs: &[String]| {
+                            i.zip(segs.get(k).cloned()).map(|(i, s)| (i, s, k == 0))
+                        };
+                        all.push(Row::Pair(at(l, &ls), at(r, &rs)));
+                    }
+                }
+            }
+        }
+        total = all.len() + usize::from(doc.truncated);
+        let max = total.saturating_sub(view);
+        app.diff.max_scroll.set(max);
+        let scroll = app.diff.scroll.min(max);
+        rows = all.into_iter().skip(scroll).take(view).collect();
+    } else if any_wrap {
         let mut all = Vec::new();
         for (i, line) in doc.lines.iter().enumerate() {
-            let segs = if line.kind == LineKind::Path {
-                wrap_path(&line.text, full_w)
-            } else if wraps(line) {
-                wrap_w(&line.text, width_of(line))
-            } else if matches!(
-                line.kind,
-                LineKind::Section | LineKind::File | LineKind::Rule
-            ) {
-                vec![line.text.clone()]
-            } else {
-                vec![truncate_w(&line.text, width_of(line))]
-            };
+            let segs = segments(line, width_of(line));
             if segs.is_empty() {
-                all.push((i, String::new(), true));
+                all.push(Row::Line(i, String::new(), true));
             }
             for (k, seg) in segs.into_iter().enumerate() {
-                all.push((i, seg, k == 0));
+                all.push(Row::Line(i, seg, k == 0));
             }
         }
         total = all.len() + usize::from(doc.truncated);
@@ -204,7 +281,7 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
         app.diff.max_scroll.set(max);
         let scroll = app.diff.scroll.min(max);
         for (i, line) in doc.lines.iter().enumerate().skip(scroll).take(view) {
-            rows.push((i, truncate_w(&line.text, width_of(line)), true));
+            rows.push(Row::Line(i, truncate_w(&line.text, width_of(line)), true));
         }
     }
     let scroll = app.diff.scroll.min(app.diff.max_scroll.get());
@@ -216,7 +293,17 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
     let mut lines: Vec<Line> = rows
         .into_iter()
         .enumerate()
-        .map(|(row, (i, seg, first))| {
+        .map(|(row, r)| {
+            let (i, seg, first) = match r {
+                Row::Line(i, seg, first) => (i, seg, first),
+                Row::Pair(l, r) => {
+                    let (lw, rw) = split::sides(full_w);
+                    let mut spans = side_spans(doc, l, lw, true, tone, th);
+                    spans.push(Span::styled("│", Style::default().fg(th.dim)));
+                    spans.extend(side_spans(doc, r, rw, false, tone, th));
+                    return Line::from(spans);
+                }
+            };
             let line = &doc.lines[i];
             let style = kind_style(line.kind, tone, th);
             if matches!(

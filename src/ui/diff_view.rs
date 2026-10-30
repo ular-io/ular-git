@@ -22,6 +22,9 @@ pub struct DiffView {
     pub page: Cell<usize>,
     /// Long lines wrap instead of being cut.
     pub wrap: bool,
+    /// Side by side (old left, new right) when the pane is wide enough;
+    /// `s` toggles it, and the choice is kept in `view.json`.
+    pub split: bool,
     generation: u64,
     in_flight: bool,
     queued: Option<(PathBuf, DiffSource, String)>,

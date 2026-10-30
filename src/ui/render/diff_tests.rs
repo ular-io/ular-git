@@ -205,3 +205,35 @@ fn a_gap_line_separates_hunks() {
     assert_eq!(gaps.len(), 1, "one gap between the two hunks: {rows:#?}");
     assert!(!shows(&rows, "@@"));
 }
+
+#[test]
+fn a_wide_diff_pane_shows_old_and_new_side_by_side() {
+    let a = TestRepo::new();
+    a.write("x.txt", "a\nb\nc\n");
+    a.git(&["add", "x.txt"]);
+    a.git(&["commit", "-qm", "x"]);
+    a.write("x.txt", "a\nB\nc\nd\n");
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.diff.split = true;
+    app.focus = Pane::Diff;
+    app.wait_background(10);
+    // Below 160 columns the diff pane has the screen to itself.
+    let rows = screen(&app, 140, 24);
+    let row = rows
+        .iter()
+        .find(|r| r.contains("-b"))
+        .expect("the removed line");
+    assert!(row.contains("+B"), "paired with the added line: {row}");
+    assert!(row.contains("│"), "{row}");
+    assert!(row.find("-b").unwrap() < row.find("+B").unwrap());
+    // `d` was added with nothing removed: alone on the right.
+    let d = rows.iter().find(|r| r.contains("+d")).unwrap();
+    assert!(!d.contains('-'), "{d}");
+    // A narrower pane, or `s`, falls back to the unified layout.
+    let narrow = screen(&app, 110, 24);
+    assert!(!narrow.iter().any(|r| r.contains("-b") && r.contains("+B")));
+    app.press(&[crate::ui::test_support::ch('s')]);
+    assert!(!app.diff.split);
+    let rows = screen(&app, 140, 24);
+    assert!(!rows.iter().any(|r| r.contains("-b") && r.contains("+B")));
+}
