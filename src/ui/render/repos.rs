@@ -10,7 +10,7 @@ use crate::ui::tree::Row;
 use crate::ui::{App, Pane};
 use ratatui::{
     layout::Rect,
-    style::{Modifier, Style},
+    style::Style,
     text::{Line, Span},
     widgets::{List, ListItem},
     Frame,
@@ -46,10 +46,7 @@ pub(crate) fn badges(tree: Option<&TreeState>, scanning: bool, th: &Theme) -> Ve
         out.push(Span::styled(text, style));
     };
     if c.conflicts > 0 {
-        push(
-            format!("!{}", c.conflicts),
-            Style::default().fg(th.error).add_modifier(Modifier::BOLD),
-        );
+        push(format!("!{}", c.conflicts), Style::default().fg(th.error));
     }
     let other = c.changed - c.conflicts;
     if other > 0 {
@@ -272,10 +269,7 @@ fn with_op(app: &App, path: &std::path::Path, badges: Vec<Span<'static>>) -> Vec
     };
     let th = &app.theme;
     let mut out = vec![
-        Span::styled(
-            format!("{}…", op.label()),
-            Style::default().fg(th.accent).add_modifier(Modifier::BOLD),
-        ),
+        Span::styled(format!("{}…", op.label()), Style::default().fg(th.accent)),
         Span::raw(" "),
     ];
     out.extend(badges);

@@ -49,6 +49,10 @@ ular-git applies them.
   when not (`↑` / `↓` nodes: full branch color, then faded once). `muted` can
   be stronger than a faded color, so swapping to it would make a dimmed pane
   look bolder.
+- Row content in the repository and file panes is never bold: status codes,
+  badges, `↑` / `↓` nodes, ref labels, and the running `push…` / `pull…`
+  label use color alone. Bold marks focus only (the focused pane's selection
+  bar, title, and border).
 - Selected row: the bar runs from the left padding cell to the cell before the
   right border (where the scrollbar sits). Focused → `selection_bg` +
   `selection_fg` + bold; dimmed pane → `selection_inactive_bg` with the plain

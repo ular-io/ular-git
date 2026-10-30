@@ -46,7 +46,7 @@
   columns and is cut first), joined into one strip with a `│` in the
   background color between two badges, running through the row's right
   padding cell to the border. Color tells
-  the kind: local branch the branch color (bold on HEAD's branch; `HEAD` when
+  the kind: local branch the branch color (`HEAD` when
   detached), remote branch the hunk color, tag the warning color; each is
   moved a quarter toward the text color, with the background color as text,
   and a dimmed pane fades them a third. A remote branch with a local twin on

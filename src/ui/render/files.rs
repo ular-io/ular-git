@@ -18,7 +18,7 @@ use crate::ui::history_view::RefLabels;
 use crate::ui::{App, Pane};
 use ratatui::{
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Color, Style},
     text::{Line, Span},
     widgets::{List, ListItem},
     Frame,
@@ -288,7 +288,7 @@ const SUBJECT_MIN: usize = 12;
 /// on the label color, no icon), joined into one strip with a `│` in the
 /// background color between two, within `room` cells; a label that does not
 /// fit is left out with the rest. The kind is told by
-/// color: local branches the branch color (bold on HEAD's), remote branches
+/// color: local branches the branch color, remote branches
 /// the hunk color, tags the warning color, each moved a quarter toward the
 /// text color so the badge stands out of the background (a dimmed pane fades
 /// it back a third, not the usual half).
@@ -325,10 +325,7 @@ fn ref_spans(
             badge = mix(badge, th.bg_rgb(), 35);
         }
         let rgb = |(r, g, b): (u8, u8, u8)| Color::Rgb(r, g, b);
-        let mut style = Style::default().bg(rgb(badge)).fg(rgb(th.bg_rgb()));
-        if r.head {
-            style = style.add_modifier(Modifier::BOLD);
-        }
+        let style = Style::default().bg(rgb(badge)).fg(rgb(th.bg_rgb()));
         if sep == 1 {
             // The line sits on the left badge's color.
             let left = spans.last().and_then(|s| s.style.bg);
@@ -382,7 +379,7 @@ fn graph_spans(
         // stronger when the pane loses focus.
         let fade = |c: Color| fade_toward(color_rgb(c), th.bg_rgb());
         let style = match (tone == Tone::Dimmed, marked) {
-            (false, true) => Style::default().fg(th.branch).add_modifier(Modifier::BOLD),
+            (false, true) => Style::default().fg(th.branch),
             (false, false) => Style::default().fg(fade(color)),
             (true, true) => Style::default().fg(fade(th.branch)),
             (true, false) => Style::default().fg(fade(fade(color))),
@@ -403,12 +400,12 @@ fn file_spans(file: &FileEntry, w: usize, tone: Tone, th: &Theme) -> Vec<Span<'s
             (s, s)
         }
         EntryKind::Conflict => {
-            let s = Style::default().fg(th.error).add_modifier(Modifier::BOLD);
+            let s = Style::default().fg(th.error);
             (s, s)
         }
         EntryKind::Tracked => (
-            Style::default().fg(th.success).add_modifier(Modifier::BOLD),
-            Style::default().fg(th.warning).add_modifier(Modifier::BOLD),
+            Style::default().fg(th.success),
+            Style::default().fg(th.warning),
         ),
     };
     let path = match &file.orig_path {
