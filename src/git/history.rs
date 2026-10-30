@@ -142,6 +142,11 @@ pub fn parse(text: &str, limit: usize) -> History {
 /// refs (stash, notes) are left out, and so is a remote branch when a local
 /// branch of the same name sits on the same commit (`main` and
 /// `origin/main`: the push / pull marks already tell them apart).
+///
+/// A fetch refspec such as `+refs/tags/*:refs/remotes/origin/tags/*` copies
+/// the remote's tags under `refs/remotes/<remote>/tags/`. Such a copy is a
+/// tag, not a branch: it is left out next to a local tag of the same name,
+/// and shown as that tag otherwise.
 fn parse_refs(text: &str) -> Vec<RefLabel> {
     let mut refs = Vec::new();
     for item in text.split(", ").map(str::trim).filter(|s| !s.is_empty()) {
@@ -161,11 +166,27 @@ fn parse_refs(text: &str) -> Vec<RefLabel> {
         } else if let Some(t) = name.strip_prefix("tag: refs/tags/") {
             refs.push(label(RefKind::Tag, t));
         } else if let Some(r) = name.strip_prefix("refs/remotes/") {
-            if !r.ends_with("/HEAD") {
-                refs.push(label(RefKind::Remote, r));
+            match r.split_once('/') {
+                Some((_, rest)) if rest.starts_with("tags/") => {
+                    refs.push(label(RefKind::Tag, &rest["tags/".len()..]));
+                }
+                _ if r.ends_with("/HEAD") => {}
+                _ => refs.push(label(RefKind::Remote, r)),
             }
         }
     }
+    // A tag copied under refs/remotes and the local tag: keep one.
+    let mut seen_tags: Vec<String> = Vec::new();
+    refs.retain(|r| {
+        if r.kind != RefKind::Tag {
+            return true;
+        }
+        if seen_tags.contains(&r.name) {
+            return false;
+        }
+        seen_tags.push(r.name.clone());
+        true
+    });
     let local: Vec<String> = refs
         .iter()
         .filter(|r| r.kind == RefKind::Branch)
@@ -226,5 +247,24 @@ a\x1fa1\x1f\x1ftag: refs/tags/v1\x1froot\n";
             ]
         );
         assert_eq!(parse_refs("HEAD")[0].name, "HEAD");
+    }
+
+    #[test]
+    fn a_tag_copied_under_remotes_is_one_tag() {
+        let names = |text: &str| -> Vec<(RefKind, String)> {
+            parse_refs(text)
+                .into_iter()
+                .map(|r| (r.kind, r.name))
+                .collect()
+        };
+        assert_eq!(
+            names("tag: refs/tags/26.09.4, refs/remotes/origin/tags/26.09.4"),
+            [(RefKind::Tag, "26.09.4".to_string())]
+        );
+        // Without the local tag the copy still reads as a tag.
+        assert_eq!(
+            names("refs/remotes/origin/tags/v2"),
+            [(RefKind::Tag, "v2".to_string())]
+        );
     }
 }

@@ -36,7 +36,9 @@
   local branch (branch color, bold on HEAD's branch; `HEAD` when detached)
   and a remote branch (hunk color), `⚑ name` for a tag (warning color). A
   remote branch with a local twin on the same commit (`origin/main` next to
-  `main`) is left out. Names are cut at 24 columns; labels that do not fit
+  `main`) is left out. A tag copied under `refs/remotes/<remote>/tags/` (a
+  fetch refspec `+refs/tags/*:refs/remotes/origin/tags/*`) counts as that tag:
+  left out next to the local tag, shown as `⚑ name` without it. Names are cut at 24 columns; labels that do not fit
   the row are dropped. They keep their colors on the selection bar. Read from `git log --decorate=full` `%D`. The last
   choice is saved in `~/.config/ular-git/view.json`.
 - History is read for the selected working tree only, in the background, when
