@@ -144,8 +144,13 @@ pub(super) fn draw_repos(f: &mut Frame, app: &App, area: Rect) {
     if app.rows.is_empty() {
         let text = if total == 0 {
             "No repositories. Press + to add one."
-        } else if app.changed_only && app.filter.value.trim().is_empty() {
-            "No repository has changes or commits to pull"
+        } else if app.filter.value.trim().is_empty() && app.list_filtered() {
+            match app.change_view {
+                crate::ui::tree::ChangeView::Pending => {
+                    "No repository has changes, commits to pull or push, or stashes"
+                }
+                _ => "No repository has changes or commits to pull",
+            }
         } else {
             "No repository matches the filter"
         };

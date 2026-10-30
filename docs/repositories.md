@@ -39,17 +39,27 @@ match disappear. When the selected row is filtered out the cursor moves to the
 first match. `enter` keeps the filter, `esc` restores the previous one, `0`
 clears it.
 
-## Changed only
+## Changed only, pending only
 
-`.` on the repository pane toggles a view of the working trees with
-uncommitted changes (any changed, untracked, or conflicting file) or commits
-to pull (behind the upstream, as of the last fetch). Unpushed commits alone do
-not count. A clean repository stays as the parent of a
-worktree that has changes, and only changed worktrees are listed. Groups open
-and groups without a match disappear, as with the text filter; both apply
-together. The pane title reads `Repos[changed: N/M]` (`Repos[api · changed:
-N/M]` with a text filter) and the header shows a Filter row. `0` clears both.
-The view lasts for the session only.
+`ChangeView` in `src/ui/tree.rs`; `App::toggle_change_view`.
+
+- `.` on the repository pane toggles **Changed**: working trees with
+  uncommitted changes (any changed, untracked, or conflicting file) or commits
+  to pull (behind the upstream, as of the last fetch). Unpushed commits and
+  stashes alone do not count.
+- `ctrl+.` toggles **Pending**: everything Changed keeps, plus commits to push
+  (ahead of the upstream; a branch without an upstream does not count) and a
+  stash. The stash is shared by a repository and its worktrees, so it counts
+  for the repository row only. Pressing the key of the other view switches
+  straight to it. The key needs the keyboard enhancement protocol (kitty,
+  iTerm2, WezTerm, Ghostty); the palette has Toggle Pending Only everywhere.
+
+A clean repository stays as the parent of a worktree that matches, and only
+matching worktrees are listed. Groups open and groups without a match
+disappear, as with the text filter; both apply together. The pane title reads
+`Repos[changed: N/M]` or `Repos[pending: N/M]` (`Repos[api · changed: N/M]`
+with a text filter) and the header shows a Filter row. `0` clears both. The
+view lasts for the session only.
 
 ## Groups
 

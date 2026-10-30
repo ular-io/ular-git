@@ -87,7 +87,7 @@ impl App {
             Pull => branch.is_some_and(|b| b.upstream.is_some()),
             OpenWith => self.current_target().is_some(),
             ClearFilter => self.list_filtered(),
-            ToggleChangedOnly => true,
+            ToggleChangedOnly | TogglePendingOnly => true,
             ToggleWrap => true,
             TerminalCommand => self.terminal_target().is_some(),
             AddRepository | NewGroup | FilterRepos | RefreshAll | ChangeTheme | EditConfig
@@ -294,7 +294,8 @@ impl App {
             }
             FilterRepos => self.open_filter(),
             ClearFilter => self.clear_filter(),
-            ToggleChangedOnly => self.toggle_changed_only(),
+            ToggleChangedOnly => self.toggle_change_view(crate::ui::tree::ChangeView::Changed),
+            TogglePendingOnly => self.toggle_change_view(crate::ui::tree::ChangeView::Pending),
             RefreshAll => self.refresh_all(false),
             ToggleWrap => self.toggle_wrap(),
             TerminalCommand => self.open_quick_terminal(),
