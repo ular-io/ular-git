@@ -119,11 +119,11 @@ pub(crate) fn pane_layout(area: Rect, focus: Pane) -> Vec<(Pane, Rect)> {
     let widths: Vec<Constraint> = match panes {
         [_, _, _] => vec![
             Constraint::Length(pct(22, 30, 44)),
-            Constraint::Length(pct(28, 40, 60)),
+            Constraint::Length(pct(28, 40, 80)),
             Constraint::Min(0),
         ],
         [Pane::Repos, _] => vec![Constraint::Length(pct(42, 28, 44)), Constraint::Min(0)],
-        [_, _] => vec![Constraint::Length(pct(40, 30, 56)), Constraint::Min(0)],
+        [_, _] => vec![Constraint::Length(pct(40, 30, 80)), Constraint::Min(0)],
         _ => vec![Constraint::Min(0)],
     };
     let rects = Layout::default()

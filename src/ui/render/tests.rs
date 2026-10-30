@@ -302,3 +302,17 @@ fn a_dimmed_pane_selection_is_a_light_bar_with_plain_text() {
     assert!(!cell.modifier.contains(ratatui::style::Modifier::BOLD));
     assert!(!cell.modifier.contains(ratatui::style::Modifier::REVERSED));
 }
+
+#[test]
+fn the_file_pane_grows_to_eighty_columns() {
+    let width = |w: u16, focus: Pane| {
+        pane_layout(Rect::new(0, 0, w, 20), focus)
+            .into_iter()
+            .find(|(p, _)| *p == Pane::Files)
+            .map(|(_, r)| r.width)
+            .unwrap()
+    };
+    assert_eq!(width(200, Pane::Repos), 56, "28 % of 200");
+    assert_eq!(width(300, Pane::Repos), 80, "capped at 80");
+    assert_eq!(width(150, Pane::Files), 60, "40 % beside the diff");
+}
