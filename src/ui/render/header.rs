@@ -5,6 +5,7 @@
 use crate::config::collapse_home;
 use crate::ui::components::text::{pad_w, truncate_left_w, truncate_w};
 use crate::ui::keys::{self, Hint};
+use crate::ui::tree::Row;
 use crate::ui::App;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -28,8 +29,8 @@ const LOGO_GAP: u16 = 2;
 const LABEL_W: usize = 8;
 const VALUE_W: usize = 34;
 
-/// The `label value` rows of the context column: Repos, Branch, Path, and
-/// Filter while one is applied.
+/// The `label value` rows of the context column: Repos, Repo, Branch, Path,
+/// and Filter while one is applied (five at most, the header height).
 fn context_lines(app: &App) -> Vec<Line<'static>> {
     let th = &app.theme;
     let label = |s: &str| Span::styled(pad_w(s, LABEL_W), th.soft_dim());
@@ -48,6 +49,29 @@ fn context_lines(app: &App) -> Vec<Line<'static>> {
         label("Repos"),
         Span::styled(total.to_string(), strong),
         Span::raw(format!(" · {changed} changed · {ahead} ahead")),
+    ]);
+
+    // The selected repository; a worktree shows `repo › worktree`.
+    let folder = |p: &std::path::Path| {
+        p.file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    };
+    let repo_name = match (app.current_row(), app.current_target()) {
+        (Some(Row::Worktree { repo, path, .. }), _) => app
+            .store
+            .repos
+            .get(*repo)
+            .map(|r| format!("{} › {}", r.name(), folder(path))),
+        (_, Some(target)) => Some(folder(&target)),
+        _ => None,
+    };
+    let repo = Line::from(vec![
+        label("Repo"),
+        match repo_name {
+            Some(name) => Span::styled(truncate_w(&name, VALUE_W), strong),
+            None => Span::styled("-", th.soft_dim()),
+        },
     ]);
 
     let tree = app.current_tree();
@@ -88,7 +112,7 @@ fn context_lines(app: &App) -> Vec<Line<'static>> {
         ),
     ]);
 
-    let mut lines = vec![repos, branch, path];
+    let mut lines = vec![repos, repo, branch, path];
     if let Some(filter) = app.filter_label() {
         lines.push(Line::from(vec![
             label("Filter"),

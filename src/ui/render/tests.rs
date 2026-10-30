@@ -437,3 +437,20 @@ fn a_gap_line_separates_hunks() {
     assert_eq!(gaps.len(), 1, "one gap between the two hunks: {rows:#?}");
     assert!(!shows(&rows, "@@"));
 }
+
+#[test]
+fn the_header_names_the_selected_repository_above_its_branch() {
+    let a = TestRepo::new();
+    let mut store = store_of(&[&a.root]);
+    store.add_group("work").unwrap();
+    store.set_group(&a.root, Some("work".into()));
+    let mut app = scanned_app(store);
+    // The group header is selected: no repository.
+    let rows = screen(&app, 150, 20);
+    assert!(rows[1].starts_with(" Repo    -"), "{:?}", &rows[..4]);
+    app.press(&[key(KeyCode::Down)]);
+    let rows = screen(&app, 150, 20);
+    assert!(rows[1].starts_with(" Repo    repo "), "{:?}", &rows[..4]);
+    assert!(rows[2].starts_with(" Branch  main"), "{:?}", &rows[..4]);
+    assert!(rows[3].starts_with(" Path"));
+}
