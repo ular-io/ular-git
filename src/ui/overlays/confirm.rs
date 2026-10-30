@@ -30,6 +30,11 @@ pub enum ConfirmAction {
         path: PathBuf,
         force: bool,
     },
+    /// Throws away one file's uncommitted changes (cannot be undone).
+    DiscardFile {
+        target: PathBuf,
+        file: crate::git::FileEntry,
+    },
     /// `git push`, to the upstream or to `new` (which becomes the upstream).
     Push {
         target: PathBuf,
@@ -134,6 +139,49 @@ impl App {
         self.mode = UiMode::Confirm;
     }
 
+    /// Palette `Discard File Changes`: the file under the file cursor, after a
+    /// confirmation with Cancel focused.
+    pub(crate) fn open_discard_file(&mut self) {
+        let (Some(target), Some(file)) = (self.current_target(), self.selected_file()) else {
+            self.notify(Level::Info, "Select a changed file to discard");
+            return;
+        };
+        if file.kind == crate::git::EntryKind::Conflict {
+            self.notify(Level::Warn, "Resolve the merge conflict first");
+            return;
+        }
+        // The loaded diff of this file gives the size of what is lost.
+        let stats = self
+            .diff
+            .key
+            .as_deref()
+            .filter(|k| k.ends_with(&format!("\0f:{}", file.path)))
+            .and(self.diff.doc.as_ref())
+            .map(|d| format!(" (+{} -{} lines lost)", d.added, d.removed))
+            .unwrap_or_default();
+        let effect = match (file.kind, file.x, &file.orig_path) {
+            (crate::git::EntryKind::Untracked, _, _) => {
+                "The untracked file is deleted.".to_string()
+            }
+            (_, 'A', _) => "The newly added file is removed.".to_string(),
+            (_, _, Some(orig)) => format!("It goes back to {orig} as committed{stats}."),
+            _ => format!("It goes back to the last commit{stats}."),
+        };
+        self.confirm = Some(ConfirmDialog {
+            title: " Discard Changes ".into(),
+            lines: vec![
+                format!("Discard the changes to {}?", file.path),
+                effect,
+                "This cannot be undone.".into(),
+            ],
+            ok_label: "Discard".into(),
+            danger: true,
+            ok_focused: false,
+            action: ConfirmAction::DiscardFile { target, file },
+        });
+        self.mode = UiMode::Confirm;
+    }
+
     pub(crate) fn on_key_confirm(&mut self, key: KeyEvent) {
         let Some(dialog) = self.confirm.as_mut() else {
             self.mode = UiMode::Normal;
@@ -164,6 +212,22 @@ impl App {
 
     fn run_confirmed(&mut self, action: ConfirmAction) {
         match action {
+            ConfirmAction::DiscardFile { target, file } => {
+                self.bg.spawn(move || {
+                    let result = ops::discard(&target, &file).map_err(|e| e.to_string());
+                    Box::new(move |app: &mut App| {
+                        match result {
+                            Ok(()) => app.notify(Level::Ok, format!("Discarded {}", file.path)),
+                            Err(err) => app.show_message(
+                                " Discard Failed ",
+                                vec![err],
+                                crate::ui::overlays::message::MessageKind::Error,
+                            ),
+                        }
+                        app.request_scan(target, true);
+                    })
+                });
+            }
             ConfirmAction::Push { target, new } => {
                 self.run_remote(target, crate::ui::sync::RemoteOp::Push, new);
             }

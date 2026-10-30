@@ -17,6 +17,7 @@ pub enum CommandId {
     UnfoldAllGroups,
     RemoveWorktree,
     Commit,
+    DiscardFile,
     Push,
     Pull,
     FilterRepos,
@@ -176,6 +177,14 @@ pub const COMMANDS: &[CommandSpec] = &[
         Some("c"),
         ["save", "uncommitted", "changes"],
         Some("Commit the uncommitted changes of the selected repository")
+    ),
+    cmd!(
+        DiscardFile,
+        "discard-file",
+        "Discard File Changes",
+        None,
+        ["revert", "restore", "reset", "undo", "throw", "checkout"],
+        Some("Throw away the selected file's uncommitted changes (cannot be undone)")
     ),
     cmd!(
         Push,

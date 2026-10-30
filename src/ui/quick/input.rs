@@ -80,6 +80,9 @@ impl App {
             MoveToGroup => matches!(row, Some(Row::Repo { .. } | Row::Worktree { .. })),
             FoldAllGroups | UnfoldAllGroups => !self.store.groups.is_empty(),
             Commit => dirty,
+            DiscardFile => self
+                .selected_file()
+                .is_some_and(|f| f.kind != crate::git::EntryKind::Conflict),
             Push => branch.is_some_and(|b| b.upstream.is_none() || b.ahead > 0),
             Pull => branch.is_some_and(|b| b.upstream.is_some()),
             ClearFilter => self.list_filtered(),
@@ -279,6 +282,7 @@ impl App {
             FoldAllGroups => self.fold_all_groups(true),
             UnfoldAllGroups => self.fold_all_groups(false),
             Commit => self.open_commit(),
+            DiscardFile => self.open_discard_file(),
             Push => self.open_push(),
             Pull => self.start_pull(),
             FilterRepos => self.open_filter(),

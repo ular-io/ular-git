@@ -1,7 +1,8 @@
-//! The local git writes ular-git performs: committing uncommitted changes and
-//! removing a linked worktree (push and pull live in `remote`).
+//! The local git writes ular-git performs: committing uncommitted changes,
+//! discarding one file's changes, and removing a linked worktree (push and
+//! pull live in `remote`).
 
-use super::{run, run_ok, stderr_summary};
+use super::{run, run_ok, stderr_summary, EntryKind, FileEntry};
 use std::path::Path;
 
 /// What a commit includes.
@@ -38,6 +39,28 @@ pub fn commit(dir: &Path, message: &str, scope: CommitScope) -> anyhow::Result<S
     }
     let head = run_ok(dir, &["log", "-1", "--format=%h %s"])?;
     Ok(String::from_utf8_lossy(&head).trim().to_string())
+}
+
+/// Throws away the uncommitted changes of one file, back to HEAD: staged and
+/// unstaged edits, a deletion, a rename (both paths), a newly added file
+/// (removed), or an untracked file (deleted). Conflicts are refused. Cannot
+/// be undone.
+pub fn discard(dir: &Path, file: &FileEntry) -> anyhow::Result<()> {
+    match file.kind {
+        EntryKind::Conflict => anyhow::bail!("resolve the merge conflict first"),
+        EntryKind::Untracked => {
+            run_ok(dir, &["clean", "-f", "-q", "--", &file.path])?;
+        }
+        EntryKind::Tracked => {
+            let mut args = vec!["restore", "--source=HEAD", "--staged", "--worktree", "--"];
+            if let Some(orig) = file.orig_path.as_deref() {
+                args.push(orig);
+            }
+            args.push(&file.path);
+            run_ok(dir, &args)?;
+        }
+    }
+    Ok(())
 }
 
 /// Removes the linked worktree at `path` from the repository at `repo`.

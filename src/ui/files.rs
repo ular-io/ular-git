@@ -70,6 +70,14 @@ impl App {
         items
     }
 
+    /// The changed file under the file cursor (not a commit or `… more`).
+    pub(crate) fn selected_file(&self) -> Option<FileEntry> {
+        match self.file_items().get(self.file_sel)? {
+            FileItem::File(f) => Some((*f).clone()),
+            _ => None,
+        }
+    }
+
     /// History of the selected working tree, once loaded for it.
     pub(crate) fn current_history(&self) -> Option<&crate::git::history::History> {
         let target = self.current_target()?;

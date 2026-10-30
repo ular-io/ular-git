@@ -3,7 +3,7 @@
 ular-git is a Rust terminal UI (ratatui/crossterm) that shows many local git
 repositories at once: status badges, linked worktrees, changed files, and
 diffs. It reads git through the `git` CLI. Its only writes are commit, push,
-`pull --ff-only`, and `git worktree remove`. The executable is `ular-git`
+`pull --ff-only`, discarding one file's changes, and `git worktree remove`. The executable is `ular-git`
 (users commonly alias it to `ugit`; Homebrew core already has an unrelated
 `ugit`, so the short name is never installed as a binary).
 

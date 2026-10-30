@@ -95,6 +95,24 @@
 - Afterwards the working tree is rescanned; the footer shows
   `<name>: committed <short hash> <subject>`.
 
+## Discard file changes
+
+Palette only (`:` → **Discard File Changes**, no shortcut), on the changed file
+under the file cursor. A confirmation (Cancel focused, error color) names the
+file and what is lost (`+N -N lines` when its diff is loaded). It cannot be
+undone; nothing is stashed.
+
+| File | Effect |
+| --- | --- |
+| Modified, staged and / or unstaged, deleted | `git restore --source=HEAD --staged --worktree` — back to the last commit |
+| Renamed | Both paths restored: the old name comes back, the new one goes |
+| Newly added | Removed from the index and the folder |
+| Untracked | Deleted (`git clean -f`) |
+| Conflict | Refused (resolve it first) |
+
+The command is unavailable on a history commit, `… more`, or a conflict. The
+working tree is rescanned afterwards.
+
 ## Push and pull
 
 Both act on the selected repository or worktree and run in the background.
@@ -139,7 +157,7 @@ focused:
 ## Not offered
 
 Fetch on its own, force push, merge or rebase pulls, checkout, stage /
-unstage, discard, and branch operations.
+unstage, discarding everything at once, and branch operations.
 
 ## Verification
 

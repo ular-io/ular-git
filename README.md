@@ -28,8 +28,8 @@ changed, and what the diff is.
 - **Fast with many repositories**: the last status is cached so launch is
   instant, and scans run in parallel in the background without blocking keys.
 - **Few, explicit writes**: commit (`c`), push (`P`, asks first), pull (`p`,
-  fast-forward only), and removing a worktree (`ctrl+d`). Nothing else writes
-  to your repositories.
+  fast-forward only), discarding one file's changes (palette, asks first), and
+  removing a worktree (`ctrl+d`). Nothing else writes to your repositories.
 - Quick command palette (`:`), shell command in a repository (`!`), 40 themes,
   help (`?`).
 

@@ -355,3 +355,47 @@ fn right_is_blocked_on_a_group_header() {
     app.press(&[key(KeyCode::Right)]);
     assert_eq!(app.focus, Pane::Files);
 }
+
+#[test]
+fn discard_file_changes_runs_from_the_palette_after_a_confirmation() {
+    let a = TestRepo::new();
+    a.write("a.txt", "edited\n");
+    a.write("new.txt", "n\n");
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.wait_background(10);
+    app.press(&[ch('2')]);
+    assert_eq!(app.file_key.as_deref(), Some("f:a.txt"));
+    app.press(&[ch(':')]);
+    app.type_text("discard");
+    let item = app.quick.as_ref().unwrap().items[0].clone();
+    assert_eq!(item.label(), "Discard File Changes");
+    assert!(item.enabled && item.shortcut().is_none());
+    app.press(&[key(KeyCode::Enter)]);
+    assert_eq!(app.mode, UiMode::Confirm);
+    let d = app.confirm.as_ref().unwrap();
+    assert!(!d.ok_focused, "Cancel is focused");
+    assert!(d.lines[0].contains("a.txt"));
+    // Enter on Cancel keeps the change.
+    app.press(&[key(KeyCode::Enter)]);
+    assert_eq!(
+        std::fs::read_to_string(a.root.join("a.txt")).unwrap(),
+        "edited\n"
+    );
+
+    app.press(&[ch(':')]);
+    app.type_text("discard");
+    app.press(&[key(KeyCode::Enter), key(KeyCode::Left), key(KeyCode::Enter)]);
+    app.wait_background(20);
+    assert_eq!(
+        std::fs::read_to_string(a.root.join("a.txt")).unwrap(),
+        "one\ntwo\nthree\n"
+    );
+    let files = &app.current_tree().unwrap().status.as_ref().unwrap().files;
+    assert_eq!(files.len(), 1, "only new.txt is left");
+
+    // On a history commit the command is unavailable.
+    app.press(&[key(KeyCode::End)]);
+    app.press(&[ch(':')]);
+    app.type_text("discard");
+    assert!(!app.quick.as_ref().unwrap().items[0].enabled);
+}

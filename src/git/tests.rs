@@ -357,3 +357,49 @@ fn a_diverged_branch_shows_both_sides_meeting_at_their_base() {
     let cells: String = base.cells.iter().map(|c| c.ch).collect();
     assert_eq!(cells, "●─╯");
 }
+
+#[test]
+fn discard_returns_each_kind_of_change_to_head() {
+    let repo = TestRepo::new();
+    repo.write("b.txt", "b\n");
+    repo.git(&["add", "b.txt"]);
+    repo.git(&["commit", "-qm", "b"]);
+    repo.write("a.txt", "edited\n"); // unstaged
+    repo.write("b.txt", "staged\n");
+    repo.git(&["add", "b.txt"]);
+    repo.write("b.txt", "staged then edited\n"); // MM
+    repo.git(&["mv", "a.txt", "moved.txt"]); // rename (with the edit)
+    repo.write("added.txt", "n\n");
+    repo.git(&["add", "added.txt"]); // A
+    repo.write("loose.txt", "u\n"); // ??
+    let s = scan(&repo.root, false).unwrap();
+    assert_eq!(s.files.len(), 4, "{:?}", s.files);
+    for f in &s.files {
+        ops::discard(&repo.root, f).unwrap();
+    }
+    assert!(scan(&repo.root, false).unwrap().is_clean());
+    assert_eq!(
+        std::fs::read_to_string(repo.root.join("a.txt")).unwrap(),
+        "one\ntwo\nthree\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(repo.root.join("b.txt")).unwrap(),
+        "b\n"
+    );
+    assert!(!repo.root.join("moved.txt").exists());
+    assert!(!repo.root.join("added.txt").exists());
+    assert!(!repo.root.join("loose.txt").exists());
+}
+
+#[test]
+fn discard_refuses_a_conflict() {
+    let repo = TestRepo::new();
+    let conflict = super::FileEntry {
+        path: "a.txt".into(),
+        orig_path: None,
+        x: 'U',
+        y: 'U',
+        kind: EntryKind::Conflict,
+    };
+    assert!(ops::discard(&repo.root, &conflict).is_err());
+}
