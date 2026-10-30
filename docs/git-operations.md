@@ -17,7 +17,8 @@
   3. the commit history from HEAD with its branch graph, faded, one row per
      commit (no connector rows). Lanes stay in place and keep their color;
      joints sit on the commit row: `─╮` a merge opens a lane, `─┤` a merge
-     joins a lane already open (the same branch merged again), `─╯` a lane
+     joins a lane already open (the same branch merged again, or a lane that
+     ends on this row and is reused at once by the merge's new lane), `─╯` a lane
      ends (its branch started here), `┬ ┴` the same with the line going on,
      `┼` a line crossing a lane, `╭ ╰ ├` for lanes to the left. Not faded,
      in the branch color: `↑` commits not on the upstream yet (push sends

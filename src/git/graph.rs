@@ -144,6 +144,18 @@ fn draw_row(
             }
         } else if let Some(&(_, joint, c)) = joints.iter().find(|j| j.0 == i) {
             let outer = i == hi || i == lo;
+            // A lane that ends here can be reused at once by a lane this
+            // merge opens: the cell then goes up, down, and toward the node.
+            let opened = joints
+                .iter()
+                .find(|j| j.0 == i && j.1 == Joint::Open)
+                .map(|j| j.2);
+            let reused = joint == Joint::End && opened.is_some();
+            let (joint, c) = if reused {
+                (Joint::Join, opened.unwrap_or(c))
+            } else {
+                (joint, c)
+            };
             let ch = match (joint, i > col, outer) {
                 (Joint::End, true, true) => '╯',
                 (Joint::Open, true, true) => '╮',
@@ -307,5 +319,23 @@ mod tests {
         let spec: &[(&str, &[&str])] = &[("m", &["x", "y"]), ("y", &["z"])];
         let rows = layout(&commits(spec));
         assert_eq!(text(&rows), ["●─╮", "│ ●"]);
+    }
+
+    #[test]
+    fn a_lane_ending_and_reopening_on_one_row_stays_connected() {
+        // `m2` merges `b` right where the lane of `a` (merged by `m1`) ends:
+        // the freed lane is reused by `b`'s new lane on the same row.
+        let spec: &[(&str, &[&str])] = &[
+            ("m1", &["m2", "a"]),
+            ("a", &["m2"]),
+            ("m2", &["base", "b"]),
+            ("b", &["base"]),
+            ("base", &[]),
+        ];
+        let rows = layout(&commits(spec));
+        assert_eq!(text(&rows), ["●─╮", "│ ●", "●─┤", "│ ●", "●─╯"]);
+        // The reused cell takes the color of the lane continuing below.
+        assert_eq!(rows[2][2].color, rows[3][2].color);
+        assert_ne!(rows[1][2].color, rows[3][2].color, "a and b differ");
     }
 }
