@@ -30,16 +30,17 @@ fn only_code_lines_carry_the_line_number_gutter() {
         section.contains("├────") && section.trim_end().ends_with('┤'),
         "{section}"
     );
-    // Hunk headers are not shown; the first hunk follows the title directly.
+    // Hunk headers are not shown; the first hunk follows the title after
+    // one blank row.
     assert!(!shows(&rows, "@@"));
     let at = rows
         .iter()
         .position(|r| r.contains(" Unstaged changes "))
         .unwrap();
     assert!(
-        rows[at + 1].contains("    1    1  one"),
+        rows[at + 2].contains("    1    1  one"),
         "{:?}",
-        &rows[at..at + 2]
+        &rows[at..at + 3]
     );
     // git's redundant file header lines are not shown.
     assert!(!shows(&rows, "diff --git") && !shows(&rows, "index ") && !shows(&rows, "+++ b/"));
@@ -165,15 +166,23 @@ fn commit_files_get_a_full_width_title_line() {
         "runs from the left border: {title}"
     );
     assert!(!shows(&rows, "diff --git"));
-    // git's `---` is a border-to-border rule carrying the stat summary on its
-    // right, and no blank row separates the stat from the file title.
+    // git's `---` is a border-to-border rule carrying the stat summary, with
+    // one blank row above and below every rule and title.
     let rule = rows
         .iter()
         .position(|r| r.contains("├──") && r.contains(" 1 file changed, ") && r.contains("──┤"))
         .expect("rule with the summary");
     assert!(!rows.iter().any(|r| r.contains(" --- ")));
     let title = rows.iter().position(|r| r.contains(" a.txt ──")).unwrap();
-    assert_eq!(title, rule + 2, "rule, one stat row, then the file title");
+    assert_eq!(
+        title,
+        rule + 4,
+        "rule, blank, one stat row, blank, then the file title"
+    );
+    // Blank inside the diff pane (from its left border on).
+    let left = rows[rule].chars().position(|c| c == '├').unwrap();
+    let blank = |y: usize| rows[y].chars().skip(left + 1).all(|c| c == ' ' || c == '│');
+    assert!(blank(rule - 1) && blank(title + 1), "{rows:#?}");
     // Labels are centered: the dashes on both sides differ by at most one.
     let line = &rows[title];
     let start = line.find('├').unwrap();
@@ -186,7 +195,7 @@ fn commit_files_get_a_full_width_title_line() {
     let right = seg.chars().rev().take_while(|c| *c == '─').count();
     assert!(left.abs_diff(right) <= 1, "{line}");
     assert!(
-        rows[title - 1].contains("a.txt | "),
+        rows[title - 2].contains("a.txt | "),
         "{:?}",
         &rows[rule..=title]
     );

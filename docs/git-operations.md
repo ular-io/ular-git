@@ -97,7 +97,8 @@
   git's `---` between a commit's message and its stat is drawn as the same
   border-to-border rule, carrying the stat summary (`N files changed, …`)
   centered; the summary line is removed from the stat. The blank line git
-  prints between the stat and the first file is dropped. Lines that carry information stay,
+  prints between the stat and the first file is dropped (the spacing rule
+  below adds its own). Lines that carry information stay,
   muted: new / deleted file mode, mode change, similarity, binary.
 - A gutter with old / new line numbers appears on code lines (added, removed,
   context) when the pane is at least 50 columns wide. Headers and meta lines
@@ -106,11 +107,11 @@
   `Merge conflict`) are centered on a border-to-border line.
 - Hunk headers (`@@ -14,6 +14,7 @@ context`) are not shown: the line numbers
   say where a hunk starts, and git's context guess is often wrong outside code.
-  Between two hunks of the same file a muted `⋯` line marks the skipped lines;
-  the first hunk follows its title directly.
-- A file diff leaves one blank line above each section title (after the
-  counts line, and between Staged and Unstaged changes). Commit views keep
-  their rules tight.
+  Between two hunks of the same file a muted `⋯` line marks the skipped lines.
+- Every rule and title (section, file, the stat rule) has one blank line
+  above and below it (`space_dividers` in `src/git/diff.rs`, for file,
+  commit, and working-tree diffs): none above the first line, none doubled,
+  none at the end.
 - Changes within a line (`src/git/inline.rs`, computed when the diff loads):
   a run of removed lines pairs, in order, with the run of added lines right
   after it, and each pair is compared word by word (words, runs of spaces,

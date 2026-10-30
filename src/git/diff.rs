@@ -84,7 +84,11 @@ const BASE: &[&str] = &["--no-color", "--no-ext-diff"];
 pub fn load(dir: &Path, source: &DiffSource, max_lines: usize) -> anyhow::Result<DiffDoc> {
     let mut doc = DiffDoc::default();
     match source {
-        DiffSource::WorkTree => return super::stat::load(dir, max_lines),
+        DiffSource::WorkTree => {
+            let mut doc = super::stat::load(dir, max_lines)?;
+            space_dividers(&mut doc.lines);
+            return Ok(doc);
+        }
         DiffSource::Commit(c) => {
             let mut args = vec!["show"];
             args.extend(BASE);
@@ -142,10 +146,6 @@ pub fn load(dir: &Path, source: &DiffSource, max_lines: usize) -> anyhow::Result
                     doc.truncated = true;
                     break;
                 }
-                // One blank line above every section title.
-                if !doc.lines.is_empty() {
-                    doc.lines.push(meta(""));
-                }
                 doc.lines.push(line_of(LineKind::Section, title));
                 let (raw, cut) = run_limited(dir, &args, budget)?;
                 if raw.iter().all(|l| l.trim().is_empty()) {
@@ -163,12 +163,34 @@ pub fn load(dir: &Path, source: &DiffSource, max_lines: usize) -> anyhow::Result
             if !counts.is_empty() {
                 head.push(line_of(LineKind::Counts, &counts));
             }
-            head.push(meta(""));
             doc.lines.splice(0..0, head);
         }
     }
     super::inline::mark(&mut doc.lines);
+    space_dividers(&mut doc.lines);
     Ok(doc)
+}
+
+/// One blank line above and below every rule and title (section, file, the
+/// stat rule): none above the first line, none doubled, none at the end.
+fn space_dividers(lines: &mut Vec<DiffLine>) {
+    let divider =
+        |l: &DiffLine| matches!(l.kind, LineKind::Section | LineKind::File | LineKind::Rule);
+    let blank = |l: &DiffLine| l.kind == LineKind::Meta && l.text.is_empty();
+    let mut out: Vec<DiffLine> = Vec::with_capacity(lines.len() + 8);
+    for l in lines.drain(..) {
+        let after_divider = out.last().is_some_and(&divider);
+        let needs_gap = if divider(&l) {
+            out.last().is_some_and(|p| !blank(p))
+        } else {
+            after_divider && !blank(&l)
+        };
+        if needs_gap {
+            out.push(meta(""));
+        }
+        out.push(l);
+    }
+    *lines = out;
 }
 
 /// `+N -N` with a zero side left out (`+42` for a new file); empty when no
