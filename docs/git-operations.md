@@ -11,10 +11,20 @@
 
 - Rows, top to bottom:
   1. the changed files of the selected working tree — conflicts first, then
-     tracked changes, then untracked files, each by path (`Working tree clean`
-     when there are none, plus `N behind upstream`);
-  2. a muted `History` divider joined to the pane border;
-  3. the commit history from HEAD with its branch graph, faded, one row per
+     tracked changes, then untracked files, each by path;
+  2. a muted `History` divider joined to the pane border, only when there
+     are changed files (a clean tree starts with row 3);
+  3. the working-tree row (`FileItem::WorkTree`): a `○` node on the lane
+     leading to HEAD (`History::worktree`, laid out as a hash-less commit
+     whose parent is HEAD) and `N changes · M modified · U untracked ·
+     C conflicted` (zero parts left out) or `Working tree clean`, plus
+     `· N behind` with commits to pull. Selecting it shows
+     `DiffSource::WorkTree` (`src/git/stat.rs`): every uncommitted change
+     against HEAD, staged and unstaged together (`git diff HEAD --numstat
+     -z -M`; the index alone on an unborn branch), and every untracked file
+     with its line count, as a stat block under a rule carrying git's
+     summary; the pane title reads `Working Tree +N -N`;
+  4. the commit history from HEAD with its branch graph, faded, one row per
      commit (no connector rows). Lanes stay in place and keep their color;
      joints sit on the commit row: `─╮` a merge opens a lane, `─┤` a merge
      joins a lane already open (the same branch merged again, or a lane that
@@ -26,7 +36,7 @@
      last fetch). With an upstream ahead the history starts from both HEAD
      and the upstream, so a diverged branch shows both sides meeting at their
      base. The graph uses at most 12 columns;
-  4. `… more` when older commits exist.
+  5. `… more` when older commits exist.
 - Ref labels (`RefLabels` in `src/ui/history_view.rs`, drawn by `ref_spans`
   in `src/ui/render/files.rs`): `>` (any pane, palette Cycle Branch / Tag
   Labels) cycles none → branches → branches and tags → tags → none. Labels
@@ -58,8 +68,10 @@
 - Moving the cursor loads that item's diff immediately (a commit opens as
   `git show`). The cursor stays on the same file or commit across rescans and
   history reloads while it is listed.
+- The cursor starts on the first item: the first changed file, or the
+  working-tree row of a clean tree.
 - Empty states: `Select a repository` (group row), `Scanning…`, the scan
-  error, `Loading history…`.
+  error, `Loading history…` (below the working-tree row).
 
 ## Diff pane
 

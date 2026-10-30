@@ -76,23 +76,27 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
         visual.push(Visual::Item(next));
         next += 1;
     }
-    if status.files.is_empty() {
-        let mut text = "Working tree clean".to_string();
-        if status.branch.behind > 0 {
-            text.push_str(&format!(" · {} behind upstream", status.branch.behind));
-        }
-        visual.push(Visual::Note(text));
+    // The History divider separates the changed files from the history; a
+    // clean tree starts with the working-tree row.
+    if !status.files.is_empty() {
+        visual.push(Visual::Divider);
     }
-    let mut graph_w = 0;
+    let no_cells: &[Cell] = &[];
+    visual.push(Visual::WorkTree(
+        next,
+        history.map_or(no_cells, |h| &h.worktree),
+    ));
+    next += 1;
+    let mut graph_w = 1;
     match (history, &app.history.error) {
         (Some(h), _) if !h.rows.is_empty() => {
-            visual.push(Visual::Divider);
             graph_w = h
                 .rows
                 .iter()
                 .map(|r| r.cells.len())
+                .chain([h.worktree.len()])
                 .max()
-                .unwrap_or(0)
+                .unwrap_or(1)
                 .min(GRAPH_MAX);
             for row in &h.rows {
                 visual.push(Visual::Graph(next, &row.cells, &row.refs));
@@ -103,14 +107,8 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
             }
         }
         (Some(_), _) => {}
-        (None, Some(err)) => {
-            visual.push(Visual::Divider);
-            visual.push(Visual::Note(err.clone()));
-        }
-        (None, None) => {
-            visual.push(Visual::Divider);
-            visual.push(Visual::Note("Loading history…".into()));
-        }
+        (None, Some(err)) => visual.push(Visual::Note(err.clone())),
+        (None, None) => visual.push(Visual::Note("Loading history…".into())),
     }
 
     let list_area = Rect {
@@ -133,7 +131,9 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                         dim_style,
                     )))
                 }
-                Visual::Graph(i, ..) | Visual::Item(i) if items.get(*i).is_some() => {
+                Visual::Graph(i, ..) | Visual::WorkTree(i, _) | Visual::Item(i)
+                    if items.get(*i).is_some() =>
+                {
                     let item = items[*i];
                     let spans = match item {
                         FileItem::File(file) => file_spans(file, w, tone, th),
@@ -169,6 +169,21 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                                 spans.push(Span::raw(" ".repeat(gap)));
                                 spans.extend(labels);
                             }
+                            spans
+                        }
+                        FileItem::WorkTree => {
+                            let cells = graph_of(v);
+                            let node = [Cell {
+                                ch: '○',
+                                color: Some(0),
+                            }];
+                            let cells = if cells.is_empty() { &node[..] } else { cells };
+                            let mut spans = graph_spans(cells, graph_w, Mark::Shared, tone, th);
+                            let used: usize = spans.iter().map(|s| s.content.width()).sum();
+                            spans.push(Span::styled(
+                                truncate_w(&worktree_summary(status), w.saturating_sub(used)),
+                                dim(Style::default()),
+                            ));
                             spans
                         }
                         FileItem::More => vec![Span::styled(" … more", th.soft_dim())],
@@ -222,15 +237,43 @@ enum Visual<'a> {
     Item(usize),
     /// A history commit (item index), its graph cells, and its refs.
     Graph(usize, &'a [Cell], &'a [RefLabel]),
+    /// The working-tree row (item index) and its graph cells.
+    WorkTree(usize, &'a [Cell]),
     Note(String),
     Divider,
 }
 
 fn graph_of<'a>(v: &Visual<'a>) -> &'a [Cell] {
     match v {
-        Visual::Graph(_, g, _) => g,
+        Visual::Graph(_, g, _) | Visual::WorkTree(_, g) => g,
         _ => &[],
     }
+}
+
+/// `3 changes · 2 modified · 1 untracked`, or `Working tree clean`; then
+/// `· N behind` with commits to pull.
+fn worktree_summary(status: &crate::git::RepoStatus) -> String {
+    let mut parts = Vec::new();
+    if status.is_clean() {
+        parts.push("Working tree clean".to_string());
+    } else {
+        let n = status.counts().changed;
+        parts.push(format!("{n} change{}", if n == 1 { "" } else { "s" }));
+        let kind = |k: EntryKind| status.files.iter().filter(|f| f.kind == k).count();
+        for (count, what) in [
+            (kind(EntryKind::Tracked), "modified"),
+            (kind(EntryKind::Untracked), "untracked"),
+            (kind(EntryKind::Conflict), "conflicted"),
+        ] {
+            if count > 0 {
+                parts.push(format!("{count} {what}"));
+            }
+        }
+    }
+    if status.branch.behind > 0 {
+        parts.push(format!("{} behind", status.branch.behind));
+    }
+    parts.join(" · ")
 }
 
 fn refs_of<'a>(v: &Visual<'a>) -> &'a [RefLabel] {

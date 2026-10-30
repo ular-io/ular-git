@@ -108,6 +108,12 @@ fn title(app: &App) -> String {
                 .unwrap_or_default();
             format!(" {}{stats} ", c.hash)
         }
+        FileItem::WorkTree => match app.diff.doc.as_ref() {
+            Some(d) if d.added + d.removed > 0 => {
+                format!(" Working Tree +{} -{} ", d.added, d.removed)
+            }
+            _ => " Working Tree ".into(),
+        },
         FileItem::More => " Diff ".into(),
     }
 }

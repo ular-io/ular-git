@@ -45,6 +45,9 @@ pub struct RefLabel {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct History {
+    /// Graph cells of the working-tree row above the commits: a `○` node on
+    /// the lane that leads to HEAD. Empty when HEAD is not on the page.
+    pub worktree: Vec<Cell>,
     pub rows: Vec<GraphRow>,
     /// The page was full, so older commits exist.
     pub more: bool,
@@ -119,12 +122,27 @@ pub fn parse(text: &str, limit: usize) -> History {
             parse_refs(refs),
         ));
     }
-    let shape: Vec<(String, Vec<String>)> = commits
+    // The working tree is laid out as a commit (no hash) whose parent is HEAD.
+    let head = commits
         .iter()
-        .map(|(c, p, _)| (c.hash.clone(), p.clone()))
-        .collect();
+        .find(|(_, _, refs)| refs.iter().any(|r| r.head))
+        .map(|(c, _, _)| c.hash.clone());
+    let mut shape: Vec<(String, Vec<String>)> = Vec::new();
+    if let Some(h) = &head {
+        shape.push((String::new(), vec![h.clone()]));
+    }
+    shape.extend(commits.iter().map(|(c, p, _)| (c.hash.clone(), p.clone())));
     let more = commits.len() >= limit;
-    let rows = graph::layout(&shape)
+    let mut cells = graph::layout(&shape);
+    let mut worktree = if head.is_some() && !cells.is_empty() {
+        cells.remove(0)
+    } else {
+        Vec::new()
+    };
+    for c in worktree.iter_mut().filter(|c| c.ch == '●') {
+        c.ch = '○';
+    }
+    let rows = cells
         .into_iter()
         .zip(commits)
         .map(|(cells, (commit, _, refs))| GraphRow {
@@ -134,7 +152,11 @@ pub fn parse(text: &str, limit: usize) -> History {
             refs,
         })
         .collect();
-    History { rows, more }
+    History {
+        worktree,
+        rows,
+        more,
+    }
 }
 
 /// Reads `%D` with `--decorate=full` (`HEAD -> refs/heads/main,
@@ -218,6 +240,9 @@ a\x1fa1\x1f\x1ftag: refs/tags/v1\x1froot\n";
             .map(|r| r.cells.iter().map(|c| c.ch).collect())
             .collect();
         assert_eq!(rows, ["●─╮", "│ ●", "●─╯"]);
+        // The working tree sits on HEAD's lane above it.
+        let wt: String = h.worktree.iter().map(|c| c.ch).collect();
+        assert_eq!(wt, "○");
         assert_eq!(h.rows[0].commit.subject, "Merge b");
         assert_eq!(h.rows[0].refs[0].name, "main");
         assert!(h.rows[0].refs[0].head);

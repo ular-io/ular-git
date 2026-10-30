@@ -11,6 +11,7 @@ pub mod graph;
 pub mod history;
 pub mod ops;
 pub mod remote;
+pub mod stat;
 pub mod status;
 pub mod worktree;
 

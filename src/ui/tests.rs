@@ -14,8 +14,8 @@ fn arrows_walk_repos_files_and_diff() {
     a.write("b.txt", "new\n");
     let mut app = scanned_app(store_of(&[&a.root]));
     assert_eq!(app.rows.len(), 1);
-    // Two changed files, then the history (one commit).
-    assert_eq!(app.file_items().len(), 3);
+    // Two changed files, the working-tree row, then the history (one commit).
+    assert_eq!(app.file_items().len(), 4);
     app.wait_background(10);
     let doc = app
         .diff

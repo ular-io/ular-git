@@ -1,5 +1,6 @@
-//! File pane items — changed files, then the history commits of the graph,
-//! then `… more` — and their selection, which drives the diff pane.
+//! File pane items — changed files, the working-tree row, then the history
+//! commits of the graph, then `… more` — and their selection, which drives
+//! the diff pane.
 
 use super::App;
 use crate::git::diff::DiffSource;
@@ -19,6 +20,8 @@ pub enum Mark {
 #[derive(Debug, Clone, Copy)]
 pub enum FileItem<'a> {
     File(&'a FileEntry),
+    /// The working tree above HEAD: a summary of every uncommitted change.
+    WorkTree,
     /// A history commit and how it relates to the upstream.
     Commit(&'a Commit, Mark),
     /// Reads more history when selected.
@@ -30,6 +33,7 @@ impl FileItem<'_> {
     pub fn key(&self) -> String {
         match self {
             FileItem::File(f) => format!("f:{}", f.path),
+            FileItem::WorkTree => "wt".to_string(),
             FileItem::Commit(c, _) => format!("c:{}", c.hash),
             FileItem::More => "more".to_string(),
         }
@@ -38,6 +42,7 @@ impl FileItem<'_> {
     fn source(&self) -> Option<DiffSource> {
         match self {
             FileItem::File(f) => Some(DiffSource::File((*f).clone())),
+            FileItem::WorkTree => Some(DiffSource::WorkTree),
             FileItem::Commit(c, _) => Some(DiffSource::Commit((*c).clone())),
             FileItem::More => None,
         }
@@ -51,6 +56,7 @@ impl App {
             return Vec::new();
         };
         let mut items: Vec<FileItem> = status.files.iter().map(FileItem::File).collect();
+        items.push(FileItem::WorkTree);
         if let Some(h) = self.current_history() {
             let unpushed = |hash: &str| status.unpushed.iter().any(|c| c.hash == hash);
             items.extend(h.rows.iter().map(|r| {

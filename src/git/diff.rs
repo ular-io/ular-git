@@ -11,6 +11,8 @@ use std::process::Stdio;
 pub enum DiffSource {
     File(FileEntry),
     Commit(Commit),
+    /// Every uncommitted change, as a stat (see [`super::stat`]).
+    WorkTree,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,6 +76,7 @@ const BASE: &[&str] = &["--no-color", "--no-ext-diff"];
 pub fn load(dir: &Path, source: &DiffSource, max_lines: usize) -> anyhow::Result<DiffDoc> {
     let mut doc = DiffDoc::default();
     match source {
+        DiffSource::WorkTree => return super::stat::load(dir, max_lines),
         DiffSource::Commit(c) => {
             let mut args = vec!["show"];
             args.extend(BASE);

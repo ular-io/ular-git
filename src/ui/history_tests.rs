@@ -20,11 +20,12 @@ fn the_file_pane_lists_history_with_its_graph_below_the_changes() {
     a.write("a.txt", "dirty\n");
     let mut app = scanned_app(store_of(&[&a.root]));
     app.wait_background(10);
-    // One changed file, then four commits.
+    // One changed file, the working-tree row, then four commits.
     let items = app.file_items();
-    assert_eq!(items.len(), 5);
+    assert_eq!(items.len(), 6);
+    assert!(matches!(items[1], super::files::FileItem::WorkTree));
     assert!(
-        matches!(items[1], super::files::FileItem::Commit(c, super::files::Mark::Shared) if c.subject == "merge feat")
+        matches!(items[2], super::files::FileItem::Commit(c, super::files::Mark::Shared) if c.subject == "merge feat")
     );
     drop(items);
 
@@ -38,7 +39,7 @@ fn the_file_pane_lists_history_with_its_graph_below_the_changes() {
     assert!(rows[at(" init")].contains("●─╯"), "{rows:#?}");
     assert_eq!(at(" init") - at("merge feat"), 3, "four commits, four rows");
 
-    // Down walks the commits.
+    // Down walks the working-tree row, then the commits.
     app.press(&[key(KeyCode::Down), key(KeyCode::Down)]);
     let key_now = app.file_key.clone().unwrap();
     assert!(key_now.starts_with("c:"), "{key_now}");
@@ -60,12 +61,12 @@ fn more_reads_a_longer_history_and_keeps_the_cursor_in_place() {
     let mut app = scanned_app(store_of(&[&a.root]));
     app.wait_background(10);
     let items = app.file_items().len();
-    assert_eq!(items, 101, "100 commits and `… more`");
+    assert_eq!(items, 102, "the working tree, 100 commits, and `… more`");
     app.press(&[ch('2'), key(KeyCode::End)]);
     assert_eq!(app.file_key.as_deref(), Some("more"));
     app.wait_background(10);
-    assert_eq!(app.file_items().len(), 106, "all 106 commits, no more row");
-    assert_eq!(app.file_sel, 100, "cursor on the first newly read commit");
+    assert_eq!(app.file_items().len(), 107, "all 106 commits, no more row");
+    assert_eq!(app.file_sel, 101, "cursor on the first newly read commit");
     assert!(app.file_key.as_deref().unwrap().starts_with("c:"));
 }
 
@@ -106,8 +107,9 @@ fn commits_to_pull_are_marked_with_a_down_arrow() {
     let mut app = scanned_app(store_of(&[&a.root]));
     app.wait_background(10);
     let items = app.file_items();
+    assert!(matches!(items[0], super::files::FileItem::WorkTree));
     assert!(matches!(
-        items[0],
+        items[1],
         super::files::FileItem::Commit(c, super::files::Mark::Incoming) if c.subject == "from upstream"
     ));
     drop(items);
@@ -208,7 +210,8 @@ fn ref_labels_keep_their_badge_colors_on_the_selected_row() {
     let mut app = scanned_app(store_of(&[&a.root]));
     app.wait_background(10);
     app.press(&[ch('>'), ch('>')]);
-    // The cursor is on `init`, the only commit.
+    // The cursor on `init`, the only commit, below the working-tree row.
+    app.select_file(1);
     let bgs = |app: &crate::ui::App| {
         let mut terminal =
             ratatui::Terminal::new(ratatui::backend::TestBackend::new(150, 20)).unwrap();
@@ -244,4 +247,52 @@ fn ref_labels_keep_their_badge_colors_on_the_selected_row() {
         gap(dimmed) > gap(label) / 3,
         "still clear of the background"
     );
+}
+
+#[test]
+fn a_clean_tree_starts_with_the_working_tree_row_and_no_divider() {
+    let a = TestRepo::new();
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.wait_background(10);
+    app.focus = Pane::Files;
+    let rows = screen(&app, 150, 20);
+    assert!(!shows(&rows, " History "), "{rows:#?}");
+    let first = rows
+        .iter()
+        .position(|r| r.contains("○ Working tree clean"))
+        .expect("working-tree row");
+    assert!(rows[first + 1].contains("● init"), "{rows:#?}");
+    // It is the first item and selected.
+    assert_eq!(app.file_key.as_deref(), Some("wt"));
+}
+
+#[test]
+fn a_dirty_tree_keeps_the_divider_and_summarizes_its_changes() {
+    let a = TestRepo::new();
+    a.write("a.txt", "one\ntwo\n");
+    a.write("new.txt", "x\ny\nz\n");
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.wait_background(10);
+    app.focus = Pane::Files;
+    let rows = screen(&app, 150, 20);
+    let divider = rows
+        .iter()
+        .position(|r| r.contains(" History "))
+        .expect("divider kept");
+    assert!(
+        rows[divider + 1].contains("○ 2 changes · 1 modified · 1 untracked"),
+        "{rows:#?}"
+    );
+    // The first file is selected first; the working-tree row shows a stat.
+    assert_eq!(app.file_key.as_deref(), Some("f:a.txt"));
+    app.press(&[ch('2'), key(KeyCode::Down), key(KeyCode::Down)]);
+    assert_eq!(app.file_key.as_deref(), Some("wt"));
+    app.wait_background(10);
+    let rows = screen(&app, 160, 20);
+    assert!(shows(&rows, " Working Tree +"), "{rows:#?}");
+    assert!(
+        shows(&rows, "2 files changed, "),
+        "summary on the rule: {rows:#?}"
+    );
+    assert!(shows(&rows, " new.txt | 3 +++"), "{rows:#?}");
 }
