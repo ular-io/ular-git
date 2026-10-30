@@ -221,9 +221,10 @@ fn ref_labels_keep_their_badge_colors_on_the_selected_row() {
         let x = (1..150)
             .find(|&x| buf[(x - 1, y)].symbol() == " " && buf[(x, y)].symbol() == "v")
             .unwrap();
-        // `x - 2`: the line between the branch and tag labels; the bar shows
-        // in front of the strip.
-        assert_eq!(buf[(x - 2, y)].symbol(), "│");
+        // A branch and a tag differ in color: no line between them.
+        // ` main ` then ` v1.0 `: the badges touch, the `n` three cells back.
+        assert_eq!(buf[(x - 3, y)].symbol(), "n");
+        assert_ne!(buf[(x - 2, y)].symbol(), "│");
         let strip = (0..x).rev().find(|&i| buf[(i, y)].symbol() == "m").unwrap() - 2;
         (buf[(x, y)].bg, buf[(strip, y)].bg)
     };
@@ -288,4 +289,24 @@ fn a_dirty_tree_keeps_the_divider_and_summarizes_its_changes() {
         "summary on the rule: {rows:#?}"
     );
     assert!(shows(&rows, " new.txt | 3 +++"), "{rows:#?}");
+}
+
+#[test]
+fn only_same_colored_labels_get_a_line_between_them() {
+    let a = TestRepo::new();
+    a.git(&["tag", "v1.0"]);
+    a.git(&["tag", "v1.1"]);
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.wait_background(10);
+    app.press(&[ch('>'), ch('>')]);
+    app.focus = Pane::Files;
+    let row = screen(&app, 150, 20)
+        .into_iter()
+        .find(|r| r.contains('●') && r.contains(" init"))
+        .unwrap();
+    // `main` → tag: no line; tag → tag: a line (git orders the tags).
+    assert!(
+        row.contains(" main  v1.1 │ v1.0 ") || row.contains(" main  v1.0 │ v1.1 "),
+        "{row}"
+    );
 }

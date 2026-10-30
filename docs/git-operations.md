@@ -43,8 +43,8 @@
   in `src/ui/render/files.rs`): `>` (any pane, palette Cycle Branch / Tag
   Labels) cycles none → branches → branches and tags → tags → none. Labels
   are solid badges without icons after the subject (which keeps at least 12
-  columns and is cut first), joined into one strip with a `│` in the
-  background color between two badges, running through the row's right
+  columns and is cut first), joined into one strip (a `│` in the background color splits two
+  badges of the same color; different colors touch), running through the row's right
   padding cell to the border. Color tells
   the kind: local branch the branch color (`HEAD` when
   detached), remote branch the hunk color, tag the warning color; each is

@@ -285,8 +285,9 @@ const REF_NAME_MAX: usize = 24;
 const SUBJECT_MIN: usize = 12;
 
 /// Branch and tag labels drawn as solid badges (the theme background as text
-/// on the label color, no icon), joined into one strip with a `│` in the
-/// background color between two, within `room` cells; a label that does not
+/// on the label color, no icon), joined into one strip; a `│` in the
+/// background color splits two badges of the same color (different colors
+/// need no line), within `room` cells; a label that does not
 /// fit is left out with the rest. The kind is told by
 /// color: local branches the branch color, remote branches
 /// the hunk color, tags the warning color, each moved a quarter toward the
@@ -309,12 +310,6 @@ fn ref_spans(
             _ => continue,
         };
         let text = format!(" {} ", truncate_w(&r.name, REF_NAME_MAX));
-        let sep = usize::from(!spans.is_empty());
-        let w = text.width() + sep;
-        if used + w > room {
-            break;
-        }
-        used += w;
         let ink = match th.fg {
             Color::Reset if th.dark => (255, 255, 255),
             Color::Reset => (0, 0, 0),
@@ -326,6 +321,12 @@ fn ref_spans(
         }
         let rgb = |(r, g, b): (u8, u8, u8)| Color::Rgb(r, g, b);
         let style = Style::default().bg(rgb(badge)).fg(rgb(th.bg_rgb()));
+        let sep = usize::from(spans.last().is_some_and(|s| s.style.bg == style.bg));
+        let w = text.width() + sep;
+        if used + w > room {
+            break;
+        }
+        used += w;
         if sep == 1 {
             // The line sits on the left badge's color.
             let left = spans.last().and_then(|s| s.style.bg);
