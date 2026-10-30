@@ -61,12 +61,12 @@ fn more_reads_a_longer_history_and_keeps_the_cursor_in_place() {
     let mut app = scanned_app(store_of(&[&a.root]));
     app.wait_background(10);
     let items = app.file_items().len();
-    assert_eq!(items, 102, "the working tree, 100 commits, and `… more`");
+    assert_eq!(items, 101, "100 commits and `… more`");
     app.press(&[ch('2'), key(KeyCode::End)]);
     assert_eq!(app.file_key.as_deref(), Some("more"));
     app.wait_background(10);
-    assert_eq!(app.file_items().len(), 107, "all 106 commits, no more row");
-    assert_eq!(app.file_sel, 101, "cursor on the first newly read commit");
+    assert_eq!(app.file_items().len(), 106, "all 106 commits, no more row");
+    assert_eq!(app.file_sel, 100, "cursor on the first newly read commit");
     assert!(app.file_key.as_deref().unwrap().starts_with("c:"));
 }
 
@@ -107,9 +107,8 @@ fn commits_to_pull_are_marked_with_a_down_arrow() {
     let mut app = scanned_app(store_of(&[&a.root]));
     app.wait_background(10);
     let items = app.file_items();
-    assert!(matches!(items[0], super::files::FileItem::WorkTree));
     assert!(matches!(
-        items[1],
+        items[0],
         super::files::FileItem::Commit(c, super::files::Mark::Incoming) if c.subject == "from upstream"
     ));
     drop(items);
@@ -191,14 +190,13 @@ fn greater_than_cycles_branch_and_tag_labels_on_the_history() {
     assert_eq!(labels(&init_row(&app)), (true, true, true));
     app.press(&[ch('>')]);
     assert_eq!(labels(&init_row(&app)), (false, false, true));
-    // Labels follow the subject and end at the pane's right edge (one
-    // padding cell before the border).
+    // Labels follow the subject and run to the pane border (or the
+    // scrollbar drawn on it).
     let row = init_row(&app);
-    assert!(
-        row.find(" init").unwrap() < row.find(" v1.0 ").unwrap(),
-        "{row}"
-    );
-    assert!(row.contains(" v1.0 ┃"), "{row}");
+    let at = row.find(" v1.0 ").unwrap();
+    assert!(row.find(" init").unwrap() < at, "{row}");
+    let after = row[at + " v1.0 ".len()..].chars().next();
+    assert!(matches!(after, Some('┃' | '↑')), "{row}");
     app.press(&[ch('>')]);
     assert_eq!(labels(&init_row(&app)), (false, false, false));
 }
@@ -210,8 +208,7 @@ fn ref_labels_keep_their_badge_colors_on_the_selected_row() {
     let mut app = scanned_app(store_of(&[&a.root]));
     app.wait_background(10);
     app.press(&[ch('>'), ch('>')]);
-    // The cursor on `init`, the only commit, below the working-tree row.
-    app.select_file(1);
+    // The cursor is on `init`, the only commit.
     let bgs = |app: &crate::ui::App| {
         let mut terminal =
             ratatui::Terminal::new(ratatui::backend::TestBackend::new(150, 20)).unwrap();
@@ -250,20 +247,16 @@ fn ref_labels_keep_their_badge_colors_on_the_selected_row() {
 }
 
 #[test]
-fn a_clean_tree_starts_with_the_working_tree_row_and_no_divider() {
+fn a_clean_tree_starts_with_the_newest_commit_and_no_divider() {
     let a = TestRepo::new();
     let mut app = scanned_app(store_of(&[&a.root]));
     app.wait_background(10);
     app.focus = Pane::Files;
     let rows = screen(&app, 150, 20);
     assert!(!shows(&rows, " History "), "{rows:#?}");
-    let first = rows
-        .iter()
-        .position(|r| r.contains("○ Working tree clean"))
-        .expect("working-tree row");
-    assert!(rows[first + 1].contains("● init"), "{rows:#?}");
-    // It is the first item and selected.
-    assert_eq!(app.file_key.as_deref(), Some("wt"));
+    assert!(!shows(&rows, "○"), "no working-tree row: {rows:#?}");
+    assert!(rows[6].contains("● init"), "{rows:#?}");
+    assert!(app.file_key.as_deref().unwrap().starts_with("c:"));
 }
 
 #[test]

@@ -12,13 +12,15 @@
 - Rows, top to bottom:
   1. the changed files of the selected working tree — conflicts first, then
      tracked changes, then untracked files, each by path;
-  2. a muted `History` divider joined to the pane border, only when there
-     are changed files (a clean tree starts with row 3);
+  2. only while the tree has changes, a muted `History` divider joined to
+     the pane border, then
   3. the working-tree row (`FileItem::WorkTree`): a `○` node on the lane
      leading to HEAD (`History::worktree`, laid out as a hash-less commit
-     whose parent is HEAD) and `N changes · M modified · U untracked ·
-     C conflicted` (zero parts left out) or `Working tree clean`, plus
-     `· N behind` with commits to pull. Selecting it shows
+     whose parent is HEAD; `history::load(.., worktree)` adds it only for a
+     tree with changes, and the history reloads when that flips) and
+     `N changes · M modified · U untracked · C conflicted` (zero parts left
+     out), plus `· N behind` with commits to pull. A clean tree has neither
+     row and starts with the history. Selecting it shows
      `DiffSource::WorkTree` (`src/git/stat.rs`): every uncommitted change
      against HEAD, staged and unstaged together (`git diff HEAD --numstat
      -z -M`; the index alone on an unborn branch), and every untracked file
@@ -69,7 +71,7 @@
   `git show`). The cursor stays on the same file or commit across rescans and
   history reloads while it is listed.
 - The cursor starts on the first item: the first changed file, or the
-  working-tree row of a clean tree.
+  newest commit of a clean tree.
 - Empty states: `Select a repository` (group row), `Scanning…`, the scan
   error, `Loading history…` (below the working-tree row).
 

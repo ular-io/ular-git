@@ -338,8 +338,6 @@ fn unpushed_commits_show_date_and_subject_and_their_hash_titles_the_diff() {
     let mut app = scanned_app(store_of(&[&a.root]));
     // Files focus shows Files + Diff.
     app.focus = Pane::Files;
-    // The newest commit, below the working-tree row.
-    app.select_file(1);
     app.wait_background(10);
     let commit = app
         .current_tree()
@@ -381,8 +379,6 @@ fn commit_messages_wrap_even_with_line_wrap_off() {
     let mut app = scanned_app(store_of(&[&a.root]));
     // Files focus shows Files + Diff.
     app.focus = Pane::Files;
-    // The newest commit, below the working-tree row.
-    app.select_file(1);
     app.wait_background(10);
     assert!(!app.diff.wrap);
     let rows = screen(&app, 160, 40);
@@ -410,8 +406,6 @@ fn commit_files_get_a_full_width_title_line() {
     let mut app = scanned_app(store_of(&[&a.root]));
     // Files focus shows Files + Diff.
     app.focus = Pane::Files;
-    // The newest commit, below the working-tree row.
-    app.select_file(1);
     app.wait_background(10);
     let rows = screen(&app, 160, 30);
     let title = rows

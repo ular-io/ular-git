@@ -58,8 +58,9 @@ const SEP: char = '\x1f';
 
 /// The newest `limit` commits reachable from HEAD (and from the upstream when
 /// it has commits HEAD lacks), with the graph; rows a pull would bring in are
-/// marked `incoming`. A repository without commits has an empty history.
-pub fn load(dir: &Path, limit: usize) -> anyhow::Result<History> {
+/// marked `incoming`. `worktree` lays out the working-tree node above HEAD
+/// (a tree with changes). A repository without commits has an empty history.
+pub fn load(dir: &Path, limit: usize, worktree: bool) -> anyhow::Result<History> {
     let n = format!("-n{limit}");
     // Fails without an upstream (or on an unborn branch): HEAD only.
     let incoming: Option<HashSet<String>> = run(dir, &["rev-list", &n, "HEAD..@{upstream}"])
@@ -92,7 +93,7 @@ pub fn load(dir: &Path, limit: usize) -> anyhow::Result<History> {
         }
         anyhow::bail!("{}", super::stderr_summary(&out));
     }
-    let mut history = parse(&String::from_utf8_lossy(&out.stdout), limit);
+    let mut history = parse(&String::from_utf8_lossy(&out.stdout), limit, worktree);
     if let Some(set) = incoming {
         for row in &mut history.rows {
             row.incoming = set.contains(&row.commit.hash);
@@ -102,8 +103,8 @@ pub fn load(dir: &Path, limit: usize) -> anyhow::Result<History> {
 }
 
 /// Parses `hash SEP short SEP parents SEP refs SEP subject` lines and lays
-/// out the graph.
-pub fn parse(text: &str, limit: usize) -> History {
+/// out the graph, with the working-tree node when `worktree`.
+pub fn parse(text: &str, limit: usize, worktree: bool) -> History {
     let mut commits: Vec<(Commit, Vec<String>, Vec<RefLabel>)> = Vec::new();
     for line in text.lines() {
         let mut f = line.split(SEP);
@@ -125,7 +126,7 @@ pub fn parse(text: &str, limit: usize) -> History {
     // The working tree is laid out as a commit (no hash) whose parent is HEAD.
     let head = commits
         .iter()
-        .find(|(_, _, refs)| refs.iter().any(|r| r.head))
+        .find(|(_, _, refs)| worktree && refs.iter().any(|r| r.head))
         .map(|(c, _, _)| c.hash.clone());
     let mut shape: Vec<(String, Vec<String>)> = Vec::new();
     if let Some(h) = &head {
@@ -233,7 +234,7 @@ mod tests {
         let text = "m\x1fm1\x1fa b\x1fHEAD -> refs/heads/main\x1fMerge b\n\
 b\x1fb1\x1fa\x1f\x1fon b\n\
 a\x1fa1\x1f\x1ftag: refs/tags/v1\x1froot\n";
-        let h = parse(text, 100);
+        let h = parse(text, 100, true);
         let rows: Vec<String> = h
             .rows
             .iter()
@@ -249,7 +250,8 @@ a\x1fa1\x1f\x1ftag: refs/tags/v1\x1froot\n";
         assert!(h.rows[1].refs.is_empty());
         assert_eq!(h.rows[2].refs[0].kind, RefKind::Tag);
         assert!(!h.more);
-        assert!(parse(text, 3).more);
+        assert!(parse(text, 3, false).more);
+        assert!(parse(text, 100, false).worktree.is_empty(), "a clean tree");
     }
 
     #[test]

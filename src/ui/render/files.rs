@@ -76,17 +76,17 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
         visual.push(Visual::Item(next));
         next += 1;
     }
-    // The History divider separates the changed files from the history; a
-    // clean tree starts with the working-tree row.
-    if !status.files.is_empty() {
+    // A tree with changes: the History divider, then the working-tree row.
+    // A clean tree starts with the history.
+    if !status.is_clean() {
         visual.push(Visual::Divider);
+        let no_cells: &[Cell] = &[];
+        visual.push(Visual::WorkTree(
+            next,
+            history.map_or(no_cells, |h| &h.worktree),
+        ));
+        next += 1;
     }
-    let no_cells: &[Cell] = &[];
-    visual.push(Visual::WorkTree(
-        next,
-        history.map_or(no_cells, |h| &h.worktree),
-    ));
-    next += 1;
     let mut graph_w = 1;
     match (history, &app.history.error) {
         (Some(h), _) if !h.rows.is_empty() => {
@@ -250,24 +250,19 @@ fn graph_of<'a>(v: &Visual<'a>) -> &'a [Cell] {
     }
 }
 
-/// `3 changes · 2 modified · 1 untracked`, or `Working tree clean`; then
-/// `· N behind` with commits to pull.
+/// `3 changes · 2 modified · 1 untracked`, then `· N behind` with commits
+/// to pull (the row exists only while the tree has changes).
 fn worktree_summary(status: &crate::git::RepoStatus) -> String {
-    let mut parts = Vec::new();
-    if status.is_clean() {
-        parts.push("Working tree clean".to_string());
-    } else {
-        let n = status.counts().changed;
-        parts.push(format!("{n} change{}", if n == 1 { "" } else { "s" }));
-        let kind = |k: EntryKind| status.files.iter().filter(|f| f.kind == k).count();
-        for (count, what) in [
-            (kind(EntryKind::Tracked), "modified"),
-            (kind(EntryKind::Untracked), "untracked"),
-            (kind(EntryKind::Conflict), "conflicted"),
-        ] {
-            if count > 0 {
-                parts.push(format!("{count} {what}"));
-            }
+    let n = status.counts().changed;
+    let mut parts = vec![format!("{n} change{}", if n == 1 { "" } else { "s" })];
+    let kind = |k: EntryKind| status.files.iter().filter(|f| f.kind == k).count();
+    for (count, what) in [
+        (kind(EntryKind::Tracked), "modified"),
+        (kind(EntryKind::Untracked), "untracked"),
+        (kind(EntryKind::Conflict), "conflicted"),
+    ] {
+        if count > 0 {
+            parts.push(format!("{count} {what}"));
         }
     }
     if status.branch.behind > 0 {

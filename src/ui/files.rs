@@ -56,7 +56,9 @@ impl App {
             return Vec::new();
         };
         let mut items: Vec<FileItem> = status.files.iter().map(FileItem::File).collect();
-        items.push(FileItem::WorkTree);
+        if !status.is_clean() {
+            items.push(FileItem::WorkTree);
+        }
         if let Some(h) = self.current_history() {
             let unpushed = |hash: &str| status.unpushed.iter().any(|c| c.hash == hash);
             items.extend(h.rows.iter().map(|r| {

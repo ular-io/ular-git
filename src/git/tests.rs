@@ -296,7 +296,7 @@ fn history_graph_follows_a_merged_branch() {
     repo.git(&["add", "m.txt"]);
     repo.git(&["commit", "-qm", "on main"]);
     repo.git(&["merge", "-q", "--no-ff", "-m", "merge feat", "feat"]);
-    let h = super::history::load(&repo.root, 100).unwrap();
+    let h = super::history::load(&repo.root, 100, false).unwrap();
     let subjects: Vec<&str> = h.rows.iter().map(|r| r.commit.subject.as_str()).collect();
     assert_eq!(subjects.len(), 4);
     assert_eq!(subjects[0], "merge feat");
@@ -310,14 +310,14 @@ fn history_graph_follows_a_merged_branch() {
     assert_eq!(graph[0], "●─╮", "{graph:?}");
     assert_eq!(graph[3], "●─╯", "{graph:?}");
     assert!(!h.more);
-    assert!(super::history::load(&repo.root, 2).unwrap().more);
+    assert!(super::history::load(&repo.root, 2, false).unwrap().more);
 }
 
 #[test]
 fn an_unborn_branch_has_an_empty_history() {
     let dir = tempfile::tempdir().unwrap();
     super::test_repo::git(dir.path(), &["init", "-q", "-b", "main"]);
-    let h = super::history::load(dir.path(), 100).unwrap();
+    let h = super::history::load(dir.path(), 100, false).unwrap();
     assert!(h.rows.is_empty() && !h.more);
 }
 
@@ -349,7 +349,7 @@ fn behind_origin(repo: &TestRepo, n: usize) {
 fn history_lists_commits_to_pull_above_head() {
     let repo = TestRepo::new();
     behind_origin(&repo, 2);
-    let h = super::history::load(&repo.root, 100).unwrap();
+    let h = super::history::load(&repo.root, 100, false).unwrap();
     let rows: Vec<(&str, bool)> = h
         .rows
         .iter()
@@ -368,7 +368,7 @@ fn a_diverged_branch_shows_both_sides_meeting_at_their_base() {
     repo.write("local.txt", "l\n");
     repo.git(&["add", "-A"]);
     repo.git(&["commit", "-qm", "local"]);
-    let h = super::history::load(&repo.root, 100).unwrap();
+    let h = super::history::load(&repo.root, 100, false).unwrap();
     let incoming: Vec<&str> = h
         .rows
         .iter()

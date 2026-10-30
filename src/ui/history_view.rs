@@ -78,8 +78,9 @@ pub struct HistoryView {
     pub labels: RefLabels,
     /// Working tree the history belongs to (loaded or loading).
     pub target: Option<PathBuf>,
-    /// HEAD (short oid) and ahead/behind counts when it was requested; a
-    /// change (commit, pull, checkout, a fetch elsewhere) reloads.
+    /// HEAD (short oid), ahead/behind counts, and whether the tree had
+    /// changes when it was requested; a change (commit, pull, checkout, a
+    /// fetch elsewhere, the first edit or the last commit) reloads.
     pub head: Option<String>,
     /// Commits requested.
     pub limit: usize,
@@ -88,7 +89,7 @@ pub struct HistoryView {
     pub error: Option<String>,
     generation: u64,
     in_flight: bool,
-    queued: Option<(PathBuf, usize)>,
+    queued: Option<(PathBuf, usize, bool)>,
 }
 
 impl App {
@@ -121,10 +122,11 @@ impl App {
             .map(|s| {
                 let b = &s.branch;
                 format!(
-                    "{}:{}:{}",
+                    "{}:{}:{}:{}",
                     b.oid.as_deref().unwrap_or(""),
                     b.ahead,
-                    b.behind
+                    b.behind,
+                    !s.is_clean()
                 )
             });
         let same_tree = self.history.target.as_deref() == Some(target.as_path());
@@ -158,31 +160,36 @@ impl App {
     }
 
     fn request_history(&mut self, target: PathBuf, limit: usize) {
+        // A tree with changes gets the working-tree node above HEAD.
+        let worktree = self
+            .current_tree()
+            .and_then(|t| t.status.as_ref())
+            .is_some_and(|s| !s.is_clean());
         let view = &mut self.history;
         view.target = Some(target.clone());
         view.limit = limit;
         view.loading = true;
         view.generation += 1;
         if view.in_flight {
-            view.queued = Some((target, limit));
+            view.queued = Some((target, limit, worktree));
             return;
         }
-        self.spawn_history(target, limit);
+        self.spawn_history(target, limit, worktree);
     }
 
-    fn spawn_history(&mut self, target: PathBuf, limit: usize) {
+    fn spawn_history(&mut self, target: PathBuf, limit: usize, worktree: bool) {
         self.history.in_flight = true;
         let generation = self.history.generation;
         self.bg.spawn(move || {
-            let result = history::load(&target, limit).map_err(|e| e.to_string());
+            let result = history::load(&target, limit, worktree).map_err(|e| e.to_string());
             Box::new(move |app: &mut App| app.apply_history(generation, result))
         });
     }
 
     fn apply_history(&mut self, generation: u64, result: Result<History, String>) {
         self.history.in_flight = false;
-        if let Some((target, limit)) = self.history.queued.take() {
-            self.spawn_history(target, limit);
+        if let Some((target, limit, worktree)) = self.history.queued.take() {
+            self.spawn_history(target, limit, worktree);
             return;
         }
         if generation != self.history.generation {
