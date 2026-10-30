@@ -26,6 +26,7 @@ pub enum CommandId {
     ClearFilter,
     RefreshAll,
     ToggleWrap,
+    CycleRefLabels,
     TerminalCommand,
     ChangeTheme,
     EditConfig,
@@ -262,6 +263,14 @@ pub const COMMANDS: &[CommandSpec] = &[
         Some("."),
         ["wrap", "diff", "long"],
         None
+    ),
+    cmd!(
+        CycleRefLabels,
+        "cycle-ref-labels",
+        "Cycle Branch / Tag Labels",
+        Some(">"),
+        ["branch", "tag", "ref", "label", "badge", "decorate", "history"],
+        Some("History labels: none → branches → branches and tags → tags")
     ),
     cmd!(
         TerminalCommand,

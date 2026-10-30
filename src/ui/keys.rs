@@ -82,6 +82,7 @@ impl App {
                     ),
                     h("c", "Commit"),
                     h(".", "Wrap Lines"),
+                    h(">", self.next_labels_hint()),
                 ],
                 vec![
                     h("P", "Push"),
@@ -99,6 +100,17 @@ impl App {
                     h("+", "Add Repository"),
                 ],
             ],
+        }
+    }
+
+    /// What `>` turns the history labels into next.
+    fn next_labels_hint(&self) -> &'static str {
+        use super::history_view::RefLabels;
+        match self.history.labels {
+            RefLabels::None => "Show Branches",
+            RefLabels::Branches => "Add Tags",
+            RefLabels::BranchesAndTags => "Tags Only",
+            RefLabels::Tags => "Hide Labels",
         }
     }
 
@@ -155,6 +167,7 @@ pub fn anywhere() -> Vec<Hint> {
         h("c", "Commit the selected repository"),
         h("P", "Push (asks first)"),
         h("p", "Pull, fast-forward only"),
+        h(">", "History labels: none → branches → + tags → tags"),
         h(":", "Quick command (every command)"),
         h("!", "Run a shell command in the repository"),
         h("ctrl+u", "Rescan every repository"),

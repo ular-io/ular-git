@@ -80,6 +80,7 @@ one, a linked worktree (resolved to its repository), or a parent folder
 | `c` | Commit (staged only, or all changes including untracked files) |
 | `P`, `p` | Push (asks first), pull (fast-forward only) |
 | `.` (Files / Diff pane) | Toggle diff line wrap |
+| `>` | History labels: none → branches → branches and tags → tags (remembered) |
 | `:`, `!` | Quick command palette, shell command in the selected repository |
 | `ctrl+u` | Rescan every repository |
 | `?` | Help for the focused pane |

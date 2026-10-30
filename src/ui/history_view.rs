@@ -6,8 +6,76 @@ use super::App;
 use crate::git::history::{self, History, FIRST_PAGE};
 use std::path::PathBuf;
 
+/// Which refs the history labels (`>` cycles them in this order). The last
+/// choice is kept in `view.json` across launches.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RefLabels {
+    #[default]
+    None,
+    Branches,
+    BranchesAndTags,
+    Tags,
+}
+
+impl RefLabels {
+    pub fn next(self) -> Self {
+        match self {
+            RefLabels::None => RefLabels::Branches,
+            RefLabels::Branches => RefLabels::BranchesAndTags,
+            RefLabels::BranchesAndTags => RefLabels::Tags,
+            RefLabels::Tags => RefLabels::None,
+        }
+    }
+
+    pub fn branches(self) -> bool {
+        matches!(self, RefLabels::Branches | RefLabels::BranchesAndTags)
+    }
+
+    pub fn tags(self) -> bool {
+        matches!(self, RefLabels::BranchesAndTags | RefLabels::Tags)
+    }
+}
+
+/// View choices remembered across launches (`~/.config/ular-git/view.json`).
+#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+struct SavedView {
+    #[serde(default)]
+    history_labels: RefLabels,
+}
+
+fn view_path() -> std::path::PathBuf {
+    crate::config::config_base_dir().join("view.json")
+}
+
+/// The saved history labels; unit tests never read the user's file.
+pub(crate) fn load_labels() -> RefLabels {
+    if cfg!(test) {
+        return RefLabels::default();
+    }
+    std::fs::read_to_string(view_path())
+        .ok()
+        .and_then(|data| serde_json::from_str::<SavedView>(&data).ok())
+        .map(|v| v.history_labels)
+        .unwrap_or_default()
+}
+
+fn save_labels(labels: RefLabels) {
+    if cfg!(test) {
+        return;
+    }
+    let view = SavedView {
+        history_labels: labels,
+    };
+    if let Ok(data) = serde_json::to_string_pretty(&view) {
+        let _ = crate::config::write_atomic(&view_path(), data.as_bytes());
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct HistoryView {
+    /// Branch / tag labels on history rows.
+    pub labels: RefLabels,
     /// Working tree the history belongs to (loaded or loading).
     pub target: Option<PathBuf>,
     /// HEAD (short oid) and ahead/behind counts when it was requested; a
@@ -24,11 +92,27 @@ pub struct HistoryView {
 }
 
 impl App {
+    /// `>`: none → branches → branches and tags → tags → none.
+    pub(crate) fn cycle_ref_labels(&mut self) {
+        self.history.labels = self.history.labels.next();
+        save_labels(self.history.labels);
+        let text = match self.history.labels {
+            RefLabels::None => "History labels hidden",
+            RefLabels::Branches => "History labels: branches",
+            RefLabels::BranchesAndTags => "History labels: branches and tags",
+            RefLabels::Tags => "History labels: tags",
+        };
+        self.notify(super::Level::Info, text);
+    }
+
     /// Loads the history of the selected working tree when it is not loaded
     /// for that tree and HEAD yet (target change, commit, pull, checkout).
     pub(crate) fn ensure_history(&mut self) {
         let Some(target) = self.current_target() else {
-            self.history = HistoryView::default();
+            self.history = HistoryView {
+                labels: self.history.labels,
+                ..HistoryView::default()
+            };
             return;
         };
         let head = self
@@ -113,5 +197,26 @@ impl App {
             Err(err) => self.history.error = Some(err),
         }
         self.keep_file_selection();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn labels_cycle_back_to_none_and_save_by_name() {
+        let mut l = RefLabels::None;
+        for _ in 0..4 {
+            l = l.next();
+        }
+        assert_eq!(l, RefLabels::None);
+        let view = SavedView {
+            history_labels: RefLabels::BranchesAndTags,
+        };
+        let json = serde_json::to_string(&view).unwrap();
+        assert_eq!(json, r#"{"history_labels":"branches_and_tags"}"#);
+        let back: SavedView = serde_json::from_str("{}").unwrap();
+        assert_eq!(back.history_labels, RefLabels::None);
     }
 }

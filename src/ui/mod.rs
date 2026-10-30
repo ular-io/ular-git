@@ -179,6 +179,7 @@ impl App {
             app.quick_history = quick::load_history();
             app.terminal_history = quick::load_terminal_history();
             app.last_apps = overlays::open_with::load_last_apps();
+            app.history.labels = history_view::load_labels();
             app.launch_dir = std::env::current_dir().ok();
         }
         if let Some(err) = load_error {

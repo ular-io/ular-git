@@ -151,3 +151,50 @@ fn the_graph_gets_fainter_not_stronger_when_its_pane_loses_focus() {
         "dimmed {dimmed} must be fainter than focused {focused}"
     );
 }
+
+#[test]
+fn greater_than_cycles_branch_and_tag_labels_on_the_history() {
+    let a = TestRepo::new();
+    a.git(&["tag", "v1.0"]);
+    a.git(&["branch", "side"]);
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.wait_background(10);
+    app.focus = Pane::Files;
+    let init_row = |app: &crate::ui::App| {
+        screen(app, 150, 20)
+            .into_iter()
+            .find(|r| r.contains('●') && r.contains(" init"))
+            .unwrap()
+    };
+    let labels = |row: &str| {
+        (
+            row.contains("⎇ main"),
+            row.contains("⎇ side"),
+            row.contains("⚑ v1.0"),
+        )
+    };
+    assert_eq!(
+        labels(&init_row(&app)),
+        (false, false, false),
+        "hidden at first"
+    );
+    app.press(&[ch('>')]);
+    assert_eq!(
+        labels(&init_row(&app)),
+        (true, true, false),
+        "{}",
+        init_row(&app)
+    );
+    app.press(&[ch('>')]);
+    assert_eq!(labels(&init_row(&app)), (true, true, true));
+    app.press(&[ch('>')]);
+    assert_eq!(labels(&init_row(&app)), (false, false, true));
+    // Labels sit between the graph and the subject.
+    let row = init_row(&app);
+    assert!(
+        row.find("⚑ v1.0").unwrap() < row.find(" init").unwrap(),
+        "{row}"
+    );
+    app.press(&[ch('>')]);
+    assert_eq!(labels(&init_row(&app)), (false, false, false));
+}

@@ -97,6 +97,7 @@ impl App {
             'c' => self.open_commit(),
             'P' => self.open_push(),
             'p' => self.start_pull(),
+            '>' => self.cycle_ref_labels(),
             '1' => self.focus_pane(Pane::Repos),
             '2' => self.focus_pane(Pane::Files),
             '3' => self.focus_pane(Pane::Diff),

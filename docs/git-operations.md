@@ -27,6 +27,16 @@
      and the upstream, so a diverged branch shows both sides meeting at their
      base. The graph uses at most 12 columns;
   4. `… more` when older commits exist.
+- Ref labels (`RefLabels` in `src/ui/history_view.rs`, drawn by `ref_spans`
+  in `src/ui/render/files.rs`): `>` (any pane, palette Cycle Branch / Tag
+  Labels) cycles none → branches → branches and tags → tags → none. Labels
+  sit between the graph and the subject in reverse video: `⎇ name` for a
+  local branch (branch color, bold on HEAD's branch; `HEAD` when detached)
+  and a remote branch (hunk color), `⚑ name` for a tag (warning color). A
+  remote branch with a local twin on the same commit (`origin/main` next to
+  `main`) is left out. Names are cut at 24 columns; labels that do not fit
+  the row are dropped. Read from `git log --decorate=full` `%D`. The last
+  choice is saved in `~/.config/ular-git/view.json`.
 - History is read for the selected working tree only, in the background, when
   it is selected or its HEAD or ahead / behind counts change (commit, pull,
   checkout, a fetch elsewhere): the newest 100

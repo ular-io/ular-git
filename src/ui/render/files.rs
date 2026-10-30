@@ -6,6 +6,7 @@ use super::{
     body_style, draw_divider, empty_line, pane_block, pane_tone, selection_style, Divider, Tone,
 };
 use crate::git::graph::Cell;
+use crate::git::history::{RefKind, RefLabel};
 use crate::git::EntryKind;
 use crate::git::FileEntry;
 use crate::theme::{color_rgb, Theme};
@@ -13,6 +14,7 @@ use crate::ui::components::modal::fade_toward;
 use crate::ui::components::scrollbar::draw_vscrollbar;
 use crate::ui::components::text::{truncate_left_w, truncate_w};
 use crate::ui::files::{FileItem, Mark};
+use crate::ui::history_view::RefLabels;
 use crate::ui::{App, Pane};
 use ratatui::{
     layout::Rect,
@@ -93,7 +95,7 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                 .unwrap_or(0)
                 .min(GRAPH_MAX);
             for row in &h.rows {
-                visual.push(Visual::Graph(next, &row.cells));
+                visual.push(Visual::Graph(next, &row.cells, &row.refs));
                 next += 1;
             }
             if h.more {
@@ -131,12 +133,20 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                         dim_style,
                     )))
                 }
-                Visual::Graph(i, _) | Visual::Item(i) if items.get(*i).is_some() => {
+                Visual::Graph(i, ..) | Visual::Item(i) if items.get(*i).is_some() => {
                     let item = items[*i];
                     let spans = match item {
                         FileItem::File(file) => file_spans(file, w, tone, th),
                         FileItem::Commit(c, mark) => {
                             let mut spans = graph_spans(graph_of(v), graph_w, mark, tone, th);
+                            let used: usize = spans.iter().map(|s| s.content.width()).sum();
+                            spans.extend(ref_spans(
+                                refs_of(v),
+                                app.history.labels,
+                                w.saturating_sub(used + 1),
+                                tone,
+                                th,
+                            ));
                             let used: usize = spans.iter().map(|s| s.content.width()).sum();
                             // Commits to push or pull stand out of the faded history.
                             let style = if mark == Mark::Shared {
@@ -197,17 +207,68 @@ const GRAPH_MAX: usize = 12;
 enum Visual<'a> {
     /// A selectable file or `… more` row (index into the items).
     Item(usize),
-    /// A history commit (item index) and its graph cells.
-    Graph(usize, &'a [Cell]),
+    /// A history commit (item index), its graph cells, and its refs.
+    Graph(usize, &'a [Cell], &'a [RefLabel]),
     Note(String),
     Divider,
 }
 
 fn graph_of<'a>(v: &Visual<'a>) -> &'a [Cell] {
     match v {
-        Visual::Graph(_, g) => g,
+        Visual::Graph(_, g, _) => g,
         _ => &[],
     }
+}
+
+fn refs_of<'a>(v: &Visual<'a>) -> &'a [RefLabel] {
+    match v {
+        Visual::Graph(_, _, r) => r,
+        _ => &[],
+    }
+}
+
+/// Longest ref name shown in a label; longer names are cut with `…`.
+const REF_NAME_MAX: usize = 24;
+
+/// Branch (`⎇`) and tag (`⚑`) labels in reverse video, each followed by a
+/// space, within `room` cells; a label that does not fit is left out with
+/// the rest. Local branches use the branch color (bold on HEAD's), remote
+/// branches the hunk color, tags the warning color.
+fn ref_spans(
+    refs: &[RefLabel],
+    labels: RefLabels,
+    room: usize,
+    tone: Tone,
+    th: &Theme,
+) -> Vec<Span<'static>> {
+    let mut spans = Vec::new();
+    let mut used = 0;
+    for r in refs {
+        let (icon, color) = match r.kind {
+            RefKind::Branch if labels.branches() => ('⎇', th.branch),
+            RefKind::Remote if labels.branches() => ('⎇', th.diff_hunk),
+            RefKind::Tag if labels.tags() => ('⚑', th.warning),
+            _ => continue,
+        };
+        let text = format!(" {icon} {} ", truncate_w(&r.name, REF_NAME_MAX));
+        let w = text.width() + 1;
+        if used + w > room {
+            break;
+        }
+        used += w;
+        let color = if tone == Tone::Dimmed {
+            fade_toward(color_rgb(color), th.bg_rgb())
+        } else {
+            color
+        };
+        let mut style = Style::default().fg(color).add_modifier(Modifier::REVERSED);
+        if r.head {
+            style = style.add_modifier(Modifier::BOLD);
+        }
+        spans.push(Span::styled(text, style));
+        spans.push(Span::raw(" "));
+    }
+    spans
 }
 
 /// Graph cells colored by lane (a lane keeps its color) and faded so history
