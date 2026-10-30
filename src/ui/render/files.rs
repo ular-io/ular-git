@@ -16,7 +16,7 @@ use crate::ui::files::{FileItem, Mark};
 use crate::ui::{App, Pane};
 use ratatui::{
     layout::Rect,
-    style::{Modifier, Style},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{List, ListItem},
     Frame,
@@ -239,12 +239,16 @@ fn graph_spans(
         };
         let marked = node && mark != Mark::Shared;
         let color = lanes[cell.color.unwrap_or(0) % lanes.len()];
-        let style = if tone == Tone::Dimmed {
-            th.soft_dim()
-        } else if marked {
-            Style::default().fg(th.branch).add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(fade_toward(color_rgb(color), th.bg_rgb()))
+        // Each step toward the background is one fade: a focused pane shows
+        // marked nodes at full color and lanes faded once; another pane's
+        // focus fades both one step further, so the graph never gets
+        // stronger when the pane loses focus.
+        let fade = |c: Color| fade_toward(color_rgb(c), th.bg_rgb());
+        let style = match (tone == Tone::Dimmed, marked) {
+            (false, true) => Style::default().fg(th.branch).add_modifier(Modifier::BOLD),
+            (false, false) => Style::default().fg(fade(color)),
+            (true, true) => Style::default().fg(fade(th.branch)),
+            (true, false) => Style::default().fg(fade(fade(color))),
         };
         spans.push(Span::styled(glyph.to_string(), style));
         used += 1;

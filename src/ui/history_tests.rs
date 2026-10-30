@@ -119,3 +119,35 @@ fn commits_to_pull_are_marked_with_a_down_arrow() {
         "{rows:#?}"
     );
 }
+
+#[test]
+fn the_graph_gets_fainter_not_stronger_when_its_pane_loses_focus() {
+    let a = TestRepo::new();
+    a.write("a.txt", "next\n");
+    a.git(&["commit", "-qam", "second"]);
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.wait_background(10);
+    // The `init` node: not selected (the cursor is on `second`).
+    let node_fg = |app: &crate::ui::App| {
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(150, 20)).unwrap();
+        terminal.draw(|f| crate::ui::render::draw(f, app)).unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let row = |y: u16| (0..150).map(|x| buf[(x, y)].symbol()).collect::<String>();
+        let y = (0..20).find(|&y| row(y).contains("● init")).unwrap();
+        let x = (0..150).find(|&x| buf[(x, y)].symbol() == "●").unwrap();
+        crate::theme::color_rgb(buf[(x, y)].fg)
+    };
+    let distance = |(r, g, b): (u8, u8, u8)| {
+        let (br, bg, bb) = app.theme.bg_rgb();
+        (r as i32 - br as i32).abs() + (g as i32 - bg as i32).abs() + (b as i32 - bb as i32).abs()
+    };
+    app.focus = Pane::Files;
+    let focused = distance(node_fg(&app));
+    app.focus = Pane::Repos;
+    let dimmed = distance(node_fg(&app));
+    assert!(
+        dimmed < focused,
+        "dimmed {dimmed} must be fainter than focused {focused}"
+    );
+}

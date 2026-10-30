@@ -43,6 +43,11 @@ ular-git applies them.
   readable.
 - A dialog, help, the palette, or the filter line owns input: no pane is
   dimmed.
+- Faded colors fade further when their pane loses focus, never back to
+  `muted`: the history graph is lane color faded once when focused and twice
+  when not (`↑` / `↓` nodes: full branch color, then faded once). `muted` can
+  be stronger than a faded color, so swapping to it would make a dimmed pane
+  look bolder.
 - Selected row: the bar runs from the left padding cell to the cell before the
   right border (where the scrollbar sits). Focused → `selection_bg` +
   `selection_fg` + bold; dimmed pane → soft-dim reversed over
