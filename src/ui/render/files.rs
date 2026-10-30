@@ -173,19 +173,10 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
             if item_index == Some(app.file_sel) {
                 selected_row = row;
                 let sel = selection_style(tone, th);
-                // Ref labels (the only reversed spans) stay reversed against
-                // the selection bar, which is itself reversed in a dimmed pane.
-                let label = if sel.add_modifier.contains(Modifier::REVERSED) {
-                    sel.remove_modifier(Modifier::REVERSED)
-                } else {
-                    sel.add_modifier(Modifier::REVERSED)
-                };
-                for s in &mut spans {
-                    s.style = if s.style.add_modifier.contains(Modifier::REVERSED) {
-                        label
-                    } else {
-                        sel
-                    };
+                // Ref labels (the only spans with a background) keep their
+                // colors on the selection bar.
+                for s in spans.iter_mut().filter(|s| s.style.bg.is_none()) {
+                    s.style = sel;
                 }
             }
             ListItem::new(Line::from(spans))
@@ -241,10 +232,13 @@ fn refs_of<'a>(v: &Visual<'a>) -> &'a [RefLabel] {
 /// Longest ref name shown in a label; longer names are cut with `…`.
 const REF_NAME_MAX: usize = 24;
 
-/// Branch (`⎇`) and tag (`⚑`) labels in reverse video, each followed by a
-/// space, within `room` cells; a label that does not fit is left out with
-/// the rest. Local branches use the branch color (bold on HEAD's), remote
-/// branches the hunk color, tags the warning color.
+/// Branch (`⎇`) and tag (`⚑`) labels drawn as solid badges (the theme
+/// background as text on the label color), each followed by a space, within
+/// `room` cells; a label that does not fit is left out with the rest. Local
+/// branches use the branch color (bold on HEAD's), remote branches the hunk
+/// color, tags the warning color, each moved a quarter toward the text color
+/// so the badge stands out of the background (a dimmed pane fades it back a
+/// third, not the usual half).
 fn ref_spans(
     refs: &[RefLabel],
     labels: RefLabels,
@@ -267,12 +261,17 @@ fn ref_spans(
             break;
         }
         used += w;
-        let color = if tone == Tone::Dimmed {
-            fade_toward(color_rgb(color), th.bg_rgb())
-        } else {
-            color
+        let ink = match th.fg {
+            Color::Reset if th.dark => (255, 255, 255),
+            Color::Reset => (0, 0, 0),
+            c => color_rgb(c),
         };
-        let mut style = Style::default().fg(color).add_modifier(Modifier::REVERSED);
+        let mut badge = mix(color_rgb(color), ink, 25);
+        if tone == Tone::Dimmed {
+            badge = mix(badge, th.bg_rgb(), 35);
+        }
+        let rgb = |(r, g, b): (u8, u8, u8)| Color::Rgb(r, g, b);
+        let mut style = Style::default().bg(rgb(badge)).fg(rgb(th.bg_rgb()));
         if r.head {
             style = style.add_modifier(Modifier::BOLD);
         }
@@ -280,6 +279,12 @@ fn ref_spans(
         spans.push(Span::raw(" "));
     }
     spans
+}
+
+/// `a` moved `pct` percent toward `b`.
+fn mix((r, g, b): (u8, u8, u8), (tr, tg, tb): (u8, u8, u8), pct: u32) -> (u8, u8, u8) {
+    let m = |c: u8, t: u8| ((u32::from(c) * (100 - pct) + u32::from(t) * pct) / 100) as u8;
+    (m(r, tr), m(g, tg), m(b, tb))
 }
 
 /// Graph cells colored by lane (a lane keeps its color) and faded so history

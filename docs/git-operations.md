@@ -30,12 +30,14 @@
 - Ref labels (`RefLabels` in `src/ui/history_view.rs`, drawn by `ref_spans`
   in `src/ui/render/files.rs`): `>` (any pane, palette Cycle Branch / Tag
   Labels) cycles none → branches → branches and tags → tags → none. Labels
-  sit between the graph and the subject in reverse video: `⎇ name` for a
+  sit between the graph and the subject as solid badges (the background
+  color as text on the label color, a quarter toward the text color; a dimmed
+  pane fades them a third): `⎇ name` for a
   local branch (branch color, bold on HEAD's branch; `HEAD` when detached)
   and a remote branch (hunk color), `⚑ name` for a tag (warning color). A
   remote branch with a local twin on the same commit (`origin/main` next to
   `main`) is left out. Names are cut at 24 columns; labels that do not fit
-  the row are dropped. On the selected row they stay reversed against the selection bar. Read from `git log --decorate=full` `%D`. The last
+  the row are dropped. They keep their colors on the selection bar. Read from `git log --decorate=full` `%D`. The last
   choice is saved in `~/.config/ular-git/view.json`.
 - History is read for the selected working tree only, in the background, when
   it is selected or its HEAD or ahead / behind counts change (commit, pull,

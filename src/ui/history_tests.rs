@@ -200,14 +200,14 @@ fn greater_than_cycles_branch_and_tag_labels_on_the_history() {
 }
 
 #[test]
-fn ref_labels_stay_reversed_on_the_selected_row() {
+fn ref_labels_keep_their_badge_colors_on_the_selected_row() {
     let a = TestRepo::new();
     a.git(&["tag", "v1.0"]);
     let mut app = scanned_app(store_of(&[&a.root]));
     app.wait_background(10);
     app.press(&[ch('>'), ch('>')]);
     // The cursor is on `init`, the only commit.
-    let reversed_at = |app: &crate::ui::App, needle: &str| {
+    let bgs = |app: &crate::ui::App| {
         let mut terminal =
             ratatui::Terminal::new(ratatui::backend::TestBackend::new(150, 20)).unwrap();
         terminal.draw(|f| crate::ui::render::draw(f, app)).unwrap();
@@ -216,18 +216,25 @@ fn ref_labels_stay_reversed_on_the_selected_row() {
         let y = (0..20)
             .find(|&y| row(y).contains('●') && row(y).contains(" init"))
             .unwrap();
-        let x = (0..150).find(|&x| buf[(x, y)].symbol() == needle).unwrap();
-        let reversed = |x: u16| {
-            let c = &buf[(x, y)];
-            c.modifier.contains(ratatui::style::Modifier::REVERSED) && !c.modifier.is_empty()
-        };
+        let x = (0..150).find(|&x| buf[(x, y)].symbol() == "⚑").unwrap();
         // `x - 2`: the plain space between the branch and tag labels.
-        (reversed(x), reversed(x - 2))
+        (buf[(x, y)].bg, buf[(x - 2, y)].bg)
     };
-    // Focused: the bar is plain, the label reversed.
     app.focus = Pane::Files;
-    assert_eq!(reversed_at(&app, "⚑"), (true, false));
-    // Dimmed: the bar is reversed, so the label is not.
+    let (label, bar) = bgs(&app);
+    assert_eq!(bar, app.theme.selection_bg);
+    assert_ne!(label, bar, "the tag keeps its own color on the bar");
+    assert_ne!(label, app.theme.warning, "deepened, not the raw role color");
+    // A dimmed pane fades the badge, but less than halfway to the background.
     app.focus = Pane::Repos;
-    assert_eq!(reversed_at(&app, "⚑"), (false, true));
+    let (dimmed, _) = bgs(&app);
+    assert_ne!(dimmed, label);
+    let gap = |c: ratatui::style::Color| {
+        let ((r, g, b), (br, bg, bb)) = (crate::theme::color_rgb(c), app.theme.bg_rgb());
+        (r as i32 - br as i32).abs() + (g as i32 - bg as i32).abs() + (b as i32 - bb as i32).abs()
+    };
+    assert!(
+        gap(dimmed) > gap(label) / 3,
+        "still clear of the background"
+    );
 }
