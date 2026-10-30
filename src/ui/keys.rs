@@ -56,11 +56,10 @@ impl App {
                     first.push(h("ctrl+d", remove));
                 }
                 // `1..3` and `0` stay out (footer and help show them).
-                // `.` cycles the views; the label names the next one.
-                let changed = match self.change_view {
-                    super::tree::ChangeView::All => "Changed Only",
-                    super::tree::ChangeView::Changed => "Pending Only",
-                    super::tree::ChangeView::Pending => "Show All",
+                let changed = if self.pending_only {
+                    "Show All"
+                } else {
+                    "Pending Only"
                 };
                 let second = vec![
                     h("enter", enter),
@@ -112,10 +111,6 @@ impl App {
                 h("home / g", "First row"),
                 h("end / G", "Last row"),
                 h("space", "Fold / unfold group"),
-                h(
-                    ".",
-                    "Changed (to commit or pull) → Pending (+ push, stash) → All",
-                ),
                 h("→ / l", "Files pane"),
                 h("delete", "Same as ctrl+d"),
             ],

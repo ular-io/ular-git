@@ -72,45 +72,36 @@ fn folder_name(path: &Path) -> String {
         .unwrap_or_default()
 }
 
-/// Which working trees the repository list keeps, on top of the text filter.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum ChangeView {
-    #[default]
-    All,
-    /// `.` once: uncommitted changes or commits to pull.
-    Changed,
-    /// `.` pressed twice: also commits to push and stashes.
-    Pending,
-}
-
 /// Builds the visible rows: repositories without a group first, flat and
 /// unindented (no header), then each group header with its repositories
 /// indented beneath it. With a filter (case-insensitive substring of the
-/// folder or branch name) or a [`ChangeView`] other than `All`, collapsed
-/// groups open and only groups with a match are kept. A clean repository
-/// stays as the parent of a worktree that has changes.
+/// folder or branch name) or `pending_only` (working trees with something to
+/// commit, pull, or push, or a stash), collapsed groups open and only groups
+/// with a match are kept. A clean repository stays as the parent of a
+/// worktree that matches.
 pub fn build_rows(
     store: &RepoStore,
     statuses: &HashMap<PathBuf, TreeState>,
     filter: &str,
-    view: ChangeView,
+    pending_only: bool,
 ) -> Vec<Row> {
     let needle = filter.trim().to_lowercase();
     let matches = |text: &str| needle.is_empty() || text.to_lowercase().contains(&needle);
     // `main`: a repository row. The stash is shared by a repository and its
     // worktrees, so it only counts for the repository.
     let wanted = |p: &Path, main: bool| {
-        let s = statuses.get(p).and_then(|t| t.status.as_ref());
-        let changed = s.is_some_and(|s| !s.is_clean() || s.branch.behind > 0);
-        match view {
-            ChangeView::All => true,
-            ChangeView::Changed => changed,
-            ChangeView::Pending => {
-                changed || s.is_some_and(|s| s.branch.ahead > 0 || (main && s.stashes > 0))
-            }
-        }
+        !pending_only
+            || statuses
+                .get(p)
+                .and_then(|t| t.status.as_ref())
+                .is_some_and(|s| {
+                    !s.is_clean()
+                        || s.branch.behind > 0
+                        || s.branch.ahead > 0
+                        || (main && s.stashes > 0)
+                })
     };
-    let filtering = !needle.is_empty() || view != ChangeView::All;
+    let filtering = !needle.is_empty() || pending_only;
 
     // Repositories (with their visible worktrees) per group, name-sorted;
     // ungrouped first.
@@ -264,12 +255,7 @@ mod tests {
     #[test]
     fn groups_sort_repositories_and_nest_worktrees() {
         let s = store();
-        let rows = build_rows(
-            &s,
-            &with_worktree("/x/alpha-wt", "feat"),
-            "",
-            ChangeView::All,
-        );
+        let rows = build_rows(&s, &with_worktree("/x/alpha-wt", "feat"), "", false);
         assert_eq!(
             names(&s, &rows),
             ["loose", "#work", "alpha", "^alpha-wt", "zeta"]
@@ -279,7 +265,7 @@ mod tests {
     #[test]
     fn ungrouped_repositories_lead_without_header_or_indent() {
         let s = store();
-        let rows = build_rows(&s, &HashMap::new(), "", ChangeView::All);
+        let rows = build_rows(&s, &HashMap::new(), "", false);
         assert!(matches!(rows[0], Row::Repo { nested: false, .. }));
         assert!(matches!(rows[2], Row::Repo { nested: true, .. }));
         assert!(rows
@@ -292,7 +278,7 @@ mod tests {
         let mut s = RepoStore::default();
         s.add_repo("/b".into(), None);
         s.add_repo("/a".into(), None);
-        let rows = build_rows(&s, &HashMap::new(), "", ChangeView::All);
+        let rows = build_rows(&s, &HashMap::new(), "", false);
         assert_eq!(names(&s, &rows), ["a", "b"]);
         assert!(matches!(rows[0], Row::Repo { nested: false, .. }));
     }
@@ -303,11 +289,11 @@ mod tests {
         s.toggle_collapsed(Some("work"));
         let st = with_worktree("/x/alpha-wt", "feat");
         assert_eq!(
-            names(&s, &build_rows(&s, &st, "", ChangeView::All)),
+            names(&s, &build_rows(&s, &st, "", false)),
             ["loose", "#work"]
         );
         assert_eq!(
-            names(&s, &build_rows(&s, &st, "ZET", ChangeView::All)),
+            names(&s, &build_rows(&s, &st, "ZET", false)),
             ["#work", "zeta"]
         );
     }
@@ -315,12 +301,7 @@ mod tests {
     #[test]
     fn a_worktree_branch_match_keeps_its_repository() {
         let s = store();
-        let rows = build_rows(
-            &s,
-            &with_worktree("/x/alpha-wt", "feat"),
-            "feat",
-            ChangeView::All,
-        );
+        let rows = build_rows(&s, &with_worktree("/x/alpha-wt", "feat"), "feat", false);
         assert_eq!(names(&s, &rows), ["#work", "alpha", "^alpha-wt"]);
     }
 
@@ -328,7 +309,7 @@ mod tests {
     fn empty_named_groups_stay_visible() {
         let mut s = store();
         s.add_group("empty").unwrap();
-        let rows = build_rows(&s, &HashMap::new(), "", ChangeView::All);
+        let rows = build_rows(&s, &HashMap::new(), "", false);
         assert!(names(&s, &rows).contains(&"#empty".to_string()));
     }
 
@@ -354,7 +335,7 @@ mod tests {
             ..RepoStatus::default()
         };
         st.insert(PathBuf::from("/x/alpha-wt"), TreeState::loaded(wt, 0));
-        let rows = build_rows(&s, &st, "", ChangeView::All);
+        let rows = build_rows(&s, &st, "", false);
         assert!(
             matches!(
                 rows[1],
@@ -370,7 +351,7 @@ mod tests {
     }
 
     #[test]
-    fn changed_only_keeps_dirty_trees_and_the_parent_of_a_dirty_worktree() {
+    fn pending_only_keeps_dirty_trees_and_the_parent_of_a_dirty_worktree() {
         let s = store();
         let file = crate::git::FileEntry {
             path: "f".into(),
@@ -392,18 +373,18 @@ mod tests {
         st.insert(PathBuf::from("/x/zeta"), TreeState::loaded(dirty, 0));
         let mut folded = s.clone();
         folded.toggle_collapsed(Some("work"));
-        let rows = build_rows(&folded, &st, "", ChangeView::Changed);
+        let rows = build_rows(&folded, &st, "", true);
         assert_eq!(names(&s, &rows), ["#work", "alpha", "^alpha-wt", "zeta"]);
         // Combined with a text filter, both must match.
         assert_eq!(
-            names(&s, &build_rows(&s, &st, "zet", ChangeView::Changed)),
+            names(&s, &build_rows(&s, &st, "zet", true)),
             ["#work", "zeta"]
         );
-        assert!(build_rows(&s, &st, "loose", ChangeView::Changed).is_empty());
+        assert!(build_rows(&s, &st, "loose", true).is_empty());
     }
 
     #[test]
-    fn changed_only_includes_trees_behind_their_upstream() {
+    fn pending_only_includes_trees_behind_or_ahead_of_their_upstream() {
         let s = store();
         let mut st = HashMap::new();
         let mut behind = RepoStatus::default();
@@ -412,15 +393,15 @@ mod tests {
         ahead.branch.ahead = 1;
         st.insert(PathBuf::from("/x/loose"), TreeState::loaded(behind, 0));
         st.insert(PathBuf::from("/x/zeta"), TreeState::loaded(ahead, 0));
-        // Behind counts (something to pull); ahead alone does not.
+        // Behind (something to pull) and ahead (something to push) count.
         assert_eq!(
-            names(&s, &build_rows(&s, &st, "", ChangeView::Changed)),
-            ["loose"]
+            names(&s, &build_rows(&s, &st, "", true)),
+            ["loose", "#work", "zeta"]
         );
     }
 
     #[test]
-    fn pending_adds_commits_to_push_and_a_repository_stash() {
+    fn pending_only_counts_a_stash_on_the_repository_row_only() {
         let s = store();
         let mut st = with_worktree("/x/alpha-wt", "feat");
         let mut ahead = RepoStatus::default();
@@ -436,9 +417,8 @@ mod tests {
         );
         // A worktree reports its repository's stash too; it does not count there.
         st.insert(PathBuf::from("/x/alpha-wt"), TreeState::loaded(stashed, 0));
-        assert!(build_rows(&s, &st, "", ChangeView::Changed).is_empty());
         assert_eq!(
-            names(&s, &build_rows(&s, &st, "", ChangeView::Pending)),
+            names(&s, &build_rows(&s, &st, "", true)),
             ["loose", "#work", "zeta"]
         );
     }

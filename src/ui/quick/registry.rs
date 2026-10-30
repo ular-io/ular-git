@@ -22,7 +22,6 @@ pub enum CommandId {
     Pull,
     OpenWith,
     FilterRepos,
-    ToggleChangedOnly,
     TogglePendingOnly,
     ClearFilter,
     RefreshAll,
@@ -221,27 +220,23 @@ pub const COMMANDS: &[CommandSpec] = &[
         None
     ),
     cmd!(
-        ToggleChangedOnly,
-        "toggle-changed-only",
-        "Toggle Changed Only",
+        TogglePendingOnly,
+        "toggle-pending-only",
+        "Toggle Pending Only",
         Some("."),
         [
             "dirty",
             "modified",
             "changes",
             "uncommitted",
+            "unpushed",
             "behind",
+            "ahead",
             "pull",
+            "push",
+            "stash",
             "filter"
         ],
-        Some("List only repositories and worktrees with uncommitted changes or commits to pull")
-    ),
-    cmd!(
-        TogglePendingOnly,
-        "toggle-pending-only",
-        "Toggle Pending Only",
-        None,
-        ["unpushed", "ahead", "stash", "push", "sync", "dirty", "pending"],
         Some("List repositories with changes, commits to pull or push, or stashes")
     ),
     cmd!(

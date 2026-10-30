@@ -39,29 +39,26 @@ match disappear. When the selected row is filtered out the cursor moves to the
 first match. `enter` keeps the filter, `esc` restores the previous one, `0`
 clears it.
 
-## Changed only, pending only
+## Pending only
 
-`ChangeView` in `src/ui/tree.rs`; `App::toggle_change_view`.
+`.` on the repository pane toggles a view of the working trees with something
+left to do (`build_rows(.., pending_only)` in `src/ui/tree.rs`;
+`App::toggle_pending_only`):
 
-`.` on the repository pane cycles All → Changed → Pending → All; the header
-names the next view. The palette's Toggle Changed Only / Toggle Pending Only
-go straight to one. (`ctrl+.` is not used: most terminals send it as a plain
-`.`.)
-
-- **Changed**: working trees with uncommitted changes (any changed,
-  untracked, or conflicting file) or commits to pull (behind the upstream, as
-  of the last fetch). Unpushed commits and stashes alone do not count.
-- **Pending**: everything Changed keeps, plus commits to push (ahead of the
-  upstream; a branch without an upstream does not count) and a stash. The
-  stash is shared by a repository and its worktrees, so it counts for the
-  repository row only.
+- uncommitted changes (any changed, untracked, or conflicting file),
+- commits to pull (behind the upstream, as of the last fetch),
+- commits to push (ahead of the upstream; a branch without an upstream does
+  not count),
+- a stash. The stash is shared by a repository and its worktrees, so it
+  counts for the repository row only.
 
 A clean repository stays as the parent of a worktree that matches, and only
 matching worktrees are listed. Groups open and groups without a match
 disappear, as with the text filter; both apply together. The pane title reads
-`Repos[changed: N/M]` or `Repos[pending: N/M]` (`Repos[api · changed: N/M]`
-with a text filter) and the header shows a Filter row. `0` clears both. The
-view lasts for the session only.
+`Repos[pending: N/M]` (`Repos[api · pending: N/M]` with a text filter) and
+the header shows a Filter row. `0` clears both. The view lasts for the session
+only. (`ctrl+.` is not used for anything: most terminals send it as a plain
+`.`.)
 
 ## Groups
 

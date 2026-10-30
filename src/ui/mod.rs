@@ -124,9 +124,9 @@ pub struct App {
 
     /// Repository filter text (`/`); applies while non-empty.
     pub filter: TextInput,
-    /// `.` on the repository pane (cycled): list only working trees with
-    /// something to commit, pull (or push, or a stash). Session only.
-    pub change_view: tree::ChangeView,
+    /// `.` on the repository pane: list only working trees with something to
+    /// commit, pull, or push, or a stash. Session only.
+    pub pending_only: bool,
     /// Filter value when the line was opened, restored by `esc`.
     pub(crate) filter_before: String,
 
@@ -212,7 +212,7 @@ impl App {
             diff: DiffView::default(),
             history: history_view::HistoryView::default(),
             filter: TextInput::new(String::new()),
-            change_view: tree::ChangeView::All,
+            pending_only: false,
             filter_before: String::new(),
             add_repo: None,
             group_name: None,
@@ -292,7 +292,7 @@ impl App {
             &self.store,
             &self.statuses,
             &self.filter.value,
-            self.change_view,
+            self.pending_only,
         );
         let fallback = first_on_miss.then(|| {
             self.rows

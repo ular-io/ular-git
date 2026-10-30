@@ -5,7 +5,7 @@
 
 use super::components::list_nav::{self, ListMove};
 use super::{App, Level, Pane, UiMode};
-use crate::ui::tree::{ChangeView, Row};
+use crate::ui::tree::Row;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 fn ctrl(key: &KeyEvent, c: char) -> bool {
@@ -149,7 +149,7 @@ impl App {
             KeyCode::Right | KeyCode::Char('l') if is_group => {}
             KeyCode::Enter => self.open_with_folder(),
             KeyCode::Right | KeyCode::Char('l') => self.move_focus(1),
-            KeyCode::Char('.') => self.cycle_change_view(),
+            KeyCode::Char('.') => self.toggle_pending_only(),
             _ => return false,
         }
         true
@@ -249,63 +249,38 @@ impl App {
 
     /// `0`: clears the text filter and the changed-only view.
     pub(crate) fn clear_filter(&mut self) {
-        if self.filter.value.is_empty() && self.change_view == ChangeView::All {
+        if self.filter.value.is_empty() && !self.pending_only {
             return;
         }
         self.filter = super::TextInput::new(String::new());
-        self.change_view = ChangeView::All;
+        self.pending_only = false;
         self.rebuild_rows_for_filter();
         self.notify(Level::Info, "Filter cleared");
     }
 
-    /// `.` on the repository pane: All → Changed → Pending → All.
-    pub(crate) fn cycle_change_view(&mut self) {
-        let next = match self.change_view {
-            ChangeView::All => ChangeView::Changed,
-            ChangeView::Changed => ChangeView::Pending,
-            ChangeView::Pending => ChangeView::All,
-        };
-        self.set_change_view(next);
-    }
-
-    /// Palette: turns `view` on, or back to every repository when it is
-    /// already on.
-    pub(crate) fn toggle_change_view(&mut self, view: ChangeView) {
-        let next = if self.change_view == view {
-            ChangeView::All
-        } else {
-            view
-        };
-        self.set_change_view(next);
-    }
-
-    fn set_change_view(&mut self, view: ChangeView) {
-        self.change_view = view;
+    /// `.` on the repository pane: only working trees with something to
+    /// commit, pull, or push, or a stash; again for every repository.
+    pub(crate) fn toggle_pending_only(&mut self) {
+        self.pending_only = !self.pending_only;
         self.rebuild_rows_for_filter();
-        let text = match self.change_view {
-            ChangeView::All => "Showing all repositories",
-            ChangeView::Changed => "Showing repositories with changes or commits to pull",
-            ChangeView::Pending => {
-                "Showing repositories with changes, commits to pull or push, or stashes"
-            }
+        let text = if self.pending_only {
+            "Showing repositories with changes, commits to pull or push, or stashes"
+        } else {
+            "Showing all repositories"
         };
         self.notify(Level::Info, text);
     }
 
     /// A text filter or the changed-only view narrows the list.
     pub(crate) fn list_filtered(&self) -> bool {
-        !self.filter.value.trim().is_empty() || self.change_view != ChangeView::All
+        !self.filter.value.trim().is_empty() || self.pending_only
     }
 
     /// What narrows the list, for the pane title and the header:
     /// `api`, `changed`, `api · pending`.
     pub(crate) fn filter_label(&self) -> Option<String> {
         let text = self.filter.value.trim();
-        let view = match self.change_view {
-            ChangeView::All => None,
-            ChangeView::Changed => Some("changed"),
-            ChangeView::Pending => Some("pending"),
-        };
+        let view = self.pending_only.then_some("pending");
         match (text.is_empty(), view) {
             (true, None) => None,
             (true, Some(v)) => Some(v.into()),

@@ -71,7 +71,7 @@ one, a linked worktree (resolved to its repository), or a parent folder
 | `enter` (repository, worktree, or changed file) | Open With: pick an app from `config.toml` and open it there |
 | `1` `2` `3` | Focus Repos / Files / Diff |
 | `/`, `0` | Filter repositories, clear the filter |
-| `.` (Repos pane) | Cycle: repositories with uncommitted changes or commits to pull → also with commits to push or a stash → all |
+| `.` (Repos pane) | Show only repositories with uncommitted changes, commits to pull or push, or a stash (toggle) |
 | `+` | Add repository |
 | `ctrl+n` | New group |
 | `ctrl+e` | Rename a group, or move a repository to a group |

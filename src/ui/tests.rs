@@ -2,7 +2,7 @@
 //! repositories.
 
 use super::test_support::*;
-use super::tree::{ChangeView, Row};
+use super::tree::Row;
 use super::{Pane, UiMode};
 use crate::git::test_repo::TestRepo;
 use crossterm::event::KeyCode;
@@ -303,7 +303,7 @@ fn removing_a_repository_keeps_its_folder() {
 }
 
 #[test]
-fn dot_on_the_repo_pane_toggles_the_changed_only_view() {
+fn dot_on_the_repo_pane_toggles_the_pending_only_view() {
     let clean = TestRepo::new();
     let dirty = TestRepo::new();
     let dirty_path = dirty.root.parent().unwrap().join("dirty");
@@ -315,24 +315,26 @@ fn dot_on_the_repo_pane_toggles_the_changed_only_view() {
     assert_eq!(app.rows.len(), 2);
 
     app.press(&[ch('.')]);
-    assert_eq!(app.change_view, ChangeView::Changed);
+    assert!(app.pending_only);
     assert_eq!(app.rows.len(), 1);
     assert_eq!(app.current_target().as_deref(), Some(dirty_path.as_path()));
-    assert_eq!(app.filter_label().as_deref(), Some("changed"));
+    assert_eq!(app.filter_label().as_deref(), Some("pending"));
     let rows = screen(&app, 160, 20);
-    assert!(shows(&rows, "Repos[changed: 1/2]"), "{rows:#?}");
-    assert!(shows(&rows, "<.>     Pending Only"));
+    assert!(shows(&rows, "Repos[pending: 1/2]"), "{rows:#?}");
+    assert!(shows(&rows, "<.>     Show All"));
 
     // `.` elsewhere still toggles line wrap; `0` clears the view.
     app.press(&[key(KeyCode::Right), ch('.')]);
-    assert!(app.change_view == ChangeView::Changed && app.diff.wrap);
+    assert!(app.pending_only && app.diff.wrap);
     app.press(&[ch('0')]);
-    assert_eq!(app.change_view, ChangeView::All);
+    assert!(!app.pending_only);
     assert_eq!(app.rows.len(), 2);
+    app.press(&[key(KeyCode::Left), ch('.'), ch('.')]);
+    assert!(!app.pending_only, "a second . shows every repository");
 }
 
 #[test]
-fn dot_cycles_changed_then_pending_which_adds_a_repository_with_a_stash() {
+fn the_pending_only_view_keeps_a_repository_whose_only_change_is_a_stash() {
     let clean = TestRepo::new();
     let stashed = TestRepo::new();
     let path = stashed.root.parent().unwrap().join("stashed");
@@ -351,16 +353,8 @@ fn dot_cycles_changed_then_pending_which_adds_a_repository_with_a_stash() {
     let mut app = scanned_app(store);
 
     app.press(&[ch('.')]);
-    assert_eq!(app.change_view, ChangeView::Changed);
-    assert!(app.rows.is_empty(), "a stash alone is not a change");
-    app.press(&[ch('.')]);
-    assert_eq!(app.change_view, ChangeView::Pending);
+    assert_eq!(app.rows.len(), 1);
     assert_eq!(app.current_target().as_deref(), Some(path.as_path()));
-    assert_eq!(app.filter_label().as_deref(), Some("pending"));
-    assert!(shows(&screen(&app, 160, 20), "<.>     Show All"));
-    app.press(&[ch('.')]);
-    assert_eq!(app.change_view, ChangeView::All);
-    assert_eq!(app.rows.len(), 2);
 }
 
 #[test]
