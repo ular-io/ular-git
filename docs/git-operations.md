@@ -35,7 +35,7 @@
   and a remote branch (hunk color), `⚑ name` for a tag (warning color). A
   remote branch with a local twin on the same commit (`origin/main` next to
   `main`) is left out. Names are cut at 24 columns; labels that do not fit
-  the row are dropped. Read from `git log --decorate=full` `%D`. The last
+  the row are dropped. On the selected row they stay reversed against the selection bar. Read from `git log --decorate=full` `%D`. The last
   choice is saved in `~/.config/ular-git/view.json`.
 - History is read for the selected working tree only, in the background, when
   it is selected or its HEAD or ahead / behind counts change (commit, pull,

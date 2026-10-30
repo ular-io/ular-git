@@ -173,8 +173,19 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
             if item_index == Some(app.file_sel) {
                 selected_row = row;
                 let sel = selection_style(tone, th);
+                // Ref labels (the only reversed spans) stay reversed against
+                // the selection bar, which is itself reversed in a dimmed pane.
+                let label = if sel.add_modifier.contains(Modifier::REVERSED) {
+                    sel.remove_modifier(Modifier::REVERSED)
+                } else {
+                    sel.add_modifier(Modifier::REVERSED)
+                };
                 for s in &mut spans {
-                    s.style = sel;
+                    s.style = if s.style.add_modifier.contains(Modifier::REVERSED) {
+                        label
+                    } else {
+                        sel
+                    };
                 }
             }
             ListItem::new(Line::from(spans))

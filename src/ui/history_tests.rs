@@ -198,3 +198,36 @@ fn greater_than_cycles_branch_and_tag_labels_on_the_history() {
     app.press(&[ch('>')]);
     assert_eq!(labels(&init_row(&app)), (false, false, false));
 }
+
+#[test]
+fn ref_labels_stay_reversed_on_the_selected_row() {
+    let a = TestRepo::new();
+    a.git(&["tag", "v1.0"]);
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.wait_background(10);
+    app.press(&[ch('>'), ch('>')]);
+    // The cursor is on `init`, the only commit.
+    let reversed_at = |app: &crate::ui::App, needle: &str| {
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(150, 20)).unwrap();
+        terminal.draw(|f| crate::ui::render::draw(f, app)).unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let row = |y: u16| (0..150).map(|x| buf[(x, y)].symbol()).collect::<String>();
+        let y = (0..20)
+            .find(|&y| row(y).contains('●') && row(y).contains(" init"))
+            .unwrap();
+        let x = (0..150).find(|&x| buf[(x, y)].symbol() == needle).unwrap();
+        let reversed = |x: u16| {
+            let c = &buf[(x, y)];
+            c.modifier.contains(ratatui::style::Modifier::REVERSED) && !c.modifier.is_empty()
+        };
+        // `x - 2`: the plain space between the branch and tag labels.
+        (reversed(x), reversed(x - 2))
+    };
+    // Focused: the bar is plain, the label reversed.
+    app.focus = Pane::Files;
+    assert_eq!(reversed_at(&app, "⚑"), (true, false));
+    // Dimmed: the bar is reversed, so the label is not.
+    app.focus = Pane::Repos;
+    assert_eq!(reversed_at(&app, "⚑"), (false, true));
+}
