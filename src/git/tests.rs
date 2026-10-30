@@ -74,8 +74,9 @@ fn a_staged_rename_names_both_paths_and_a_new_file_counts_only_additions() {
     let file = |p: &str| s.files.iter().find(|f| f.path == p).unwrap().clone();
     let doc = diff::load(&repo.root, &DiffSource::File(file("docs/new.md")), 1000).unwrap();
     assert_eq!(doc.lines[0].text, "docs/old.md → docs/new.md");
-    // A pure rename changes no line: no counts line.
-    assert_eq!(doc.lines[1].kind, LineKind::Section);
+    // A pure rename changes no line: no counts line, a blank, the section.
+    assert_eq!(doc.lines[1].text, "");
+    assert_eq!(doc.lines[2].kind, LineKind::Section);
     let doc = diff::load(&repo.root, &DiffSource::File(file("n.txt")), 1000).unwrap();
     assert_eq!(doc.lines[1].text, "+2");
     assert_eq!(diff::counts_label(0, 3), "-3");

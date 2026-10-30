@@ -69,6 +69,7 @@ mod tests {
                 text: String::new(),
                 old: None,
                 new: None,
+                marks: Vec::new(),
             })
             .collect()
     }

@@ -82,6 +82,7 @@ fn line(kind: LineKind, text: &str) -> DiffLine {
         text: text.to_string(),
         old: None,
         new: None,
+        marks: Vec::new(),
     }
 }
 

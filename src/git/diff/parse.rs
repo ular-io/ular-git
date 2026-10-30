@@ -50,6 +50,7 @@ pub(super) fn push_parsed(doc: &mut DiffDoc, raw: &[String], show: bool) {
                     text: header_path(text),
                     old: None,
                     new: None,
+                    marks: Vec::new(),
                 });
             }
             continue;
@@ -78,6 +79,7 @@ pub(super) fn push_parsed(doc: &mut DiffDoc, raw: &[String], show: bool) {
                 text: text.clone(),
                 old: None,
                 new: None,
+                marks: Vec::new(),
             });
             continue;
         }
@@ -95,6 +97,7 @@ pub(super) fn push_parsed(doc: &mut DiffDoc, raw: &[String], show: bool) {
                     text: "⋯".to_string(),
                     old: None,
                     new: None,
+                    marks: Vec::new(),
                 });
             }
             continue;
@@ -228,6 +231,7 @@ fn content_line(
         text: text.to_string(),
         old,
         new,
+        marks: Vec::new(),
     }
 }
 

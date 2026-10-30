@@ -108,6 +108,17 @@
   say where a hunk starts, and git's context guess is often wrong outside code.
   Between two hunks of the same file a muted `⋯` line marks the skipped lines;
   the first hunk follows its title directly.
+- A file diff leaves one blank line above each section title (after the
+  counts line, and between Staged and Unstaged changes). Commit views keep
+  their rules tight.
+- Changes within a line (`src/git/inline.rs`, computed when the diff loads):
+  a run of removed lines pairs, in order, with the run of added lines right
+  after it, and each pair is compared word by word (words, runs of spaces,
+  single other characters; longest common subsequence). The differing words
+  become `DiffLine::marks` on both lines and are drawn reversed in the line's
+  color, in the unified and the side-by-side layouts, across wrapped pieces.
+  Pairs less than half alike, equal lines, lines over 1000 bytes, and lines
+  over 300 words are left unmarked.
 - `.` toggles line wrapping (default: lines cut at the pane edge). Wrapped
   continuation lines keep a blank gutter.
 - Side by side (`src/ui/render/split.rs`, drawn in `src/ui/render/diff.rs`):

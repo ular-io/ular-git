@@ -64,7 +64,13 @@ fn a_file_diff_starts_with_its_wrapped_path_and_counts() {
     );
     assert!(rows[7].contains("┃ InspectionService.java  "), "{rows:#?}");
     assert!(rows[8].contains("┃ +1  "), "{rows:#?}");
-    assert!(rows[9].contains(" Untracked file "), "{rows:#?}");
+    // One blank row above the section title.
+    assert_eq!(
+        rows[9].trim_matches(|c| c == '┃' || c == ' '),
+        "",
+        "{rows:#?}"
+    );
+    assert!(rows[10].contains(" Untracked file "), "{rows:#?}");
 }
 
 #[test]
@@ -236,4 +242,34 @@ fn a_wide_diff_pane_shows_old_and_new_side_by_side() {
     assert!(!app.diff.split);
     let rows = screen(&app, 140, 24);
     assert!(!rows.iter().any(|r| r.contains("-b") && r.contains("+B")));
+}
+
+#[test]
+fn the_changed_words_of_a_paired_line_are_reversed() {
+    let a = TestRepo::new();
+    a.write("x.txt", "let a = foo(1, 2);\nkeep\n");
+    a.git(&["add", "x.txt"]);
+    a.git(&["commit", "-qm", "x"]);
+    a.write("x.txt", "let b = foo(1, 3);\nkeep\n");
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.focus = Pane::Diff;
+    app.wait_background(10);
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 24)).unwrap();
+    terminal.draw(|f| crate::ui::render::draw(f, &app)).unwrap();
+    let buf = terminal.backend().buffer().clone();
+    let row = |y: u16| (0..100).map(|x| buf[(x, y)].symbol()).collect::<String>();
+    let reversed = |needle: &str, offset: usize| {
+        let y = (0..24).find(|&y| row(y).contains(needle)).unwrap();
+        let x = row(y).find(needle).unwrap() + offset;
+        // `find` gives a byte index; these rows are ASCII up to it.
+        let x = row(y)[..x].chars().count() as u16;
+        buf[(x, y)]
+            .modifier
+            .contains(ratatui::style::Modifier::REVERSED)
+    };
+    // `-let a = foo(1, 2);`: `a` and `2` differ, `let` and `foo` do not.
+    assert!(reversed("-let a", 5), "a");
+    assert!(!reversed("-let a", 1), "let");
+    assert!(reversed("+let b", 5), "b");
+    assert!(!reversed("+let b", 9), "foo");
 }

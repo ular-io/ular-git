@@ -58,6 +58,9 @@ pub struct DiffLine {
     pub text: String,
     pub old: Option<u32>,
     pub new: Option<u32>,
+    /// Byte ranges of `text` that differ from the paired line (set by
+    /// [`super::inline::mark`] on removed / added lines).
+    pub marks: Vec<(usize, usize)>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -139,6 +142,10 @@ pub fn load(dir: &Path, source: &DiffSource, max_lines: usize) -> anyhow::Result
                     doc.truncated = true;
                     break;
                 }
+                // One blank line above every section title.
+                if !doc.lines.is_empty() {
+                    doc.lines.push(meta(""));
+                }
                 doc.lines.push(line_of(LineKind::Section, title));
                 let (raw, cut) = run_limited(dir, &args, budget)?;
                 if raw.iter().all(|l| l.trim().is_empty()) {
@@ -156,9 +163,11 @@ pub fn load(dir: &Path, source: &DiffSource, max_lines: usize) -> anyhow::Result
             if !counts.is_empty() {
                 head.push(line_of(LineKind::Counts, &counts));
             }
+            head.push(meta(""));
             doc.lines.splice(0..0, head);
         }
     }
+    super::inline::mark(&mut doc.lines);
     Ok(doc)
 }
 
@@ -180,6 +189,7 @@ fn line_of(kind: LineKind, text: &str) -> DiffLine {
         text: text.to_string(),
         old: None,
         new: None,
+        marks: Vec::new(),
     }
 }
 

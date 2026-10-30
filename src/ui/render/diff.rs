@@ -82,10 +82,82 @@ fn counts_spans(text: &str, tone: Tone, th: &Theme) -> Vec<Span<'static>> {
 }
 
 /// One visual row: a segment of a line across the pane, or the two sides of
-/// the side-by-side layout (line index, segment, first segment of its line).
+/// the side-by-side layout.
 enum Row {
-    Line(usize, String, bool),
-    Pair(Option<(usize, String, bool)>, Option<(usize, String, bool)>),
+    Line(Seg),
+    Pair(Option<Seg>, Option<Seg>),
+}
+
+/// A wrapped or cut piece of one line.
+struct Seg {
+    /// Index into the lines.
+    line: usize,
+    text: String,
+    /// The line's first piece (it carries the line numbers).
+    first: bool,
+    /// Byte offset of `text` in the line, to place the line's marks.
+    start: usize,
+}
+
+/// Pieces of line `line` with their offsets (wrapping keeps every byte, so
+/// each piece starts where the previous one ended); at least one piece.
+fn segs_of(line: usize, pieces: Vec<String>) -> Vec<Seg> {
+    if pieces.is_empty() {
+        return vec![Seg {
+            line,
+            text: String::new(),
+            first: true,
+            start: 0,
+        }];
+    }
+    let mut start = 0;
+    pieces
+        .into_iter()
+        .enumerate()
+        .map(|(k, text)| {
+            let seg = Seg {
+                line,
+                first: k == 0,
+                start,
+                text,
+            };
+            start += seg.text.len();
+            seg
+        })
+        .collect()
+}
+
+/// `text` in `style`, the bytes inside `marks` (offsets in the whole line,
+/// `text` starting at `start`) reversed.
+fn marked_spans(
+    text: String,
+    start: usize,
+    marks: &[(usize, usize)],
+    style: Style,
+) -> Vec<Span<'static>> {
+    if marks.is_empty() {
+        return vec![Span::styled(text, style)];
+    }
+    let hi = style.add_modifier(Modifier::REVERSED);
+    let mut out = Vec::new();
+    let mut run = String::new();
+    let mut run_on = false;
+    for (off, c) in text.char_indices() {
+        let at = start + off;
+        let on = marks.iter().any(|&(s, e)| at >= s && at < e);
+        if on != run_on && !run.is_empty() {
+            out.push(Span::styled(
+                std::mem::take(&mut run),
+                if run_on { hi } else { style },
+            ));
+        }
+        run_on = on;
+        run.push(c);
+    }
+    if !run.is_empty() {
+        out.push(Span::styled(run, if run_on { hi } else { style }));
+    }
+    out
 }
 
 /// One side of a side-by-side row: its line number (old on the left, new
@@ -93,27 +165,31 @@ enum Row {
 /// `width`.
 fn side_spans(
     doc: &crate::git::diff::DiffDoc,
-    side: Option<(usize, String, bool)>,
+    side: Option<Seg>,
     width: usize,
     old: bool,
     tone: Tone,
     th: &Theme,
 ) -> Vec<Span<'static>> {
-    let Some((i, seg, first)) = side else {
+    let Some(seg) = side else {
         return vec![Span::raw(" ".repeat(width))];
     };
-    let line = &doc.lines[i];
+    let line = &doc.lines[seg.line];
     let n = if old { line.old } else { line.new };
-    let num = match (first, n) {
+    let num = match (seg.first, n) {
         (true, Some(n)) => format!("{n:>4} "),
         _ => " ".repeat(split::SIDE_GUTTER_W),
     };
-    let pad = width.saturating_sub(split::SIDE_GUTTER_W + seg.width());
-    vec![
-        Span::styled(num, Style::default().fg(th.dim)),
-        Span::styled(seg, kind_style(line.kind, tone, th)),
-        Span::raw(" ".repeat(pad)),
-    ]
+    let pad = width.saturating_sub(split::SIDE_GUTTER_W + seg.text.width());
+    let mut spans = vec![Span::styled(num, Style::default().fg(th.dim))];
+    spans.extend(marked_spans(
+        seg.text,
+        seg.start,
+        &line.marks,
+        kind_style(line.kind, tone, th),
+    ));
+    spans.push(Span::raw(" ".repeat(pad)));
+    spans
 }
 
 fn gutter(line: &DiffLine, first: bool) -> String {
@@ -231,25 +307,22 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
             match item {
                 split::Item::Full(i) => {
                     let line = &doc.lines[i];
-                    let segs = segments(line, width_of(line));
-                    if segs.is_empty() {
-                        all.push(Row::Line(i, String::new(), true));
-                    }
-                    for (k, seg) in segs.into_iter().enumerate() {
-                        all.push(Row::Line(i, seg, k == 0));
-                    }
+                    all.extend(
+                        segs_of(i, segments(line, width_of(line)))
+                            .into_iter()
+                            .map(Row::Line),
+                    );
                 }
                 split::Item::Pair(l, r) => {
-                    let side = |i: Option<usize>, w: usize| -> Vec<String> {
-                        i.map(|i| segments(&doc.lines[i], code_w(w)))
+                    let side = |i: Option<usize>, w: usize| -> Vec<Seg> {
+                        i.map(|i| segs_of(i, segments(&doc.lines[i], code_w(w))))
                             .unwrap_or_default()
                     };
                     let (ls, rs) = (side(l, lw), side(r, rw));
-                    for k in 0..ls.len().max(rs.len()).max(1) {
-                        let at = |i: Option<usize>, segs: &[String]| {
-                            i.zip(segs.get(k).cloned()).map(|(i, s)| (i, s, k == 0))
-                        };
-                        all.push(Row::Pair(at(l, &ls), at(r, &rs)));
+                    let n = ls.len().max(rs.len()).max(1);
+                    let (mut ls, mut rs) = (ls.into_iter(), rs.into_iter());
+                    for _ in 0..n {
+                        all.push(Row::Pair(ls.next(), rs.next()));
                     }
                 }
             }
@@ -262,13 +335,11 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
     } else if any_wrap {
         let mut all = Vec::new();
         for (i, line) in doc.lines.iter().enumerate() {
-            let segs = segments(line, width_of(line));
-            if segs.is_empty() {
-                all.push(Row::Line(i, String::new(), true));
-            }
-            for (k, seg) in segs.into_iter().enumerate() {
-                all.push(Row::Line(i, seg, k == 0));
-            }
+            all.extend(
+                segs_of(i, segments(line, width_of(line)))
+                    .into_iter()
+                    .map(Row::Line),
+            );
         }
         total = all.len() + usize::from(doc.truncated);
         let max = total.saturating_sub(view);
@@ -281,7 +352,12 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
         app.diff.max_scroll.set(max);
         let scroll = app.diff.scroll.min(max);
         for (i, line) in doc.lines.iter().enumerate().skip(scroll).take(view) {
-            rows.push(Row::Line(i, truncate_w(&line.text, width_of(line)), true));
+            rows.push(Row::Line(Seg {
+                line: i,
+                text: truncate_w(&line.text, width_of(line)),
+                first: true,
+                start: 0,
+            }));
         }
     }
     let scroll = app.diff.scroll.min(app.diff.max_scroll.get());
@@ -294,8 +370,13 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
         .into_iter()
         .enumerate()
         .map(|(row, r)| {
-            let (i, seg, first) = match r {
-                Row::Line(i, seg, first) => (i, seg, first),
+            let Seg {
+                line: i,
+                text: seg,
+                first,
+                start,
+            } = match r {
+                Row::Line(seg) => seg,
                 Row::Pair(l, r) => {
                     let (lw, rw) = split::sides(full_w);
                     let mut spans = side_spans(doc, l, lw, true, tone, th);
@@ -334,7 +415,7 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
             if has_gutter(line) {
                 spans.push(Span::styled(gutter(line, first), num_style));
             }
-            spans.push(Span::styled(seg, style));
+            spans.extend(marked_spans(seg, start, &line.marks, style));
             Line::from(spans)
         })
         .collect();
