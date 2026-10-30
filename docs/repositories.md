@@ -43,16 +43,18 @@ clears it.
 
 `ChangeView` in `src/ui/tree.rs`; `App::toggle_change_view`.
 
-- `.` on the repository pane toggles **Changed**: working trees with
-  uncommitted changes (any changed, untracked, or conflicting file) or commits
-  to pull (behind the upstream, as of the last fetch). Unpushed commits and
-  stashes alone do not count.
-- `ctrl+.` toggles **Pending**: everything Changed keeps, plus commits to push
-  (ahead of the upstream; a branch without an upstream does not count) and a
-  stash. The stash is shared by a repository and its worktrees, so it counts
-  for the repository row only. Pressing the key of the other view switches
-  straight to it. The key needs the keyboard enhancement protocol (kitty,
-  iTerm2, WezTerm, Ghostty); the palette has Toggle Pending Only everywhere.
+`.` on the repository pane cycles All → Changed → Pending → All; the header
+names the next view. The palette's Toggle Changed Only / Toggle Pending Only
+go straight to one. (`ctrl+.` is not used: most terminals send it as a plain
+`.`.)
+
+- **Changed**: working trees with uncommitted changes (any changed,
+  untracked, or conflicting file) or commits to pull (behind the upstream, as
+  of the last fetch). Unpushed commits and stashes alone do not count.
+- **Pending**: everything Changed keeps, plus commits to push (ahead of the
+  upstream; a branch without an upstream does not count) and a stash. The
+  stash is shared by a repository and its worktrees, so it counts for the
+  repository row only.
 
 A clean repository stays as the parent of a worktree that matches, and only
 matching worktrees are listed. Groups open and groups without a match

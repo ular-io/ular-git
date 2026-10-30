@@ -240,7 +240,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         TogglePendingOnly,
         "toggle-pending-only",
         "Toggle Pending Only",
-        Some("ctrl+."),
+        None,
         ["unpushed", "ahead", "stash", "push", "sync", "dirty", "pending"],
         Some("List repositories with changes, commits to pull or push, or stashes")
     ),

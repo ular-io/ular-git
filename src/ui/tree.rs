@@ -77,9 +77,9 @@ fn folder_name(path: &Path) -> String {
 pub enum ChangeView {
     #[default]
     All,
-    /// `.`: uncommitted changes or commits to pull.
+    /// `.` once: uncommitted changes or commits to pull.
     Changed,
-    /// `ctrl+.`: also commits to push and stashes.
+    /// `.` pressed twice: also commits to push and stashes.
     Pending,
 }
 

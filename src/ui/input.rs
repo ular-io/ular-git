@@ -134,10 +134,6 @@ impl App {
             self.open_new_group();
             return true;
         }
-        if ctrl(key, '.') {
-            self.toggle_change_view(ChangeView::Pending);
-            return true;
-        }
         if ctrl(key, 'e') {
             self.open_edit_row();
             return true;
@@ -153,7 +149,7 @@ impl App {
             KeyCode::Right | KeyCode::Char('l') if is_group => {}
             KeyCode::Enter => self.open_with_folder(),
             KeyCode::Right | KeyCode::Char('l') => self.move_focus(1),
-            KeyCode::Char('.') => self.toggle_change_view(ChangeView::Changed),
+            KeyCode::Char('.') => self.cycle_change_view(),
             _ => return false,
         }
         true
@@ -262,14 +258,29 @@ impl App {
         self.notify(Level::Info, "Filter cleared");
     }
 
-    /// `.` (`Changed`) / `ctrl+.` (`Pending`) on the repository pane: turns
-    /// that view on, or back to every repository when it is already on.
+    /// `.` on the repository pane: All → Changed → Pending → All.
+    pub(crate) fn cycle_change_view(&mut self) {
+        let next = match self.change_view {
+            ChangeView::All => ChangeView::Changed,
+            ChangeView::Changed => ChangeView::Pending,
+            ChangeView::Pending => ChangeView::All,
+        };
+        self.set_change_view(next);
+    }
+
+    /// Palette: turns `view` on, or back to every repository when it is
+    /// already on.
     pub(crate) fn toggle_change_view(&mut self, view: ChangeView) {
-        self.change_view = if self.change_view == view {
+        let next = if self.change_view == view {
             ChangeView::All
         } else {
             view
         };
+        self.set_change_view(next);
+    }
+
+    fn set_change_view(&mut self, view: ChangeView) {
+        self.change_view = view;
         self.rebuild_rows_for_filter();
         let text = match self.change_view {
             ChangeView::All => "Showing all repositories",

@@ -124,7 +124,7 @@ pub struct App {
 
     /// Repository filter text (`/`); applies while non-empty.
     pub filter: TextInput,
-    /// `.` / `ctrl+.` on the repository pane: list only working trees with
+    /// `.` on the repository pane (cycled): list only working trees with
     /// something to commit, pull (or push, or a stash). Session only.
     pub change_view: tree::ChangeView,
     /// Filter value when the line was opened, restored by `esc`.

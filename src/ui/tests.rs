@@ -321,7 +321,7 @@ fn dot_on_the_repo_pane_toggles_the_changed_only_view() {
     assert_eq!(app.filter_label().as_deref(), Some("changed"));
     let rows = screen(&app, 160, 20);
     assert!(shows(&rows, "Repos[changed: 1/2]"), "{rows:#?}");
-    assert!(shows(&rows, "<.>     Show All"));
+    assert!(shows(&rows, "<.>     Pending Only"));
 
     // `.` elsewhere still toggles line wrap; `0` clears the view.
     app.press(&[key(KeyCode::Right), ch('.')]);
@@ -332,35 +332,33 @@ fn dot_on_the_repo_pane_toggles_the_changed_only_view() {
 }
 
 #[test]
-fn ctrl_dot_adds_repositories_with_a_stash_and_switches_from_the_changed_view() {
+fn dot_cycles_changed_then_pending_which_adds_a_repository_with_a_stash() {
     let clean = TestRepo::new();
     let stashed = TestRepo::new();
     let path = stashed.root.parent().unwrap().join("stashed");
     std::fs::rename(&stashed.root, &path).unwrap();
     std::fs::write(path.join("a.txt"), "changed\n").unwrap();
-    let git = |args: &[&str]| {
-        let ok = std::process::Command::new("git")
-            .arg("-C")
-            .arg(&path)
-            .args(["-c", "user.name=t", "-c", "user.email=t@t"])
-            .args(args)
-            .status()
-            .unwrap()
-            .success();
-        assert!(ok, "git {args:?}");
-    };
-    git(&["stash", "-q"]);
+    let ok = std::process::Command::new("git")
+        .arg("-C")
+        .arg(&path)
+        .args(["-c", "user.name=t", "-c", "user.email=t@t", "stash", "-q"])
+        .status()
+        .unwrap()
+        .success();
+    assert!(ok, "git stash");
     let mut store = store_of(&[&clean.root]);
     store.add_repo(path.clone(), None);
     let mut app = scanned_app(store);
 
     app.press(&[ch('.')]);
+    assert_eq!(app.change_view, ChangeView::Changed);
     assert!(app.rows.is_empty(), "a stash alone is not a change");
-    app.press(&[ctrl('.')]);
+    app.press(&[ch('.')]);
     assert_eq!(app.change_view, ChangeView::Pending);
     assert_eq!(app.current_target().as_deref(), Some(path.as_path()));
     assert_eq!(app.filter_label().as_deref(), Some("pending"));
-    app.press(&[ctrl('.')]);
+    assert!(shows(&screen(&app, 160, 20), "<.>     Show All"));
+    app.press(&[ch('.')]);
     assert_eq!(app.change_view, ChangeView::All);
     assert_eq!(app.rows.len(), 2);
 }
