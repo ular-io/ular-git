@@ -140,12 +140,14 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                         FileItem::Commit(c, mark) => {
                             let mut spans = graph_spans(graph_of(v), graph_w, mark, tone, th);
                             let used: usize = spans.iter().map(|s| s.content.width()).sum();
-                            // Labels end at the right edge; the subject keeps
-                            // at least SUBJECT_MIN cells before them.
+                            // Labels run through the right padding cell to the
+                            // border; the subject keeps at least SUBJECT_MIN
+                            // cells before them.
+                            let row_w = w + 1;
                             let labels = ref_spans(
                                 refs_of(v),
                                 app.history.labels,
-                                w.saturating_sub(used + SUBJECT_MIN),
+                                row_w.saturating_sub(used + SUBJECT_MIN),
                                 tone,
                                 th,
                             );
@@ -156,11 +158,12 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                             } else {
                                 dim(Style::default())
                             };
+                            let room = if labels.is_empty() { w } else { row_w };
                             let subject = truncate_w(
                                 &c.subject,
-                                w.saturating_sub(used + labels_w).saturating_sub(1),
+                                room.saturating_sub(used + labels_w).saturating_sub(1),
                             );
-                            let gap = w.saturating_sub(used + subject.width() + labels_w);
+                            let gap = room.saturating_sub(used + subject.width() + labels_w);
                             spans.push(Span::styled(subject, style));
                             if !labels.is_empty() {
                                 spans.push(Span::raw(" ".repeat(gap)));
@@ -244,8 +247,9 @@ const REF_NAME_MAX: usize = 24;
 const SUBJECT_MIN: usize = 12;
 
 /// Branch and tag labels drawn as solid badges (the theme background as text
-/// on the label color, no icon), each after a space, within `room` cells; a
-/// label that does not fit is left out with the rest. The kind is told by
+/// on the label color, no icon), joined into one strip with a `│` in the
+/// background color between two, within `room` cells; a label that does not
+/// fit is left out with the rest. The kind is told by
 /// color: local branches the branch color (bold on HEAD's), remote branches
 /// the hunk color, tags the warning color, each moved a quarter toward the
 /// text color so the badge stands out of the background (a dimmed pane fades
@@ -257,7 +261,7 @@ fn ref_spans(
     tone: Tone,
     th: &Theme,
 ) -> Vec<Span<'static>> {
-    let mut spans = Vec::new();
+    let mut spans: Vec<Span<'static>> = Vec::new();
     let mut used = 0;
     for r in refs {
         let color = match r.kind {
@@ -267,7 +271,8 @@ fn ref_spans(
             _ => continue,
         };
         let text = format!(" {} ", truncate_w(&r.name, REF_NAME_MAX));
-        let w = text.width() + 1;
+        let sep = usize::from(!spans.is_empty());
+        let w = text.width() + sep;
         if used + w > room {
             break;
         }
@@ -286,7 +291,13 @@ fn ref_spans(
         if r.head {
             style = style.add_modifier(Modifier::BOLD);
         }
-        spans.push(Span::raw(" "));
+        if sep == 1 {
+            // The line sits on the left badge's color.
+            let left = spans.last().and_then(|s| s.style.bg);
+            let mut line = Style::default().fg(rgb(th.bg_rgb()));
+            line.bg = left;
+            spans.push(Span::styled("│", line));
+        }
         spans.push(Span::styled(text, style));
     }
     spans

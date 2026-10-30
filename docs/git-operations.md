@@ -30,8 +30,10 @@
 - Ref labels (`RefLabels` in `src/ui/history_view.rs`, drawn by `ref_spans`
   in `src/ui/render/files.rs`): `>` (any pane, palette Cycle Branch / Tag
   Labels) cycles none → branches → branches and tags → tags → none. Labels
-  are solid badges without icons, right-aligned at the end of the row after
-  the subject (which keeps at least 12 columns and is cut first). Color tells
+  are solid badges without icons after the subject (which keeps at least 12
+  columns and is cut first), joined into one strip with a `│` in the
+  background color between two badges, running through the row's right
+  padding cell to the border. Color tells
   the kind: local branch the branch color (bold on HEAD's branch; `HEAD` when
   detached), remote branch the hunk color, tag the warning color; each is
   moved a quarter toward the text color, with the background color as text,

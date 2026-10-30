@@ -196,7 +196,7 @@ fn greater_than_cycles_branch_and_tag_labels_on_the_history() {
         row.find(" init").unwrap() < row.find(" v1.0 ").unwrap(),
         "{row}"
     );
-    assert!(row.contains(" v1.0  ┃"), "{row}");
+    assert!(row.contains(" v1.0 ┃"), "{row}");
     app.press(&[ch('>')]);
     assert_eq!(labels(&init_row(&app)), (false, false, false));
 }
@@ -221,8 +221,11 @@ fn ref_labels_keep_their_badge_colors_on_the_selected_row() {
         let x = (1..150)
             .find(|&x| buf[(x - 1, y)].symbol() == " " && buf[(x, y)].symbol() == "v")
             .unwrap();
-        // `x - 2`: the plain space between the branch and tag labels.
-        (buf[(x, y)].bg, buf[(x - 2, y)].bg)
+        // `x - 2`: the line between the branch and tag labels; the bar shows
+        // in front of the strip.
+        assert_eq!(buf[(x - 2, y)].symbol(), "│");
+        let strip = (0..x).rev().find(|&i| buf[(i, y)].symbol() == "m").unwrap() - 2;
+        (buf[(x, y)].bg, buf[(strip, y)].bg)
     };
     app.focus = Pane::Files;
     let (label, bar) = bgs(&app);
