@@ -67,6 +67,10 @@ tmux kill-session -t ular-git
 
 - Edit Config launches `$EDITOR`; with a GUI editor it opens a window. Do not
   trigger it in unattended runs.
+- Open With runs real apps; the default folder app (`open .`) opens a Finder
+  window. In manual checks give the sandbox `config.toml` harmless `[[apps]]`
+  (`true {path}` with `gui = true`, a failing `open -a NoSuchApp`, a terminal
+  app such as `gitui`) and quit `vim` with `:q!`.
 
 ## When to update tests and docs
 

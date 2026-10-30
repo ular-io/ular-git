@@ -40,9 +40,9 @@ impl App {
                         if name.is_some() { "Delete Group" } else { "" },
                     ),
                     Some(Row::Worktree { .. }) => {
-                        ("Open Files", "Move to Group", "Remove Worktree")
+                        ("Open With…", "Move to Group", "Remove Worktree")
                     }
-                    _ => ("Open Files", "Move to Group", "Remove Repository"),
+                    _ => ("Open With…", "Move to Group", "Remove Repository"),
                 };
                 let mut first = vec![
                     h("/", "Filter"),
@@ -72,7 +72,14 @@ impl App {
             }
             Pane::Files => [
                 vec![
-                    h("enter", "Open Diff"),
+                    h(
+                        "enter",
+                        if self.selected_file().is_some() {
+                            "Open With…"
+                        } else {
+                            "Open Diff"
+                        },
+                    ),
                     h("c", "Commit"),
                     h(".", "Wrap Lines"),
                 ],

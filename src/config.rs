@@ -21,6 +21,40 @@ pub struct Config {
     pub max_diff_lines: usize,
     /// Editor command for Edit Config. None = `$VISUAL` / `$EDITOR` / `vi`.
     pub editor: Option<String>,
+    /// Apps listed by Open With on a repository or worktree row; never empty.
+    pub launchers: Vec<Launcher>,
+    /// Apps listed by Open With on a changed file; never empty.
+    pub file_launchers: Vec<Launcher>,
+}
+
+/// An app Open With runs in the selected working tree.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct Launcher {
+    pub name: String,
+    /// Shell command run in the working tree; `{path}` becomes its quoted path.
+    pub command: String,
+    /// Started detached, the screen kept (GUI apps). Otherwise the terminal is
+    /// handed over until the command exits (terminal apps).
+    pub gui: bool,
+}
+
+/// Open With entry used when config.toml lists no `[[apps]]`: the folder in
+/// the system file manager (macOS `open`).
+fn default_launchers() -> Vec<Launcher> {
+    vec![Launcher {
+        name: "Finder".into(),
+        command: "open .".into(),
+        gui: true,
+    }]
+}
+
+/// Open With entry used when config.toml lists no `[[file_apps]]`.
+fn default_file_launchers() -> Vec<Launcher> {
+    vec![Launcher {
+        name: "vim".into(),
+        command: "vim {path}".into(),
+        gui: false,
+    }]
 }
 
 impl Default for Config {
@@ -30,6 +64,8 @@ impl Default for Config {
             scan_jobs: 8,
             max_diff_lines: 20_000,
             editor: None,
+            launchers: default_launchers(),
+            file_launchers: default_file_launchers(),
         }
     }
 }
@@ -41,6 +77,17 @@ struct FileConfig {
     scan_jobs: Option<usize>,
     max_diff_lines: Option<usize>,
     editor: Option<String>,
+    apps: Option<Vec<FileLauncher>>,
+    file_apps: Option<Vec<FileLauncher>>,
+}
+
+/// One `[[apps]]` / `[[file_apps]]` table; `name` defaults to the command.
+#[derive(Debug, Deserialize)]
+struct FileLauncher {
+    name: Option<String>,
+    command: Option<String>,
+    #[serde(default)]
+    gui: bool,
 }
 
 impl Config {
@@ -71,6 +118,8 @@ impl Config {
             self.max_diff_lines = v.max(100);
         }
         self.editor = fc.editor.filter(|e| !e.trim().is_empty());
+        self.launchers = launchers(fc.apps).unwrap_or_else(default_launchers);
+        self.file_launchers = launchers(fc.file_apps).unwrap_or_else(default_file_launchers);
     }
 
     /// Editor command line: config `editor`, then `$VISUAL`, `$EDITOR`, `vi`.
@@ -81,6 +130,32 @@ impl Config {
             std::env::var("EDITOR").ok().as_deref(),
         )
     }
+}
+
+/// Usable entries of an app list (a command is required); `None` when there
+/// are none, so the default list applies.
+fn launchers(apps: Option<Vec<FileLauncher>>) -> Option<Vec<Launcher>> {
+    let list: Vec<Launcher> = apps
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|a| {
+            let command = a.command?.trim().to_string();
+            if command.is_empty() {
+                return None;
+            }
+            let name = a
+                .name
+                .map(|n| n.trim().to_string())
+                .filter(|n| !n.is_empty())
+                .unwrap_or_else(|| command.clone());
+            Some(Launcher {
+                name,
+                command,
+                gui: a.gui,
+            })
+        })
+        .collect();
+    (!list.is_empty()).then_some(list)
 }
 
 fn resolve_editor(configured: Option<&str>, visual: Option<&str>, editor: Option<&str>) -> String {
@@ -133,6 +208,26 @@ const CONFIG_TEMPLATE: &str = "\
 
 # Editor for Edit Config. Defaults to $VISUAL, then $EDITOR, then vi.
 # editor = \"code --wait\"
+
+# Apps offered by Open With: `enter` on a repository or worktree row lists
+# [[apps]], `enter` on a changed file lists [[file_apps]]. Commands run in the
+# working tree; {path} is replaced with the quoted folder or file path.
+# Terminal apps take over this terminal until they exit; `gui = true` apps are
+# started without leaving ular-git. Without entries, folders open in Finder
+# (`open .`) and files in vim (`vim {path}`).
+# [[apps]]
+# name = \"gitui\"
+# command = \"gitui\"
+#
+# [[apps]]
+# name = \"VS Code\"
+# command = \"code {path}\"
+# gui = true
+#
+# [[file_apps]]
+# name = \"Zed\"
+# command = \"zed {path}\"
+# gui = true
 ";
 
 /// Seeds a commented config.toml when none exists (or it is blank), so Edit
@@ -208,6 +303,38 @@ mod tests {
         let mut cfg = Config::default();
         cfg.apply(fc);
         assert_eq!(cfg, Config::default());
+    }
+
+    #[test]
+    fn apps_replace_the_default_and_skip_entries_without_a_command() {
+        let mut cfg = Config::default();
+        cfg.apply(
+            toml::from_str(
+                "[[apps]]\nname = \"gitui\"\ncommand = \"gitui\"\n\
+                 [[apps]]\ncommand = \"code {path}\"\ngui = true\n\
+                 [[apps]]\nname = \"broken\"\ncommand = \" \"\n",
+            )
+            .unwrap(),
+        );
+        assert_eq!(
+            cfg.launchers,
+            [
+                Launcher {
+                    name: "gitui".into(),
+                    command: "gitui".into(),
+                    gui: false,
+                },
+                Launcher {
+                    name: "code {path}".into(),
+                    command: "code {path}".into(),
+                    gui: true,
+                },
+            ]
+        );
+        assert_eq!(cfg.file_launchers, default_file_launchers());
+        let mut cfg = Config::default();
+        cfg.apply(toml::from_str("apps = []").unwrap());
+        assert_eq!(cfg.launchers, default_launchers());
     }
 
     #[test]

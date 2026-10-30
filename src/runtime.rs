@@ -160,9 +160,10 @@ fn handover(session: &mut TerminalSession, app: &mut App, req: TerminalRequest) 
     // The command may have changed config.toml or any repository.
     app.cfg = Config::load();
     app.refresh_all(false);
+    let what = req.name.as_deref().unwrap_or(&req.command);
     let label = match failed {
-        Some(why) => (ui::Level::Warn, format!("{} {why}", req.command)),
-        None => (ui::Level::Ok, format!("Returned from: {}", req.command)),
+        Some(why) => (ui::Level::Warn, format!("{what} {why}")),
+        None => (ui::Level::Ok, format!("Returned from: {what}")),
     };
     app.notify(label.0, label.1);
     Ok(())

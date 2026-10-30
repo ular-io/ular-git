@@ -302,6 +302,7 @@ mod tests {
             UiMode::GroupPick,
             UiMode::Confirm,
             UiMode::Commit,
+            UiMode::OpenWith,
             UiMode::QuickCommand,
             UiMode::Message,
         ] {

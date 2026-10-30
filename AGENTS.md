@@ -3,8 +3,10 @@
 ular-git is a Rust terminal UI (ratatui/crossterm) that shows many local git
 repositories at once: status badges, linked worktrees, changed files, and
 diffs. It reads git through the `git` CLI. Its only writes are commit, push,
-`pull --ff-only`, discarding one file's changes, and `git worktree remove`. The executable is `ular-git`
-(users commonly alias it to `ugit`; Homebrew core already has an unrelated
+`pull --ff-only`, discarding one file's changes, and `git worktree remove`.
+Open With (`enter`) starts user-configured external apps in a working tree;
+those apps may change it, and ular-git rescans on return. The executable is
+`ular-git` (users commonly alias it to `ugit`; Homebrew core already has an unrelated
 `ugit`, so the short name is never installed as a binary).
 
 ## Routing: read before you change
@@ -20,6 +22,7 @@ planning; backlog entries are not implementation authorization.
 | Files pane, diff pane, commit, push / pull, worktree removal (`src/ui/files.rs`, `src/ui/diff_view.rs`, `src/ui/sync.rs`, `src/git/{diff,ops,remote}.rs`, `src/ui/overlays/{commit,confirm}.rs`) | [git-operations.md](./docs/git-operations.md) |
 | TUI layout, pane widths, focus, badges, header / footer, dialogs, keys, help, palette (`src/ui/render/`, `src/ui/keys.rs`, `src/ui/input.rs`, `src/ui/overlays/`, `src/ui/quick/`) | [ui-style-guide.md](./docs/ui-style-guide.md) |
 | Terminal lifecycle, paste, text input (`src/runtime.rs`, `src/runtime/terminal.rs`, `src/ui/components/input.rs`) | [architecture.md](./docs/architecture.md) §Runtime + [testing.md](./docs/testing.md) |
+| Open With apps (`src/ui/overlays/open_with.rs`, `src/launch.rs`, `[[apps]]` / `[[file_apps]]` in `src/config.rs`) | [architecture.md](./docs/architecture.md) §Runtime |
 | Release process | [releasing.md](./docs/releasing.md) |
 
 For past reasoning, prefer `git log -- <path>`, `git blame`, and `git show`.
@@ -81,7 +84,8 @@ until it is restarted; say so when reporting.
   never press `P` / `p` on a real repository; use a scratch repository with a
   bare remote.
 - **Edit Config** launches `$EDITOR`; do not trigger it in automated runs when
-  that is a GUI editor.
+  that is a GUI editor. **Open With** runs real apps (the default opens
+  Finder); use a sandbox `config.toml` with harmless apps.
 
 When behavior changes, update the owning document in the same change.
 

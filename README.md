@@ -67,7 +67,8 @@ one, a linked worktree (resolved to its repository), or a parent folder
 | Key | Action |
 | --- | --- |
 | `↑↓` `j k`, `pgup pgdn`, `home end` `g G` | Move in lists; scroll the diff |
-| `←→` `h l`, `enter` | Move between panes |
+| `←→` `h l` | Move between panes (`enter` too, on a history commit) |
+| `enter` (repository, worktree, or changed file) | Open With: pick an app from `config.toml` and open it there |
 | `1` `2` `3` | Focus Repos / Files / Diff |
 | `/`, `0` | Filter repositories, clear the filter |
 | `.` (Repos pane) | Show only repositories with uncommitted changes or commits to pull (toggle) |
@@ -95,6 +96,28 @@ every option commented out):
 | `scan_jobs` | `8` | Parallel git processes during a scan (1–32) |
 | `max_diff_lines` | `20000` | Diff lines read for one file |
 | `editor` | `$VISUAL`, `$EDITOR`, `vi` | Editor for Edit Config |
+| `[[apps]]` | Finder (`open .`) | Open With apps for a repository or worktree |
+| `[[file_apps]]` | vim (`vim {path}`) | Open With apps for a changed file |
+
+Each app has a `name`, a `command` run in the working tree (`{path}` becomes
+the quoted folder or file path), and `gui = true` for apps that open their own
+window. Terminal apps (the default) take over the terminal until they exit,
+then ular-git comes back and rescans; GUI apps start without leaving ular-git.
+
+```toml
+[[apps]]
+name = "gitui"
+command = "gitui"
+
+[[apps]]
+name = "VS Code"
+command = "code {path}"
+gui = true
+
+[[file_apps]]
+name = "vim"
+command = "vim {path}"
+```
 
 Custom themes go in `~/.config/ular-git/themes/*.toml`; `:` → **Change Theme**
 previews them live.

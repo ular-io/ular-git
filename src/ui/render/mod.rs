@@ -76,6 +76,7 @@ pub fn draw(f: &mut Frame, app: &App) {
         UiMode::GroupPick => group::draw_group_pick(f, app),
         UiMode::Confirm => confirm::draw_confirm(f, app),
         UiMode::Commit => commit::draw_commit(f, app),
+        UiMode::OpenWith => open_with::draw_open_with(f, app),
         UiMode::QuickCommand => super::quick::draw_quick_command(f, app),
         UiMode::ThemeSelect => theme::draw_theme_select(f, app),
         UiMode::Help => help::draw_help(f, app),

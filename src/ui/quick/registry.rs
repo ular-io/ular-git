@@ -20,6 +20,7 @@ pub enum CommandId {
     DiscardFile,
     Push,
     Pull,
+    OpenWith,
     FilterRepos,
     ToggleChangedOnly,
     ClearFilter,
@@ -201,6 +202,14 @@ pub const COMMANDS: &[CommandSpec] = &[
         Some("p"),
         ["update", "download", "fetch", "remote", "fast-forward"],
         Some("git pull --ff-only: take upstream commits when no merge is needed")
+    ),
+    cmd!(
+        OpenWith,
+        "open-with",
+        "Open With…",
+        Some("enter"),
+        ["app", "launch", "editor", "ide", "finder", "vim", "external", "gui"],
+        Some("Open the selected repository or file in an app listed in config.toml")
     ),
     cmd!(
         FilterRepos,

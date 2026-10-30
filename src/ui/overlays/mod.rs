@@ -7,4 +7,5 @@ pub(crate) mod confirm;
 pub(crate) mod group;
 pub(crate) mod help;
 pub(crate) mod message;
+pub(crate) mod open_with;
 pub(crate) mod theme;

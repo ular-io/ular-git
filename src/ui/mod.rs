@@ -73,19 +73,24 @@ pub enum UiMode {
     GroupPick,
     Confirm,
     Commit,
+    /// App picker of Open With (`enter` on a repository row or a file).
+    OpenWith,
     QuickCommand,
     ThemeSelect,
     Help,
     Message,
 }
 
-/// Shell command to run with the terminal handed over (`!` and Edit Config).
+/// Shell command to run with the terminal handed over (`!`, Edit Config, and
+/// terminal apps of Open With).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TerminalRequest {
     pub cwd: PathBuf,
     pub command: String,
     /// Wait for a key after the command exits so its output can be read.
     pub pause: bool,
+    /// Named in the return notice instead of the command (an Open With app).
+    pub name: Option<String>,
 }
 
 pub struct App {
@@ -131,6 +136,8 @@ pub struct App {
     pub(crate) confirm: Option<overlays::confirm::ConfirmDialog>,
     pub(crate) commit: Option<overlays::commit::CommitDialog>,
     pub(crate) message: Option<overlays::message::MessageDialog>,
+    pub(crate) open_with: Option<overlays::open_with::OpenWithDialog>,
+    pub(crate) last_apps: overlays::open_with::LastApps,
     pub(crate) theme_select: Option<overlays::theme::ThemeSelectState>,
     pub(crate) help_scroll: Cell<usize>,
     pub(crate) help_max: Cell<usize>,
@@ -171,6 +178,7 @@ impl App {
             app.load_status_cache();
             app.quick_history = quick::load_history();
             app.terminal_history = quick::load_terminal_history();
+            app.last_apps = overlays::open_with::load_last_apps();
             app.launch_dir = std::env::current_dir().ok();
         }
         if let Some(err) = load_error {
@@ -218,6 +226,8 @@ impl App {
             quick: None,
             quick_history: Vec::new(),
             terminal_history: Vec::new(),
+            open_with: None,
+            last_apps: Default::default(),
             theme: crate::theme::current(),
             notice: None,
             should_quit: false,

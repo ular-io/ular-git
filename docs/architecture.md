@@ -26,7 +26,8 @@
 | `git/discover.rs` | Folder → repository roots |
 | `store.rs` | `repos.json`: groups and repositories |
 | `cache.rs` | Status cache file |
-| `config.rs` | `config.toml`, app paths, atomic writes |
+| `config.rs` | `config.toml` (including the Open With app lists), app paths, atomic writes |
+| `launch.rs` | Detached start of Open With GUI apps |
 | `theme/` | Theme roles, 40 built-in palettes, custom themes, selection |
 | `ui/mod.rs` | `App`, `UiMode` (who gets keys), `Pane` (focus), row rebuild and cursor placement |
 | `ui/background.rs` | Scan pool, one-off threads, `Patch` channel |
@@ -36,7 +37,7 @@
 | `ui/sync.rs` | Push / pull from the UI |
 | `ui/input.rs`, `ui/keys.rs` | Key routing; header / help hints |
 | `ui/render/` | Frame, pane layout, header, panes |
-| `ui/overlays/` | Dialogs: add repository, groups, confirm, commit, help, theme, message |
+| `ui/overlays/` | Dialogs: add repository, groups, confirm, commit, Open With, help, theme, message |
 | `ui/quick/` | `:` palette and `!` terminal command |
 | `ui/components/` | Repository-agnostic primitives (text input, list movement, modal, scrollbar, text width) |
 | `runtime.rs`, `runtime/terminal.rs` | CLI, event loop, shell handover, terminal modes |
@@ -70,6 +71,17 @@ run_loop: poll_background (apply every Patch) ─► tick (timers) ─► draw o
   exit path, including the panic hook. Focus gained triggers a rescan.
 - `!` and Edit Config hand the terminal to `$SHELL -c <command>`; on return the
   config is reloaded and every repository rescanned.
+- Open With (`ui/overlays/open_with.rs`): `enter` on a repository / worktree
+  row lists `Config::launchers` (`[[apps]]`, default Finder `open .`); `enter`
+  on a changed file lists `Config::file_launchers` (`[[file_apps]]`, default
+  `vim {path}`). `{path}` becomes the shell-quoted folder or file path; the
+  command runs in the working tree. A terminal app goes through the same
+  handover (`TerminalRequest.name` names it in the return notice, no pause
+  unless it fails). A `gui = true` app runs on a one-off thread through
+  `launch::spawn_detached` (stdin / stdout null, own process group); a
+  non-zero exit within 3 s reports its last stderr line, a command still
+  running after that is left running. The app used last per kind is kept in
+  `open_with.json` and preselected. A deleted file is not opened.
 
 ## Persistence ownership
 
@@ -80,6 +92,7 @@ run_loop: poll_background (apply every Patch) ─► tick (timers) ─► draw o
 | `~/.config/ular-git/theme.json` | app | Theme dialog |
 | `~/.config/ular-git/themes/*.toml` | user | — |
 | `~/.config/ular-git/{quick,terminal}_history.json` | app | Palette / `!` |
+| `~/.config/ular-git/open_with.json` | app | Open With (last app per folder / file) |
 | `<OS cache>/ular-git/status.json` | app | `save_status_cache` when the scan queue drains and on exit (versioned; another version is discarded) |
 
 ## Design decisions

@@ -63,6 +63,8 @@ The view lasts for the session only.
   pane shows no `→` arrow there.
 - `space` / `enter` on a group header folds or unfolds it (not while a filter
   is applied). Fold state persists in `repos.json`.
+- `enter` on a repository or worktree row opens Open With (see
+  [architecture.md](./architecture.md) §Runtime); `→` / `l` move to Files.
 - Palette only: Move Group Up / Down, Fold / Unfold All Groups.
 
 ## Adding and removing repositories

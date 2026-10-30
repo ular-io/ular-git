@@ -85,6 +85,7 @@ impl App {
                 .is_some_and(|f| f.kind != crate::git::EntryKind::Conflict),
             Push => branch.is_some_and(|b| b.upstream.is_none() || b.ahead > 0),
             Pull => branch.is_some_and(|b| b.upstream.is_some()),
+            OpenWith => self.current_target().is_some(),
             ClearFilter => self.list_filtered(),
             ToggleChangedOnly => true,
             ToggleWrap => true,
@@ -214,6 +215,7 @@ impl App {
                     cwd,
                     command,
                     pause: true,
+                    name: None,
                 });
             }
             KeyCode::Up => term_move(state, -1),
@@ -285,6 +287,11 @@ impl App {
             DiscardFile => self.open_discard_file(),
             Push => self.open_push(),
             Pull => self.start_pull(),
+            OpenWith => {
+                if self.focus == Pane::Repos || !self.open_with_file() {
+                    self.open_with_folder();
+                }
+            }
             FilterRepos => self.open_filter(),
             ClearFilter => self.clear_filter(),
             ToggleChangedOnly => self.toggle_changed_only(),
@@ -331,6 +338,7 @@ impl App {
                 shell_quote(&path.to_string_lossy())
             ),
             pause: false,
+            name: None,
         });
     }
 }

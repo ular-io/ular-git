@@ -44,6 +44,7 @@ impl App {
             UiMode::GroupPick => self.on_key_group_pick(key),
             UiMode::Confirm => self.on_key_confirm(key),
             UiMode::Commit => self.on_key_commit(key),
+            UiMode::OpenWith => self.on_key_open_with(key),
             UiMode::QuickCommand => self.on_key_quick(key),
             UiMode::ThemeSelect => self.on_key_theme_select(key),
             UiMode::Help => self.on_key_help(key),
@@ -146,7 +147,8 @@ impl App {
             KeyCode::Enter | KeyCode::Char(' ') if is_group => self.toggle_group(),
             // A group header has no files to open.
             KeyCode::Right | KeyCode::Char('l') if is_group => {}
-            KeyCode::Enter | KeyCode::Right | KeyCode::Char('l') => self.move_focus(1),
+            KeyCode::Enter => self.open_with_folder(),
+            KeyCode::Right | KeyCode::Char('l') => self.move_focus(1),
             KeyCode::Char('.') => self.toggle_changed_only(),
             _ => return false,
         }
@@ -158,6 +160,8 @@ impl App {
             KeyCode::PageUp => self.diff.page_by(-1),
             KeyCode::PageDown => self.diff.page_by(1),
             KeyCode::Left | KeyCode::Char('h') => self.move_focus(-1),
+            // A changed file opens in an app; a commit row shows its diff.
+            KeyCode::Enter if self.open_with_file() => {}
             KeyCode::Enter | KeyCode::Right | KeyCode::Char('l') => self.move_focus(1),
             KeyCode::Char('.') => self.toggle_wrap(),
             _ => {

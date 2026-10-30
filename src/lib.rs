@@ -7,6 +7,7 @@
 pub mod cache;
 pub mod config;
 pub mod git;
+pub mod launch;
 mod runtime;
 pub mod store;
 pub mod theme;
