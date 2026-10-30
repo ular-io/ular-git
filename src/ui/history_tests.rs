@@ -168,9 +168,9 @@ fn greater_than_cycles_branch_and_tag_labels_on_the_history() {
     };
     let labels = |row: &str| {
         (
-            row.contains("⎇ main"),
-            row.contains("⎇ side"),
-            row.contains("⚑ v1.0"),
+            row.contains(" main "),
+            row.contains(" side "),
+            row.contains(" v1.0 "),
         )
     };
     assert_eq!(
@@ -189,12 +189,14 @@ fn greater_than_cycles_branch_and_tag_labels_on_the_history() {
     assert_eq!(labels(&init_row(&app)), (true, true, true));
     app.press(&[ch('>')]);
     assert_eq!(labels(&init_row(&app)), (false, false, true));
-    // Labels sit between the graph and the subject.
+    // Labels follow the subject and end at the pane's right edge (one
+    // padding cell before the border).
     let row = init_row(&app);
     assert!(
-        row.find("⚑ v1.0").unwrap() < row.find(" init").unwrap(),
+        row.find(" init").unwrap() < row.find(" v1.0 ").unwrap(),
         "{row}"
     );
+    assert!(row.contains(" v1.0  ┃"), "{row}");
     app.press(&[ch('>')]);
     assert_eq!(labels(&init_row(&app)), (false, false, false));
 }
@@ -216,7 +218,9 @@ fn ref_labels_keep_their_badge_colors_on_the_selected_row() {
         let y = (0..20)
             .find(|&y| row(y).contains('●') && row(y).contains(" init"))
             .unwrap();
-        let x = (0..150).find(|&x| buf[(x, y)].symbol() == "⚑").unwrap();
+        let x = (1..150)
+            .find(|&x| buf[(x - 1, y)].symbol() == " " && buf[(x, y)].symbol() == "v")
+            .unwrap();
         // `x - 2`: the plain space between the branch and tag labels.
         (buf[(x, y)].bg, buf[(x - 2, y)].bg)
     };

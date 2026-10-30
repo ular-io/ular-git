@@ -140,24 +140,32 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                         FileItem::Commit(c, mark) => {
                             let mut spans = graph_spans(graph_of(v), graph_w, mark, tone, th);
                             let used: usize = spans.iter().map(|s| s.content.width()).sum();
-                            spans.extend(ref_spans(
+                            // Labels end at the right edge; the subject keeps
+                            // at least SUBJECT_MIN cells before them.
+                            let labels = ref_spans(
                                 refs_of(v),
                                 app.history.labels,
-                                w.saturating_sub(used + 1),
+                                w.saturating_sub(used + SUBJECT_MIN),
                                 tone,
                                 th,
-                            ));
-                            let used: usize = spans.iter().map(|s| s.content.width()).sum();
+                            );
+                            let labels_w: usize = labels.iter().map(|s| s.content.width()).sum();
                             // Commits to push or pull stand out of the faded history.
                             let style = if mark == Mark::Shared {
                                 th.soft_dim()
                             } else {
                                 dim(Style::default())
                             };
-                            spans.push(Span::styled(
-                                truncate_w(&c.subject, w.saturating_sub(used + 1)),
-                                style,
-                            ));
+                            let subject = truncate_w(
+                                &c.subject,
+                                w.saturating_sub(used + labels_w).saturating_sub(1),
+                            );
+                            let gap = w.saturating_sub(used + subject.width() + labels_w);
+                            spans.push(Span::styled(subject, style));
+                            if !labels.is_empty() {
+                                spans.push(Span::raw(" ".repeat(gap)));
+                                spans.extend(labels);
+                            }
                             spans
                         }
                         FileItem::More => vec![Span::styled(" … more", th.soft_dim())],
@@ -232,13 +240,16 @@ fn refs_of<'a>(v: &Visual<'a>) -> &'a [RefLabel] {
 /// Longest ref name shown in a label; longer names are cut with `…`.
 const REF_NAME_MAX: usize = 24;
 
-/// Branch (`⎇`) and tag (`⚑`) labels drawn as solid badges (the theme
-/// background as text on the label color), each followed by a space, within
-/// `room` cells; a label that does not fit is left out with the rest. Local
-/// branches use the branch color (bold on HEAD's), remote branches the hunk
-/// color, tags the warning color, each moved a quarter toward the text color
-/// so the badge stands out of the background (a dimmed pane fades it back a
-/// third, not the usual half).
+/// Subject cells kept in front of the labels.
+const SUBJECT_MIN: usize = 12;
+
+/// Branch and tag labels drawn as solid badges (the theme background as text
+/// on the label color, no icon), each after a space, within `room` cells; a
+/// label that does not fit is left out with the rest. The kind is told by
+/// color: local branches the branch color (bold on HEAD's), remote branches
+/// the hunk color, tags the warning color, each moved a quarter toward the
+/// text color so the badge stands out of the background (a dimmed pane fades
+/// it back a third, not the usual half).
 fn ref_spans(
     refs: &[RefLabel],
     labels: RefLabels,
@@ -249,13 +260,13 @@ fn ref_spans(
     let mut spans = Vec::new();
     let mut used = 0;
     for r in refs {
-        let (icon, color) = match r.kind {
-            RefKind::Branch if labels.branches() => ('⎇', th.branch),
-            RefKind::Remote if labels.branches() => ('⎇', th.diff_hunk),
-            RefKind::Tag if labels.tags() => ('⚑', th.warning),
+        let color = match r.kind {
+            RefKind::Branch if labels.branches() => th.branch,
+            RefKind::Remote if labels.branches() => th.diff_hunk,
+            RefKind::Tag if labels.tags() => th.warning,
             _ => continue,
         };
-        let text = format!(" {icon} {} ", truncate_w(&r.name, REF_NAME_MAX));
+        let text = format!(" {} ", truncate_w(&r.name, REF_NAME_MAX));
         let w = text.width() + 1;
         if used + w > room {
             break;
@@ -275,8 +286,8 @@ fn ref_spans(
         if r.head {
             style = style.add_modifier(Modifier::BOLD);
         }
-        spans.push(Span::styled(text, style));
         spans.push(Span::raw(" "));
+        spans.push(Span::styled(text, style));
     }
     spans
 }

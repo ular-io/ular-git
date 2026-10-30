@@ -30,17 +30,19 @@
 - Ref labels (`RefLabels` in `src/ui/history_view.rs`, drawn by `ref_spans`
   in `src/ui/render/files.rs`): `>` (any pane, palette Cycle Branch / Tag
   Labels) cycles none → branches → branches and tags → tags → none. Labels
-  sit between the graph and the subject as solid badges (the background
-  color as text on the label color, a quarter toward the text color; a dimmed
-  pane fades them a third): `⎇ name` for a
-  local branch (branch color, bold on HEAD's branch; `HEAD` when detached)
-  and a remote branch (hunk color), `⚑ name` for a tag (warning color). A
-  remote branch with a local twin on the same commit (`origin/main` next to
-  `main`) is left out. A tag copied under `refs/remotes/<remote>/tags/` (a
-  fetch refspec `+refs/tags/*:refs/remotes/origin/tags/*`) counts as that tag:
-  left out next to the local tag, shown as `⚑ name` without it. Names are cut at 24 columns; labels that do not fit
-  the row are dropped. They keep their colors on the selection bar. Read from `git log --decorate=full` `%D`. The last
-  choice is saved in `~/.config/ular-git/view.json`.
+  are solid badges without icons, right-aligned at the end of the row after
+  the subject (which keeps at least 12 columns and is cut first). Color tells
+  the kind: local branch the branch color (bold on HEAD's branch; `HEAD` when
+  detached), remote branch the hunk color, tag the warning color; each is
+  moved a quarter toward the text color, with the background color as text,
+  and a dimmed pane fades them a third. A remote branch with a local twin on
+  the same commit (`origin/main` next to `main`) is left out. A tag copied
+  under `refs/remotes/<remote>/tags/` (a fetch refspec
+  `+refs/tags/*:refs/remotes/origin/tags/*`) counts as that tag: left out next
+  to the local tag, shown as the tag without it. Names are cut at 24 columns;
+  labels that do not fit are dropped. They keep their colors on the selection
+  bar. Read from `git log --decorate=full` `%D`. The last choice is saved in
+  `~/.config/ular-git/view.json`.
 - History is read for the selected working tree only, in the background, when
   it is selected or its HEAD or ahead / behind counts change (commit, pull,
   checkout, a fetch elsewhere): the newest 100
