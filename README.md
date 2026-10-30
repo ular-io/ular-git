@@ -96,7 +96,7 @@ every option commented out):
 | `scan_jobs` | `8` | Parallel git processes during a scan (1–32) |
 | `max_diff_lines` | `20000` | Diff lines read for one file |
 | `editor` | `$VISUAL`, `$EDITOR`, `vi` | Editor for Edit Config |
-| `[[apps]]` | Finder (`open .`) | Open With apps for a repository or worktree |
+| `[[apps]]` | Open Folder (`open .`) | Open With apps for a repository or worktree |
 | `[[file_apps]]` | vim (`vim {path}`) | Open With apps for a changed file |
 
 Each app has a `name`, a `command` run in the working tree (`{path}` becomes

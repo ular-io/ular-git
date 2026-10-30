@@ -84,8 +84,8 @@ until it is restarted; say so when reporting.
   never press `P` / `p` on a real repository; use a scratch repository with a
   bare remote.
 - **Edit Config** launches `$EDITOR`; do not trigger it in automated runs when
-  that is a GUI editor. **Open With** runs real apps (the default opens
-  Finder); use a sandbox `config.toml` with harmless apps.
+  that is a GUI editor. **Open With** runs real apps (the default `open .`
+  opens Finder); use a sandbox `config.toml` with harmless apps.
 
 When behavior changes, update the owning document in the same change.
 

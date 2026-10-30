@@ -72,11 +72,11 @@ run_loop: poll_background (apply every Patch) ─► tick (timers) ─► draw o
 - `!` and Edit Config hand the terminal to `$SHELL -c <command>`; on return the
   config is reloaded and every repository rescanned.
 - Open With (`ui/overlays/open_with.rs`): `enter` on a repository / worktree
-  row lists `Config::launchers` (`[[apps]]`, default Finder `open .`); `enter`
-  on a changed file lists `Config::file_launchers` (`[[file_apps]]`, default
-  `vim {path}`). `{path}` becomes the shell-quoted folder or file path; the
-  command runs in the working tree. A terminal app goes through the same
-  handover (`TerminalRequest.name` names it in the return notice, no pause
+  row lists `Config::launchers` (`[[apps]]`, default Open Folder `open .`);
+  `enter` on a changed file lists `Config::file_launchers` (`[[file_apps]]`,
+  default `vim {path}`). `{path}` becomes the shell-quoted folder or file
+  path; the command runs in the working tree. A terminal app goes through the
+  same handover (`TerminalRequest.name` names it in the return notice, no pause
   unless it fails). A `gui = true` app runs on a one-off thread through
   `launch::spawn_detached` (stdin / stdout null, own process group); a
   non-zero exit within 3 s reports its last stderr line, a command still

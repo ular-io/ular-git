@@ -268,7 +268,7 @@ mod tests {
         let a = TestRepo::new();
         let mut app = scanned_app(store_of(&[&a.root]));
         app.cfg.launchers = vec![
-            app_of("Finder", "open .", true),
+            app_of("Open Folder", "open .", true),
             app_of("tool", "tool --dir {path}", false),
         ];
         app.press(&[key(KeyCode::Enter)]);

@@ -42,7 +42,7 @@ pub struct Launcher {
 /// the system file manager (macOS `open`).
 fn default_launchers() -> Vec<Launcher> {
     vec![Launcher {
-        name: "Finder".into(),
+        name: "Open Folder".into(),
         command: "open .".into(),
         gui: true,
     }]
@@ -213,8 +213,8 @@ const CONFIG_TEMPLATE: &str = "\
 # [[apps]], `enter` on a changed file lists [[file_apps]]. Commands run in the
 # working tree; {path} is replaced with the quoted folder or file path.
 # Terminal apps take over this terminal until they exit; `gui = true` apps are
-# started without leaving ular-git. Without entries, folders open in Finder
-# (`open .`) and files in vim (`vim {path}`).
+# started without leaving ular-git. Without entries, folders open with
+# Open Folder (`open .`) and files with vim (`vim {path}`).
 # [[apps]]
 # name = \"gitui\"
 # command = \"gitui\"
