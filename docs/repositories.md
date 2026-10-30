@@ -53,12 +53,22 @@ left to do (`build_rows(.., pending_only)` in `src/ui/tree.rs`;
   counts for the repository row only.
 
 A clean repository stays as the parent of a worktree that matches, and only
-matching worktrees are listed. Groups open and groups without a match
+matching worktrees are listed. The working tree being looked at stays listed
+after it stops matching (a commit and push made elsewhere, picked up by a
+rescan): `rebuild_rows` passes it to `build_rows` as `keep`. It leaves on the
+next rescan after the cursor moves away, or at once when the view or the
+text filter changes (`rebuild_rows_for_filter` keeps nothing). Groups open and groups without a match
 disappear, as with the text filter; both apply together. The pane title reads
 `Repos[pending: N/M]` (`Repos[api · pending: N/M]` with a text filter) and
 the header shows a Filter row. `0` clears both. The view lasts for the session
 only. (`ctrl+.` is not used for anything: most terminals send it as a plain
 `.`.)
+
+## Cursor
+
+When the selected repository or worktree leaves the list (removed, or no
+longer matching after a filter change), the cursor goes to the nearest
+repository row, below first, never to a group header (`App::place_cursor`).
 
 ## Groups
 

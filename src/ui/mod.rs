@@ -291,11 +291,15 @@ impl App {
     fn rebuild_rows_with(&mut self, first_on_miss: bool) {
         let key = self.current_row().map(|r| r.key());
         let before = self.current_target();
+        // A rescan or list change keeps the tree being looked at; a filter
+        // change applies to it like to any other.
+        let keep = if first_on_miss { None } else { before.clone() };
         self.rows = tree::build_rows(
             &self.store,
             &self.statuses,
             &self.filter.value,
             self.pending_only,
+            keep.as_deref(),
         );
         let fallback = first_on_miss.then(|| {
             self.rows
@@ -326,6 +330,17 @@ impl App {
             self.repo_sel = i;
         }
         self.repo_sel = self.repo_sel.min(self.rows.len().saturating_sub(1));
+        // A repository that left the list hands the cursor to the nearest
+        // repository row (below first), never to a group header.
+        let was_tree = key.is_some_and(|k| !matches!(k, RowKey::Group(_)));
+        if found.is_none() && was_tree && matches!(self.current_row(), Some(Row::Group { .. })) {
+            let is_tree = |i: &usize| !matches!(self.rows[*i], Row::Group { .. });
+            let below = (self.repo_sel..self.rows.len()).find(is_tree);
+            let above = (0..self.repo_sel).rev().find(is_tree);
+            if let Some(i) = below.or(above) {
+                self.repo_sel = i;
+            }
+        }
         if self.current_target() != before {
             self.on_target_changed();
         }

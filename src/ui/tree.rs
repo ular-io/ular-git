@@ -78,12 +78,15 @@ fn folder_name(path: &Path) -> String {
 /// folder or branch name) or `pending_only` (working trees with something to
 /// commit, pull, or push, or a stash), collapsed groups open and only groups
 /// with a match are kept. A clean repository stays as the parent of a
-/// worktree that matches.
+/// worktree that matches. `keep` (the working tree being looked at) stays in
+/// the pending view after it stops matching, so a commit made elsewhere does
+/// not pull it from under the cursor.
 pub fn build_rows(
     store: &RepoStore,
     statuses: &HashMap<PathBuf, TreeState>,
     filter: &str,
     pending_only: bool,
+    keep: Option<&Path>,
 ) -> Vec<Row> {
     let needle = filter.trim().to_lowercase();
     let matches = |text: &str| needle.is_empty() || text.to_lowercase().contains(&needle);
@@ -91,6 +94,7 @@ pub fn build_rows(
     // worktrees, so it only counts for the repository.
     let wanted = |p: &Path, main: bool| {
         !pending_only
+            || keep == Some(p)
             || statuses
                 .get(p)
                 .and_then(|t| t.status.as_ref())
@@ -255,7 +259,7 @@ mod tests {
     #[test]
     fn groups_sort_repositories_and_nest_worktrees() {
         let s = store();
-        let rows = build_rows(&s, &with_worktree("/x/alpha-wt", "feat"), "", false);
+        let rows = build_rows(&s, &with_worktree("/x/alpha-wt", "feat"), "", false, None);
         assert_eq!(
             names(&s, &rows),
             ["loose", "#work", "alpha", "^alpha-wt", "zeta"]
@@ -265,7 +269,7 @@ mod tests {
     #[test]
     fn ungrouped_repositories_lead_without_header_or_indent() {
         let s = store();
-        let rows = build_rows(&s, &HashMap::new(), "", false);
+        let rows = build_rows(&s, &HashMap::new(), "", false, None);
         assert!(matches!(rows[0], Row::Repo { nested: false, .. }));
         assert!(matches!(rows[2], Row::Repo { nested: true, .. }));
         assert!(rows
@@ -278,7 +282,7 @@ mod tests {
         let mut s = RepoStore::default();
         s.add_repo("/b".into(), None);
         s.add_repo("/a".into(), None);
-        let rows = build_rows(&s, &HashMap::new(), "", false);
+        let rows = build_rows(&s, &HashMap::new(), "", false, None);
         assert_eq!(names(&s, &rows), ["a", "b"]);
         assert!(matches!(rows[0], Row::Repo { nested: false, .. }));
     }
@@ -289,11 +293,11 @@ mod tests {
         s.toggle_collapsed(Some("work"));
         let st = with_worktree("/x/alpha-wt", "feat");
         assert_eq!(
-            names(&s, &build_rows(&s, &st, "", false)),
+            names(&s, &build_rows(&s, &st, "", false, None)),
             ["loose", "#work"]
         );
         assert_eq!(
-            names(&s, &build_rows(&s, &st, "ZET", false)),
+            names(&s, &build_rows(&s, &st, "ZET", false, None)),
             ["#work", "zeta"]
         );
     }
@@ -301,7 +305,13 @@ mod tests {
     #[test]
     fn a_worktree_branch_match_keeps_its_repository() {
         let s = store();
-        let rows = build_rows(&s, &with_worktree("/x/alpha-wt", "feat"), "feat", false);
+        let rows = build_rows(
+            &s,
+            &with_worktree("/x/alpha-wt", "feat"),
+            "feat",
+            false,
+            None,
+        );
         assert_eq!(names(&s, &rows), ["#work", "alpha", "^alpha-wt"]);
     }
 
@@ -309,7 +319,7 @@ mod tests {
     fn empty_named_groups_stay_visible() {
         let mut s = store();
         s.add_group("empty").unwrap();
-        let rows = build_rows(&s, &HashMap::new(), "", false);
+        let rows = build_rows(&s, &HashMap::new(), "", false, None);
         assert!(names(&s, &rows).contains(&"#empty".to_string()));
     }
 
@@ -335,7 +345,7 @@ mod tests {
             ..RepoStatus::default()
         };
         st.insert(PathBuf::from("/x/alpha-wt"), TreeState::loaded(wt, 0));
-        let rows = build_rows(&s, &st, "", false);
+        let rows = build_rows(&s, &st, "", false, None);
         assert!(
             matches!(
                 rows[1],
@@ -373,14 +383,14 @@ mod tests {
         st.insert(PathBuf::from("/x/zeta"), TreeState::loaded(dirty, 0));
         let mut folded = s.clone();
         folded.toggle_collapsed(Some("work"));
-        let rows = build_rows(&folded, &st, "", true);
+        let rows = build_rows(&folded, &st, "", true, None);
         assert_eq!(names(&s, &rows), ["#work", "alpha", "^alpha-wt", "zeta"]);
         // Combined with a text filter, both must match.
         assert_eq!(
-            names(&s, &build_rows(&s, &st, "zet", true)),
+            names(&s, &build_rows(&s, &st, "zet", true, None)),
             ["#work", "zeta"]
         );
-        assert!(build_rows(&s, &st, "loose", true).is_empty());
+        assert!(build_rows(&s, &st, "loose", true, None).is_empty());
     }
 
     #[test]
@@ -395,7 +405,7 @@ mod tests {
         st.insert(PathBuf::from("/x/zeta"), TreeState::loaded(ahead, 0));
         // Behind (something to pull) and ahead (something to push) count.
         assert_eq!(
-            names(&s, &build_rows(&s, &st, "", true)),
+            names(&s, &build_rows(&s, &st, "", true, None)),
             ["loose", "#work", "zeta"]
         );
     }
@@ -418,8 +428,22 @@ mod tests {
         // A worktree reports its repository's stash too; it does not count there.
         st.insert(PathBuf::from("/x/alpha-wt"), TreeState::loaded(stashed, 0));
         assert_eq!(
-            names(&s, &build_rows(&s, &st, "", true)),
+            names(&s, &build_rows(&s, &st, "", true, None)),
             ["loose", "#work", "zeta"]
         );
+    }
+
+    #[test]
+    fn pending_only_keeps_the_tree_being_looked_at() {
+        let s = store();
+        let st = HashMap::new();
+        assert!(build_rows(&s, &st, "", true, None).is_empty());
+        let keep = PathBuf::from("/x/zeta");
+        assert_eq!(
+            names(&s, &build_rows(&s, &st, "", true, Some(&keep))),
+            ["#work", "zeta"]
+        );
+        // A text filter still applies to it.
+        assert!(build_rows(&s, &st, "alp", true, Some(&keep)).is_empty());
     }
 }

@@ -425,3 +425,57 @@ fn discard_file_changes_runs_from_the_palette_after_a_confirmation() {
     app.type_text("discard");
     assert!(!app.quick.as_ref().unwrap().items[0].enabled);
 }
+
+#[test]
+fn a_commit_elsewhere_keeps_the_repository_on_screen_in_the_pending_view() {
+    let a = TestRepo::new();
+    let b = TestRepo::new();
+    let b_path = b.root.parent().unwrap().join("other");
+    std::fs::rename(&b.root, &b_path).unwrap();
+    a.write("a.txt", "changed\n");
+    let mut store = store_of(&[&a.root]);
+    store.add_repo(b_path, None);
+    let mut app = scanned_app(store);
+    app.press(&[ch('.')]);
+    assert_eq!(app.current_target().as_deref(), Some(a.root.as_path()));
+
+    // An agent commits the change; the rescan finds the tree clean.
+    a.git(&["commit", "-qam", "agent"]);
+    app.scan_all();
+    app.wait_background(20);
+    assert_eq!(
+        app.current_target().as_deref(),
+        Some(a.root.as_path()),
+        "still selected, still listed"
+    );
+    assert!(app.file_items().iter().any(|i| matches!(
+        i,
+        crate::ui::files::FileItem::Commit(c, _) if c.subject == "agent"
+    )));
+    // Turning the view off and on applies it again.
+    app.press(&[ch('.'), ch('.')]);
+    assert!(app.rows.is_empty(), "{:?}", app.rows);
+}
+
+#[test]
+fn a_repository_leaving_the_list_hands_the_cursor_to_a_repository_row() {
+    let loose = TestRepo::new();
+    let grouped = TestRepo::new();
+    let g_path = grouped.root.parent().unwrap().join("member");
+    std::fs::rename(&grouped.root, &g_path).unwrap();
+    let mut store = store_of(&[&loose.root]);
+    store.add_group("work").unwrap();
+    store.add_repo(g_path.clone(), Some("work".into()));
+    let mut app = scanned_app(store);
+    // Ungrouped first: [loose, #work, member].
+    assert_eq!(app.current_target().as_deref(), Some(loose.root.as_path()));
+    let idx = app.current_repo_index().unwrap();
+    app.store.repos.remove(idx);
+    app.rebuild_rows();
+    assert!(
+        matches!(app.current_row(), Some(Row::Repo { .. })),
+        "{:?}",
+        app.rows
+    );
+    assert_eq!(app.current_target().as_deref(), Some(g_path.as_path()));
+}
