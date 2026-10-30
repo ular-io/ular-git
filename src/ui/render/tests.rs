@@ -281,3 +281,25 @@ fn the_header_names_the_selected_repository_above_its_branch() {
     assert!(rows[2].starts_with(" Branch  main"), "{:?}", &rows[..4]);
     assert!(rows[3].starts_with(" Path"));
 }
+
+#[test]
+fn a_dimmed_pane_selection_is_a_light_bar_with_plain_bold_text() {
+    let a = TestRepo::new();
+    a.write("a.txt", "changed\n");
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.wait_background(10);
+    // Repos focus dims the file pane, whose first row (` M a.txt`) is selected.
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(150, 20)).unwrap();
+    terminal.draw(|f| super::draw(f, &app)).unwrap();
+    let buf = terminal.backend().buffer().clone();
+    let row = |y: u16| (0..150).map(|x| buf[(x, y)].symbol()).collect::<String>();
+    let y = (0..20).find(|&y| row(y).contains(" M a.txt")).unwrap();
+    let x = (0..150)
+        .find(|&x| buf[(x, y)].symbol() == "a" && buf[(x + 1, y)].symbol() == ".")
+        .unwrap();
+    let cell = &buf[(x, y)];
+    assert_eq!(cell.bg, app.theme.selection_inactive_bg);
+    assert_eq!(cell.fg, app.theme.fg);
+    assert!(cell.modifier.contains(ratatui::style::Modifier::BOLD));
+    assert!(!cell.modifier.contains(ratatui::style::Modifier::REVERSED));
+}

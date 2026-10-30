@@ -240,10 +240,13 @@ pub(crate) fn selection_style(tone: Tone, th: &Theme) -> Style {
             .fg(th.selection_fg)
             .bg(th.selection_bg)
             .add_modifier(Modifier::BOLD),
-        Tone::Dimmed => th
-            .soft_dim()
+        // Not the rust-tui weak reverse (muted text reversed over the
+        // inactive color): on light themes that left pale text on a mid-tone
+        // bar. The light bar with plain text keeps both readable.
+        Tone::Dimmed => Style::default()
+            .fg(th.fg)
             .bg(th.selection_inactive_bg)
-            .add_modifier(Modifier::REVERSED),
+            .add_modifier(Modifier::BOLD),
         Tone::Neutral => Style::default()
             .fg(th.selection_fg)
             .bg(th.selection_inactive_bg)

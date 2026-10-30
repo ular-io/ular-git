@@ -50,9 +50,11 @@ ular-git applies them.
   look bolder.
 - Selected row: the bar runs from the left padding cell to the cell before the
   right border (where the scrollbar sits). Focused → `selection_bg` +
-  `selection_fg` + bold; dimmed pane → soft-dim reversed over
-  `selection_inactive_bg`; neutral → `selection_inactive_bg` + bold. Text keeps
-  one cell of margin on the right.
+  `selection_fg` + bold; dimmed pane → `selection_inactive_bg` with the plain
+  text color (`fg`) + bold, no reverse; neutral → `selection_inactive_bg` +
+  `selection_fg` + bold. Text keeps one cell of margin on the right.
+  (Deliberately not the rust-tui weak reverse — muted text reversed over the
+  inactive color — which put pale text on a mid-tone bar on light themes.)
 
 ## Repository rows
 
