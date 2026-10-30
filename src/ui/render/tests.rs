@@ -46,12 +46,11 @@ fn two_panes_follow_the_focus_and_wide_screens_show_three() {
         };
         assert_eq!(shown(Pane::Repos), [Pane::Repos, Pane::Files]);
         assert_eq!(shown(Pane::Files), [Pane::Files, Pane::Diff]);
-        assert_eq!(shown(Pane::Diff), [Pane::Files, Pane::Diff]);
-        let total: u16 = pane_layout(area, Pane::Repos)
-            .iter()
-            .map(|(_, r)| r.width)
-            .sum();
-        assert_eq!(total, width, "widths add up to the area");
+        assert_eq!(shown(Pane::Diff), [Pane::Diff], "the diff alone");
+        for focus in [Pane::Repos, Pane::Diff] {
+            let total: u16 = pane_layout(area, focus).iter().map(|(_, r)| r.width).sum();
+            assert_eq!(total, width, "widths add up to the area");
+        }
     }
     let narrow = Rect::new(0, 0, 50, 20);
     assert_eq!(pane_layout(narrow, Pane::Files)[0].0, Pane::Files);

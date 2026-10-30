@@ -24,9 +24,10 @@ ular-git applies them.
 
 - ≥ 160 columns: all three panes, whatever has focus (Repos 22 % 30–44,
   Files 28 % 40–60, Diff the rest).
-- 64–159 columns: two panes. Repos focus shows Repos + Files; Files or Diff
-  focus shows Files + Diff, so the diff gets the room while files are
-  browsed. Below 64 columns only the focused pane is shown.
+- 64–159 columns: Repos focus shows Repos + Files; Files focus shows
+  Files + Diff, so the diff follows while files are browsed; Diff focus
+  shows the diff alone at full width for reading. Below 64 columns only the
+  focused pane is shown.
 - Moving left or right always reveals the pane the focus moves to.
 - Repos 42 % (28–44) beside Files; Files 40 % (30–56) beside Diff.
 - The file pane is titled with the selected repository's (or worktree's)

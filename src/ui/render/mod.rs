@@ -98,12 +98,16 @@ pub(crate) fn visible_panes(width: u16) -> usize {
 }
 
 /// Visible panes and their areas. Wide screens show all three. Otherwise
-/// Repos focus shows Repos + Files and Files or Diff focus shows Files + Diff;
-/// a narrow screen shows the focused pane alone. The focused pane is always
-/// visible, so moving left or right reveals the pane it moves to.
+/// Repos focus shows Repos + Files, Files focus Files + Diff, and Diff focus
+/// the diff alone (the full width for reading); a narrow screen shows the
+/// focused pane alone. The focused pane is always visible, so moving left or
+/// right reveals the pane it moves to.
 pub(crate) fn pane_layout(area: Rect, focus: Pane) -> Vec<(Pane, Rect)> {
     let w = area.width;
-    let k = visible_panes(w);
+    let k = match visible_panes(w) {
+        2 if focus == Pane::Diff => 1,
+        k => k,
+    };
     let start = match k {
         3 => 0,
         1 => focus.index(),
