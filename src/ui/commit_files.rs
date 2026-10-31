@@ -1,13 +1,13 @@
 //! The file pane's commit view: `→` on a history commit lists the files it
 //! changed, read in the background. Row 0 is the commit itself (its whole
-//! `git show`); the cursor starts on the first file, whose diff shows alone.
+//! `git show`), where the cursor starts; each file below shows its diff alone.
 //! `←` returns to the changes and history with the cursor on the commit.
 //! Rescans and history reloads leave a commit's view alone; selecting
 //! another working tree closes it.
 //!
 //! `→` on the Uncommitted Changes row opens the same view over the working
-//! tree: its files against HEAD, re-read on every rescan (the cursor stays
-//! on its file), closed once the tree is clean.
+//! tree: its files against HEAD, re-read on every rescan (the cursor starts
+//! on the first file and stays on its file), closed once the tree is clean.
 
 use super::components::list_nav;
 use super::files::FileItem;
@@ -97,12 +97,15 @@ impl App {
         let Some(target) = self.current_target() else {
             return false;
         };
+        // A commit starts on its own row (the diff it already showed); the
+        // uncommitted changes on their first file.
+        let sel = usize::from(of == ViewOf::WorkTree);
         self.commit_view = Some(CommitView {
             target: target.clone(),
             of,
             files: None,
             error: None,
-            sel: 1,
+            sel,
         });
         *self.commit_list.borrow_mut().offset_mut() = 0;
         self.spawn_view_files();

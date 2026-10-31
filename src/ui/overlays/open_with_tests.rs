@@ -145,8 +145,10 @@ fn a_commit_file_opens_its_parent_its_commit_or_a_diff_between_them() {
     app.cfg.file_launchers = vec![app_of("cat", "cat {path}", false)];
     app.focus = Pane::Files;
     app.wait_background(10);
+    // `→` opens the commit's files on the commit row; `↓` to the first file.
     app.press(&[key(KeyCode::Right)]);
     app.wait_background(10);
+    app.press(&[key(KeyCode::Down)]);
     // `enter` on a commit's file opens the dialog, not the diff pane.
     app.press(&[key(KeyCode::Enter)]);
     assert_eq!(app.mode, UiMode::OpenWith);

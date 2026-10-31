@@ -112,12 +112,11 @@ brought in against its first parent, a root commit its added files).
   color), the path (`old → new` for a rename, folder soft-dim, tail kept when
   cut), and `+N -N` right-aligned in the diff colors (`Bin` for binary).
   `Loading files…`, the error, or `No files changed` sit below the divider.
-- The cursor starts on the first file. The diff shows that file alone
-  (`DiffSource::CommitFile`: `git show --format= -M
-  --diff-merges=first-parent <hash> -- [old] <path>`, then the path and
-  counts head like a changed file); the diff title is the file name. The
-  commit row shows the whole commit as before (for a merge git's combined
-  diff, not the first-parent one).
+- The cursor starts on the commit row, which shows the whole commit as
+  before (for a merge git's combined diff, not the first-parent one). A
+  file shows its diff alone (`DiffSource::CommitFile`: `git show --format=
+  -M --diff-merges=first-parent <hash> -- [old] <path>`, then the path and
+  counts head like a changed file); the diff title is the file name.
 - `→` / `l` move to Diff; `←` there comes back to the commit view. `enter`
   on a file opens Open With with the commit's tabs (Diff, Parent, the
   commit, Working Tree; see architecture.md §Runtime); on the commit row it
@@ -141,7 +140,8 @@ line count.
 
 - Title and row 0: `○ Uncommitted Changes`; row 0 shows the summary stat
   (`DiffSource::WorkTree`). Status letters as in a commit's view, `?` in the
-  untracked color, `U` in the error color.
+  untracked color, `U` in the error color. Unlike a commit's view, the
+  cursor starts on the first file.
 - A file shows its change against HEAD, staged and unstaged together
   (`DiffSource::WorkTreeFile`: `git diff -M HEAD -- [old] <path>`, an
   untracked file as added), unlike the changed-file rows' sections.

@@ -55,7 +55,15 @@ fn right_lists_a_commits_files_and_each_shows_its_own_diff() {
         .map(|f| (f.status, f.path.as_str()))
         .collect();
     assert_eq!(files, [('M', "a.txt"), ('A', "b.txt")]);
-    // The cursor starts on the first file; its diff shows alone.
+    // The cursor starts on row 0, the commit with its whole diff.
+    assert_eq!(view.sel, 0);
+    assert_eq!(view.selected(), None);
+    assert_eq!(diff_key(&app), format!("c:{hash}"));
+    assert!(diff_text(&app).contains("two files"), "the message");
+
+    // Each file below shows its diff alone.
+    app.press(&[key(KeyCode::Down)]);
+    app.wait_background(10);
     assert_eq!(diff_key(&app), format!("cf:{hash}:a.txt"));
     assert!(diff_text(&app).contains("TWO"));
     assert!(!diff_text(&app).contains("bee"), "{}", diff_text(&app));
@@ -64,12 +72,6 @@ fn right_lists_a_commits_files_and_each_shows_its_own_diff() {
     app.wait_background(10);
     assert!(diff_text(&app).contains("bee"));
     assert!(!diff_text(&app).contains("TWO"));
-
-    // Row 0 is the commit with its whole diff.
-    app.press(&[key(KeyCode::Home)]);
-    app.wait_background(10);
-    assert_eq!(diff_key(&app), format!("c:{hash}"));
-    assert!(diff_text(&app).contains("two files"), "the message");
 
     // `→` moves on to the diff, `←` comes back to the files.
     app.press(&[key(KeyCode::End), key(KeyCode::Right)]);
@@ -105,6 +107,8 @@ fn commit_files_are_never_the_working_trees_and_survive_a_rescan() {
     app.wait_background(10);
     // Down past the changed file and the working-tree row to the commit.
     app.press(&[key(KeyCode::Down), key(KeyCode::Down), key(KeyCode::Right)]);
+    app.wait_background(10);
+    app.press(&[key(KeyCode::Down)]);
     app.wait_background(10);
     let view = app.commit_view.as_ref().expect("commit view");
     assert_eq!(view.selected().map(|f| f.path.as_str()), Some("a.txt"));
@@ -148,6 +152,9 @@ fn the_commit_view_shows_the_commit_a_files_divider_and_the_files() {
     assert!(row(" M a.txt").contains("+1 -1"), "{}", row(" M a.txt"));
     assert!(row(" A b.txt").contains("+1"));
     // The diff pane is titled with the selected file.
+    app.press(&[key(KeyCode::Down)]);
+    app.wait_background(10);
+    let rows = screen(&app, 160, 20);
     assert!(shows(&rows, " a.txt "));
 }
 
