@@ -26,9 +26,9 @@
 
 Right-aligned, in this order: `push…` / `pull…` while one runs, `!N`
 conflicts, `Ⓜ N` other changed files, `↑N` ahead, `↓N` behind, `Ⓢ N` stashes,
-`✓` clean (none of the above), `…` not scanned yet, `✗` the last scan failed
-(the previous status stays shown). `↓N` reflects the last fetch; ular-git does
-not fetch on its own.
+`…` not scanned yet, `✗` the last scan failed (the previous status stays
+shown). A clean tree (none of the above) shows no badge. `↓N` reflects the
+last fetch; ular-git does not fetch on its own.
 
 ## Filter
 

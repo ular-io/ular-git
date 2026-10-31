@@ -77,8 +77,8 @@ ular-git applies them.
 - Group headers are muted (`muted` text, no bold) on `group_bg`, so they label
   the rows below without outweighing them.
 - Badge colors: conflicts `error` bold, changed `warning`, ahead / behind
-  `branch`, stashes soft-dim, clean `success`, failed scan `error`, running
-  push / pull `accent` bold.
+  `branch`, stashes soft-dim, failed scan `error`, running push / pull
+  `accent` bold. A clean tree has no badge.
 - **Circled letters (`Ⓜ`, `Ⓢ`) are always followed by a space.** They are East
   Asian Ambiguous: counted as one cell but drawn two cells wide by many fonts,
   so a digit right after them is covered.

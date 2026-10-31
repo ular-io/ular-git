@@ -21,7 +21,8 @@ use std::path::PathBuf;
 use unicode_width::UnicodeWidthStr;
 
 /// Right-aligned badges: `Ⓜ 3` changed, `!1` conflicts, `↑2` ahead, `↓1`
-/// behind, `Ⓢ 1` stashes, `✓` clean, `…` not scanned yet, `✗` scan failed.
+/// behind, `Ⓢ 1` stashes, `…` not scanned yet, `✗` scan failed. A clean
+/// tree shows no badge, so the rows that need attention stand out.
 ///
 /// Circled letters are East Asian Ambiguous: counted as one cell, but many
 /// fonts draw them two cells wide. The space after them ([`CHANGED`],
@@ -69,10 +70,6 @@ pub(crate) fn badges(tree: Option<&TreeState>, scanning: bool, th: &Theme) -> Ve
     }
     if s.stashes > 0 {
         push(format!("{STASH}{}", s.stashes), th.soft_dim());
-    }
-    let clean = c.changed == 0 && s.branch.ahead == 0 && s.branch.behind == 0 && s.stashes == 0;
-    if clean {
-        push("✓".into(), Style::default().fg(th.success));
     }
     if tree.error.is_some() {
         push("✗".into(), Style::default().fg(th.error));

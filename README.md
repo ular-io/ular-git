@@ -18,8 +18,8 @@ changed, and what the diff is.
 ## Key Features
 
 - **Repository list with status badges**: `Ⓜ N` changed files, `!N` merge
-  conflicts, `↑N` / `↓N` ahead of / behind the upstream, `Ⓢ N` stashes, `✓`
-  clean.
+  conflicts, `↑N` / `↓N` ahead of / behind the upstream, `Ⓢ N` stashes; a
+  clean repository shows none.
 - **Worktrees** nest under the repository they belong to, with their branch.
 - **Groups**: file repositories under groups, fold them, filter by name.
 - **Arrow-key flow**: Repos → Files → Diff; the diff follows the file cursor.
