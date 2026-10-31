@@ -14,8 +14,11 @@ pub struct DiffView {
     pub doc: Option<DiffDoc>,
     pub error: Option<String>,
     pub loading: bool,
-    /// Top visual line.
-    pub scroll: usize,
+    /// Top visual line. The renderer moves it when the layout changes, so
+    /// the line on top stays on top ([`Anchor`]).
+    pub scroll: Cell<usize>,
+    /// Top line of the last frame, recorded by the renderer.
+    pub anchor: Cell<Option<Anchor>>,
     /// Largest `scroll`, recorded by the renderer (it knows the height).
     pub max_scroll: Cell<usize>,
     /// Visible line count, recorded by the renderer (page scroll size).
@@ -30,20 +33,34 @@ pub struct DiffView {
     queued: Option<(PathBuf, DiffSource, String)>,
 }
 
+/// The line at the top of the last frame and the layout it was drawn in.
+/// When wrapping, side by side, or the pane width changes, the next frame
+/// starts at that line instead of at the same visual row.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Anchor {
+    /// `scroll` when the frame was drawn; a scroll since then wins.
+    pub row: usize,
+    /// Index of the line drawn on the top row.
+    pub line: usize,
+    /// Wrapping, side by side, and the pane width.
+    pub layout: (bool, bool, usize),
+}
+
 impl DiffView {
     pub fn clear(&mut self) {
         self.key = None;
         self.doc = None;
         self.error = None;
         self.loading = false;
-        self.scroll = 0;
+        self.scroll_to_top();
         self.queued = None;
         self.generation += 1;
     }
 
     pub fn scroll_by(&mut self, delta: isize) {
         let max = self.max_scroll.get();
-        self.scroll = (self.scroll as isize + delta).clamp(0, max as isize) as usize;
+        let next = (self.scroll.get() as isize + delta).clamp(0, max as isize) as usize;
+        self.scroll.set(next);
     }
 
     pub fn page_by(&mut self, pages: isize) {
@@ -52,7 +69,13 @@ impl DiffView {
     }
 
     pub fn scroll_to_end(&mut self) {
-        self.scroll = self.max_scroll.get();
+        self.scroll.set(self.max_scroll.get());
+    }
+
+    /// Back to the first line, forgetting the line that was on top.
+    pub fn scroll_to_top(&mut self) {
+        self.scroll.set(0);
+        self.anchor.set(None);
     }
 }
 
@@ -62,7 +85,7 @@ impl App {
     pub(crate) fn load_diff(&mut self, target: PathBuf, source: DiffSource, key: String) {
         let view = &mut self.diff;
         if view.key.as_deref() != Some(key.as_str()) {
-            view.scroll = 0;
+            view.scroll_to_top();
             view.doc = None;
             view.error = None;
         }

@@ -187,7 +187,7 @@ impl App {
                 ListMove::Down => self.diff.scroll_by(1),
                 ListMove::PageUp => self.diff.page_by(-1),
                 ListMove::PageDown => self.diff.page_by(1),
-                ListMove::Home => self.diff.scroll = 0,
+                ListMove::Home => self.diff.scroll_to_top(),
                 ListMove::End => self.diff.scroll_to_end(),
             }
             return true;
@@ -203,7 +203,6 @@ impl App {
     /// `s`: side-by-side diffs on wide panes, or always unified.
     pub(crate) fn toggle_split(&mut self) {
         self.diff.split = !self.diff.split;
-        self.diff.scroll = 0;
         self.save_view();
         let text = if self.diff.split {
             "Side-by-side diff when the diff pane is 120+ columns wide"
@@ -215,7 +214,6 @@ impl App {
 
     pub(crate) fn toggle_wrap(&mut self) {
         self.diff.wrap = !self.diff.wrap;
-        self.diff.scroll = 0;
         let state = if self.diff.wrap { "on" } else { "off" };
         self.notify(Level::Info, format!("Line wrap {state}"));
     }

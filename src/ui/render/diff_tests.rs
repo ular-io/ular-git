@@ -285,3 +285,69 @@ fn the_changed_words_of_a_paired_line_are_reversed() {
     assert!(reversed("+let b", 5), "b");
     assert!(!reversed("+let b", 9), "foo");
 }
+
+/// A diff of 60 numbered lines, each long enough to wrap several times.
+fn long_lines_app() -> (TestRepo, crate::ui::App) {
+    let a = TestRepo::new();
+    let text: String = (0..60)
+        .map(|i| format!("line{i:02} {}\n", "word ".repeat(60)))
+        .collect();
+    a.write("a.txt", &text);
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.focus = Pane::Diff;
+    app.wait_background(10);
+    (a, app)
+}
+
+#[test]
+fn wrapping_on_and_off_keeps_the_top_line() {
+    let (_a, mut app) = long_lines_app();
+    app.diff.split = false;
+    let top = |app: &crate::ui::App| {
+        // The first row below the header and the pane's top border.
+        let row = screen(app, 150, 30)[6].clone();
+        row.split_whitespace()
+            .find_map(|w| w.find("line").map(|at| w[at..].to_string()))
+    };
+    top(&app);
+    app.diff.scroll_by(20);
+    let before = top(&app).expect("a numbered line on top");
+    for _ in 0..2 {
+        app.press(&[ch('.')]);
+        assert_eq!(
+            top(&app).as_deref(),
+            Some(before.as_str()),
+            "wrap {}",
+            app.diff.wrap
+        );
+    }
+    // Scrolling after a toggle moves from the kept line, not from the top.
+    app.press(&[ch('.')]);
+    top(&app);
+    app.diff.scroll_by(1);
+    assert_ne!(top(&app).as_deref(), Some(before.as_str()));
+}
+
+#[test]
+fn side_by_side_and_pane_width_changes_keep_the_top_line() {
+    let (_a, mut app) = long_lines_app();
+    app.diff.split = true;
+    app.diff.wrap = true;
+    // Files focus at 150 columns: a narrow unified diff beside the files.
+    app.focus = Pane::Files;
+    let line = |app: &crate::ui::App| {
+        screen(app, 150, 30);
+        app.diff.anchor.get().unwrap().line
+    };
+    line(&app);
+    app.diff.scroll_by(40);
+    let before = line(&app);
+    assert!(before > 0);
+    // Diff focus: the diff alone at full width, side by side.
+    app.focus = Pane::Diff;
+    assert_eq!(line(&app), before, "wider and side by side");
+    app.press(&[ch('s')]);
+    assert_eq!(line(&app), before, "unified at full width");
+    app.focus = Pane::Files;
+    assert_eq!(line(&app), before, "narrow again");
+}

@@ -6,6 +6,7 @@ use crate::theme::{color_rgb, Theme};
 use crate::ui::components::modal::fade_toward;
 use crate::ui::components::scrollbar::draw_vscrollbar;
 use crate::ui::components::text::{truncate_w, wrap_path, wrap_w};
+use crate::ui::diff_view::Anchor;
 use crate::ui::files::FileItem;
 use crate::ui::{App, Pane};
 use ratatui::{
@@ -86,6 +87,47 @@ fn counts_spans(text: &str, tone: Tone, th: &Theme) -> Vec<Span<'static>> {
 enum Row {
     Line(Seg),
     Pair(Option<Seg>, Option<Seg>),
+}
+
+impl Row {
+    /// The line a visual row shows (the earlier side of a pair).
+    fn line(&self) -> Option<usize> {
+        match self {
+            Row::Line(s) => Some(s.line),
+            Row::Pair(l, r) => match (l, r) {
+                (Some(l), Some(r)) => Some(l.line.min(r.line)),
+                (l, r) => l.as_ref().or(r.as_ref()).map(|s| s.line),
+            },
+        }
+    }
+}
+
+/// The top row of this frame. When the layout changed since the last frame
+/// (`.`, `s`, or a new pane width) and nothing scrolled since, the line that
+/// was on top stays on top (`row_of` finds its first row); otherwise the
+/// scroll position stands. Records this frame's top line (`line_at` the
+/// row) for the next frame.
+fn top_row(
+    app: &App,
+    layout: (bool, bool, usize),
+    max: usize,
+    row_of: impl Fn(usize) -> usize,
+    line_at: impl Fn(usize) -> usize,
+) -> usize {
+    let d = &app.diff;
+    if let Some(a) = d.anchor.get() {
+        if a.layout != layout && a.row == d.scroll.get() {
+            d.scroll.set(row_of(a.line).min(max));
+        }
+    }
+    let row = d.scroll.get();
+    let top = row.min(max);
+    d.anchor.set(Some(Anchor {
+        row,
+        line: line_at(top),
+        layout,
+    }));
+    top
 }
 
 /// A wrapped or cut piece of one line.
@@ -297,60 +339,69 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
             vec![truncate_w(&line.text, width)]
         }
     };
+    let layout = (app.diff.wrap, split_on, full_w);
     let total;
+    let scroll;
     let mut rows: Vec<Row> = Vec::new();
-    if split_on {
-        let (lw, rw) = split::sides(full_w);
-        let code_w = |side: usize| side.saturating_sub(split::SIDE_GUTTER_W).max(1);
+    if split_on || any_wrap {
         let mut all = Vec::new();
-        for item in split::pair(&doc.lines) {
-            match item {
-                split::Item::Full(i) => {
-                    let line = &doc.lines[i];
-                    all.extend(
-                        segs_of(i, segments(line, width_of(line)))
-                            .into_iter()
-                            .map(Row::Line),
-                    );
-                }
-                split::Item::Pair(l, r) => {
-                    let side = |i: Option<usize>, w: usize| -> Vec<Seg> {
-                        i.map(|i| segs_of(i, segments(&doc.lines[i], code_w(w))))
-                            .unwrap_or_default()
-                    };
-                    let (ls, rs) = (side(l, lw), side(r, rw));
-                    let n = ls.len().max(rs.len()).max(1);
-                    let (mut ls, mut rs) = (ls.into_iter(), rs.into_iter());
-                    for _ in 0..n {
-                        all.push(Row::Pair(ls.next(), rs.next()));
+        if split_on {
+            let (lw, rw) = split::sides(full_w);
+            let code_w = |side: usize| side.saturating_sub(split::SIDE_GUTTER_W).max(1);
+            for item in split::pair(&doc.lines) {
+                match item {
+                    split::Item::Full(i) => {
+                        let line = &doc.lines[i];
+                        all.extend(
+                            segs_of(i, segments(line, width_of(line)))
+                                .into_iter()
+                                .map(Row::Line),
+                        );
+                    }
+                    split::Item::Pair(l, r) => {
+                        let side = |i: Option<usize>, w: usize| -> Vec<Seg> {
+                            i.map(|i| segs_of(i, segments(&doc.lines[i], code_w(w))))
+                                .unwrap_or_default()
+                        };
+                        let (ls, rs) = (side(l, lw), side(r, rw));
+                        let n = ls.len().max(rs.len()).max(1);
+                        let (mut ls, mut rs) = (ls.into_iter(), rs.into_iter());
+                        for _ in 0..n {
+                            all.push(Row::Pair(ls.next(), rs.next()));
+                        }
                     }
                 }
+            }
+        } else {
+            for (i, line) in doc.lines.iter().enumerate() {
+                all.extend(
+                    segs_of(i, segments(line, width_of(line)))
+                        .into_iter()
+                        .map(Row::Line),
+                );
             }
         }
         total = all.len() + usize::from(doc.truncated);
         let max = total.saturating_sub(view);
         app.diff.max_scroll.set(max);
-        let scroll = app.diff.scroll.min(max);
-        rows = all.into_iter().skip(scroll).take(view).collect();
-    } else if any_wrap {
-        let mut all = Vec::new();
-        for (i, line) in doc.lines.iter().enumerate() {
-            all.extend(
-                segs_of(i, segments(line, width_of(line)))
-                    .into_iter()
-                    .map(Row::Line),
-            );
-        }
-        total = all.len() + usize::from(doc.truncated);
-        let max = total.saturating_sub(view);
-        app.diff.max_scroll.set(max);
-        let scroll = app.diff.scroll.min(max);
+        scroll = top_row(
+            app,
+            layout,
+            max,
+            |line| {
+                all.iter()
+                    .position(|r| r.line().is_some_and(|l| l >= line))
+                    .unwrap_or(all.len())
+            },
+            |row| all.get(row).and_then(Row::line).unwrap_or(0),
+        );
         rows = all.into_iter().skip(scroll).take(view).collect();
     } else {
         total = doc.lines.len() + usize::from(doc.truncated);
         let max = total.saturating_sub(view);
         app.diff.max_scroll.set(max);
-        let scroll = app.diff.scroll.min(max);
+        // One row per line.
+        scroll = top_row(app, layout, max, |line| line, |row| row);
         for (i, line) in doc.lines.iter().enumerate().skip(scroll).take(view) {
             rows.push(Row::Line(Seg {
                 line: i,
@@ -360,7 +411,6 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
             }));
         }
     }
-    let scroll = app.diff.scroll.min(app.diff.max_scroll.get());
 
     let num_style = Style::default().fg(th.dim);
     // Section and file titles are drawn over the full pane width afterwards,
