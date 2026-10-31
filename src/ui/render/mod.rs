@@ -57,7 +57,8 @@ pub fn draw(f: &mut Frame, app: &App) {
     if filter_h > 0 {
         draw_filter_line(f, app, root[1]);
     }
-    for (pane, rect) in pane_layout(root[2], app.focus) {
+    let repos_fit = repos::fit_width(&app.store, &app.statuses);
+    for (pane, rect) in pane_layout(root[2], app.focus, repos_fit) {
         match pane {
             Pane::Repos => repos::draw_repos(f, app, rect),
             Pane::Files => files::draw_files(f, app, rect),
@@ -102,8 +103,9 @@ pub(crate) fn visible_panes(width: u16) -> usize {
 /// Repos focus shows Repos + Files, Files focus Files + Diff, and Diff focus
 /// the diff alone (the full width for reading); a narrow screen shows the
 /// focused pane alone. The focused pane is always visible, so moving left or
-/// right reveals the pane it moves to.
-pub(crate) fn pane_layout(area: Rect, focus: Pane) -> Vec<(Pane, Rect)> {
+/// right reveals the pane it moves to. Beside another pane, Repos shrinks to
+/// `repos_fit` ([`repos::fit_width`]) within its usual range.
+pub(crate) fn pane_layout(area: Rect, focus: Pane, repos_fit: u16) -> Vec<(Pane, Rect)> {
     let w = area.width;
     let k = match visible_panes(w) {
         2 if focus == Pane::Diff => 1,
@@ -117,13 +119,14 @@ pub(crate) fn pane_layout(area: Rect, focus: Pane) -> Vec<(Pane, Rect)> {
     };
     let panes = &Pane::ALL[start..start + k];
     let pct = |p: u16, lo: u16, hi: u16| (w * p / 100).clamp(lo, hi);
+    let repos = |p: u16, lo: u16, hi: u16| repos_fit.clamp(lo, pct(p, lo, hi));
     let widths: Vec<Constraint> = match panes {
         [_, _, _] => vec![
-            Constraint::Length(pct(22, 30, 44)),
+            Constraint::Length(repos(22, 30, 44)),
             Constraint::Length(pct(28, 40, 80)),
             Constraint::Min(0),
         ],
-        [Pane::Repos, _] => vec![Constraint::Length(pct(42, 28, 44)), Constraint::Min(0)],
+        [Pane::Repos, _] => vec![Constraint::Length(repos(42, 28, 44)), Constraint::Min(0)],
         [_, _] => vec![Constraint::Length(pct(40, 30, 80)), Constraint::Min(0)],
         _ => vec![Constraint::Min(0)],
     };

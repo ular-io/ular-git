@@ -2,6 +2,7 @@
 //! their linked worktrees indented beneath them.
 
 use super::{body_style, empty_line, pane_block, pane_tone, selection_style, Tone};
+use crate::store::RepoStore;
 use crate::theme::Theme;
 use crate::ui::components::scrollbar::draw_vscrollbar;
 use crate::ui::components::text::truncate_w;
@@ -15,6 +16,8 @@ use ratatui::{
     widgets::{List, ListItem},
     Frame,
 };
+use std::collections::HashMap;
+use std::path::PathBuf;
 use unicode_width::UnicodeWidthStr;
 
 /// Right-aligned badges: `Ⓜ 3` changed, `!1` conflicts, `↑2` ahead, `↓1`
@@ -75,6 +78,39 @@ pub(crate) fn badges(tree: Option<&TreeState>, scanning: bool, th: &Theme) -> Ve
         push("✗".into(), Style::default().fg(th.error));
     }
     out
+}
+
+/// Cells kept for the badges when the pane fits its names (`Ⓜ 12 ↑3`).
+/// Longer badges cut the name rather than move the panes.
+const BADGE_ROOM: usize = 7;
+
+/// Pane width that fits the longest name: every registered repository, group
+/// header, and known worktree folder, whether filtered out, folded, or shown.
+/// Measuring them all keeps the panes still while filtering, folding, and
+/// rescanning. The layout caps it; branches and wider badges are cut.
+pub(crate) fn fit_width(store: &RepoStore, statuses: &HashMap<PathBuf, TreeState>) -> u16 {
+    let mut left = 0;
+    for repo in &store.repos {
+        let indent = if repo.group.is_some() { 3 } else { 1 };
+        left = left.max(indent + repo.name().width());
+        let worktrees = statuses
+            .get(&repo.path)
+            .and_then(|t| t.status.as_ref())
+            .map(|s| s.worktrees.as_slice())
+            .unwrap_or_default();
+        for w in worktrees {
+            let name = w.path.file_name().unwrap_or_default().to_string_lossy();
+            // The `├ ` / `└ ` elbow.
+            left = left.max(indent + 2 + name.width());
+        }
+    }
+    for g in &store.groups {
+        // ` ▾ ` before the name.
+        left = left.max(3 + g.name.width());
+    }
+    // Two borders, the left padding, the gap before the badges, and the
+    // right padding cell of the selection bar.
+    u16::try_from(left + BADGE_ROOM + 4).unwrap_or(u16::MAX)
 }
 
 fn spans_width(spans: &[Span]) -> usize {

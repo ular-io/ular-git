@@ -23,14 +23,14 @@ fn two_panes_follow_the_focus_and_wide_screens_show_three() {
     assert_eq!(visible_panes(50), 1);
     let wide = Rect::new(0, 0, 200, 20);
     for focus in Pane::ALL {
-        let panes: Vec<Pane> = pane_layout(wide, focus)
+        let panes: Vec<Pane> = pane_layout(wide, focus, u16::MAX)
             .into_iter()
             .map(|(p, _)| p)
             .collect();
         assert_eq!(panes, Pane::ALL, "{focus:?}");
     }
     assert_eq!(
-        pane_layout(wide, Pane::Repos)
+        pane_layout(wide, Pane::Repos, u16::MAX)
             .iter()
             .map(|(_, r)| r.width)
             .sum::<u16>(),
@@ -39,7 +39,7 @@ fn two_panes_follow_the_focus_and_wide_screens_show_three() {
     for width in [100, 150] {
         let area = Rect::new(0, 0, width, 20);
         let shown = |focus| -> Vec<Pane> {
-            pane_layout(area, focus)
+            pane_layout(area, focus, u16::MAX)
                 .into_iter()
                 .map(|(p, _)| p)
                 .collect()
@@ -48,13 +48,16 @@ fn two_panes_follow_the_focus_and_wide_screens_show_three() {
         assert_eq!(shown(Pane::Files), [Pane::Files, Pane::Diff]);
         assert_eq!(shown(Pane::Diff), [Pane::Diff], "the diff alone");
         for focus in [Pane::Repos, Pane::Diff] {
-            let total: u16 = pane_layout(area, focus).iter().map(|(_, r)| r.width).sum();
+            let total: u16 = pane_layout(area, focus, u16::MAX)
+                .iter()
+                .map(|(_, r)| r.width)
+                .sum();
             assert_eq!(total, width, "widths add up to the area");
         }
     }
     let narrow = Rect::new(0, 0, 50, 20);
-    assert_eq!(pane_layout(narrow, Pane::Files)[0].0, Pane::Files);
-    assert_eq!(pane_layout(narrow, Pane::Diff).len(), 1);
+    assert_eq!(pane_layout(narrow, Pane::Files, u16::MAX)[0].0, Pane::Files);
+    assert_eq!(pane_layout(narrow, Pane::Diff, u16::MAX).len(), 1);
 }
 
 #[test]
@@ -218,7 +221,14 @@ fn the_selection_bar_reaches_the_right_border() {
     terminal.draw(|f| crate::ui::render::draw(f, &app)).unwrap();
     let buf = terminal.backend().buffer().clone();
     let area = Rect::new(0, 5, 160, 14);
-    for (pane, rect) in pane_layout(area, app.focus).into_iter().take(2) {
+    for (pane, rect) in pane_layout(
+        area,
+        app.focus,
+        super::repos::fit_width(&app.store, &app.statuses),
+    )
+    .into_iter()
+    .take(2)
+    {
         let y = rect.y + 1;
         // Left padding cell through the cell before the right border.
         for x in rect.x + 1..rect.right() - 1 {
@@ -306,7 +316,7 @@ fn a_dimmed_pane_selection_is_a_light_bar_with_plain_text() {
 #[test]
 fn the_file_pane_grows_to_eighty_columns() {
     let width = |w: u16, focus: Pane| {
-        pane_layout(Rect::new(0, 0, w, 20), focus)
+        pane_layout(Rect::new(0, 0, w, 20), focus, u16::MAX)
             .into_iter()
             .find(|(p, _)| *p == Pane::Files)
             .map(|(_, r)| r.width)
@@ -315,4 +325,50 @@ fn the_file_pane_grows_to_eighty_columns() {
     assert_eq!(width(200, Pane::Repos), 56, "28 % of 200");
     assert_eq!(width(300, Pane::Repos), 80, "capped at 80");
     assert_eq!(width(150, Pane::Files), 60, "40 % beside the diff");
+}
+
+#[test]
+fn the_repository_pane_fits_its_longest_name_within_its_range() {
+    use super::repos::fit_width;
+    use crate::store::RepoStore;
+    use std::collections::HashMap;
+    use std::path::PathBuf;
+    let store_with = |names: &[&str], group: Option<&str>| {
+        let mut store = RepoStore::default();
+        if let Some(g) = group {
+            store.add_group(g).unwrap();
+        }
+        for n in names {
+            store.add_repo(PathBuf::from("/code").join(n), group.map(Into::into));
+        }
+        store
+    };
+    let fit = |store: &RepoStore| fit_width(store, &HashMap::new());
+    let repos_w = |w: u16, store: &RepoStore| {
+        pane_layout(Rect::new(0, 0, w, 20), Pane::Repos, fit(store))[0]
+            .1
+            .width
+    };
+    // Indent 1, the name, and 11 cells of badges, padding, and borders.
+    let name25 = "a".repeat(25);
+    let mid = store_with(&["short", &name25], None);
+    assert_eq!(fit(&mid), 37);
+    assert_eq!(repos_w(200, &mid), 37, "below the 44 cap");
+    assert_eq!(repos_w(160, &mid), 35, "still 22 % at most");
+    assert_eq!(repos_w(100, &mid), 37, "beside the file pane");
+    let short = store_with(&["a"], None);
+    assert_eq!(repos_w(200, &short), 30, "the three-pane minimum");
+    assert_eq!(repos_w(100, &short), 28, "the two-pane minimum");
+    let long = store_with(&[&"a".repeat(60)], None);
+    assert_eq!(repos_w(200, &long), 44, "long names are cut");
+    // Grouped rows are indented by three; the group header counts too.
+    assert_eq!(fit(&store_with(&[&name25], Some("g"))), 39);
+    assert_eq!(fit(&store_with(&["a"], Some(&name25))), 39);
+    // The fitted pane shows the whole name before its badge.
+    let mut app = crate::ui::App::with_store(crate::config::Config::default(), mid, None);
+    app.rebuild_rows();
+    let rows = screen(&app, 200, 20);
+    // The first row, below the header and the top border.
+    let cut: String = rows[6].chars().take(37).collect();
+    assert!(cut.contains(&name25) && cut.contains('?'), "{cut}");
 }

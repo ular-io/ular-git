@@ -16,7 +16,10 @@ fn only_code_lines_carry_the_line_number_gutter() {
     app.focus = Pane::Files;
     app.wait_background(10);
     let rows = screen(&app, 150, 30);
-    let diff_x = pane_layout(Rect::new(0, 5, 150, 24), app.focus)[1].1.x as usize + 2;
+    let diff_x = pane_layout(Rect::new(0, 5, 150, 24), app.focus, u16::MAX)[1]
+        .1
+        .x as usize
+        + 2;
     let starts = |needle: &str| {
         let row = rows.iter().find(|r| r.contains(needle)).unwrap();
         row[..row.find(needle).unwrap()].chars().count()

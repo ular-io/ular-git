@@ -30,6 +30,14 @@ ular-git applies them.
   focused pane is shown.
 - Moving left or right always reveals the pane the focus moves to.
 - Repos 42 % (28–44) beside Files; Files 40 % (30–80) beside Diff.
+- Repos shrinks below those widths to fit its longest name (never below the
+  minimum): every registered repository, group header, and known worktree
+  folder, shown or not, plus 7 cells kept for badges (`Ⓜ 12 ↑3`). Filtering,
+  folding, and rescanning never move the panes; only adding or removing a
+  repository, group, or worktree does. Longer names, branches, and badges
+  wider than 7 cells are cut (`repos::fit_width` in
+  `src/ui/render/repos.rs`). The space it frees goes to Diff (three panes) or
+  Files (two).
 - The file pane is titled with the selected repository's (or worktree's)
   folder name.
 - Header: when space runs out the logo goes first, then shortcut columns from
