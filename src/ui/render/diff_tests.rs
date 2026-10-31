@@ -2,7 +2,7 @@
 //! gaps, and message wrapping.
 
 use crate::git::test_repo::TestRepo;
-use crate::ui::render::pane_layout;
+use crate::ui::render::{pane_layout, Hidden};
 use crate::ui::test_support::*;
 use crate::ui::Pane;
 use ratatui::layout::Rect;
@@ -16,7 +16,7 @@ fn only_code_lines_carry_the_line_number_gutter() {
     app.focus = Pane::Files;
     app.wait_background(10);
     let rows = screen(&app, 150, 30);
-    let diff_x = pane_layout(Rect::new(0, 5, 150, 24), app.focus, false, u16::MAX)[1]
+    let diff_x = pane_layout(Rect::new(0, 5, 150, 24), app.focus, Hidden::None, u16::MAX)[1]
         .1
         .x as usize
         + 2;

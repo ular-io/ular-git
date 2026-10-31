@@ -24,9 +24,16 @@ ular-git applies them.
 
 - ≥ 160 columns: all three panes, whatever has focus (Repos 22 % 30–44,
   Files 28 % 40–80, Diff the rest). `→` on the diff shows it alone at full
-  width (side by side then starts at 124 columns); `←` returns to Files with
-  all three panes. Leaving the diff by any route ends the full width
+  width (side by side then starts at 124 columns); `←` returns to Files and
+  the panes shown before. Leaving the diff by any route ends the full width
   (`App::diff_full`); it is never saved.
+- `←` on a repository or worktree row hides Repos at any width and moves to
+  Files (on a group header it folds the group); Files takes Repos's place.
+  At ≥ 160 columns Files gets Repos's width on top of its own and Diff keeps
+  its width; below 160 Files is shown alone at the full width (Diff focus
+  still shows the diff alone). Repos stays hidden while Files and Diff have
+  focus; `←` on Files, or anything else that focuses Repos, shows it again
+  (`App::repos_hidden`, never saved).
 - 64–159 columns: Repos focus shows Repos + Files; Files focus shows
   Files + Diff, so the diff follows while files are browsed; Diff focus
   shows the diff alone at full width for reading. Below 64 columns only the
@@ -52,8 +59,8 @@ ular-git applies them.
 ## Focus and tone
 
 - Focused pane: `Thick` border, `accent` + bold title, `←` / `→` on the top
-  border only for the directions it can move (`→` on the diff only while
-  three panes are shown).
+  border only for the directions it can move (`←` on Repos only on a
+  repository or worktree row, `→` on the diff only at ≥ 160 columns).
 - Another pane focused: `Plain` border, soft-dim frame, title, and text. The
   diff keeps its colors faded halfway toward the background so `+` / `-` stay
   readable.

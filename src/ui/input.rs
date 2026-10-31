@@ -103,8 +103,24 @@ impl App {
         }
     }
 
+    /// Whether `←` leaves the focused pane: Repos hides itself from a
+    /// repository or worktree row (on a group header `←` folds it).
+    pub(crate) fn can_move_left(&self) -> bool {
+        self.focus != Pane::Repos || !matches!(self.current_row(), Some(Row::Group { .. }))
+    }
+
+    /// Panes hidden by `←` on Repos or `→` on a wide diff.
+    pub(crate) fn hidden_panes(&self) -> super::render::Hidden {
+        use super::render::Hidden;
+        match self.focus {
+            Pane::Diff if self.diff_full => Hidden::ReposAndFiles,
+            Pane::Files | Pane::Diff if self.repos_hidden => Hidden::Repos,
+            _ => Hidden::None,
+        }
+    }
+
     /// Whether `→` moves on from the focused pane: not from a group header (it
-    /// has no files), and from Diff only to widen it out of three panes.
+    /// has no files), and from Diff only to widen it at 160+ columns.
     pub(crate) fn can_move_right(&self) -> bool {
         match self.focus {
             Pane::Repos => !matches!(self.current_row(), Some(Row::Group { .. })),
@@ -113,10 +129,14 @@ impl App {
         }
     }
 
-    /// Moves the focus; leaving the diff ends its full-width view.
+    /// Moves the focus; leaving the diff ends its full-width view, and
+    /// focusing Repos shows it again.
     pub(crate) fn focus_pane(&mut self, pane: Pane) {
         if pane != self.focus {
             self.diff_full = false;
+        }
+        if pane == Pane::Repos {
+            self.repos_hidden = false;
         }
         self.focus = pane;
     }
@@ -153,6 +173,10 @@ impl App {
             KeyCode::Left | KeyCode::Char('h') if is_group => self.fold_group(true),
             KeyCode::Enter => self.open_with_folder(),
             KeyCode::Right | KeyCode::Char('l') => self.move_focus(1),
+            KeyCode::Left | KeyCode::Char('h') => {
+                self.repos_hidden = true;
+                self.focus_pane(Pane::Files);
+            }
             KeyCode::Char('.') => self.toggle_pending_only(),
             _ => return false,
         }

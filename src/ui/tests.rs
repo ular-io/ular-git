@@ -34,8 +34,11 @@ fn arrows_walk_repos_files_and_diff() {
     assert_eq!(app.file_sel, 0);
     app.press(&[key(KeyCode::Right), key(KeyCode::Right)]);
     assert_eq!(app.focus, Pane::Diff, "focus stays on the last pane");
-    app.press(&[ch('h'), ch('h'), ch('h')]);
+    app.press(&[ch('h'), ch('h')]);
     assert_eq!(app.focus, Pane::Repos);
+    // One more hides Repos and moves on to Files.
+    app.press(&[ch('h')]);
+    assert!(app.focus == Pane::Files && app.repos_hidden);
 }
 
 #[test]

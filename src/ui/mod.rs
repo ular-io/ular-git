@@ -112,6 +112,8 @@ pub struct App {
     /// `→` on the diff of a three-pane screen: the diff takes the full width.
     /// Cleared whenever the focus leaves the diff.
     pub(crate) diff_full: bool,
+    /// `←` on a repository row: Repos is hidden until it has focus again.
+    pub(crate) repos_hidden: bool,
     /// Width of the pane area, recorded by the renderer (whether `→` on the
     /// diff has three panes to collapse).
     pub(crate) panes_w: Cell<u16>,
@@ -219,6 +221,7 @@ impl App {
             mode: UiMode::Normal,
             focus: Pane::Repos,
             diff_full: false,
+            repos_hidden: false,
             panes_w: Cell::new(0),
             rows: Vec::new(),
             repo_sel: 0,

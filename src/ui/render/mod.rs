@@ -61,8 +61,7 @@ pub fn draw(f: &mut Frame, app: &App) {
     }
     let repos_fit = repos::fit_width(&app.store, &app.statuses);
     app.panes_w.set(root[2].width);
-    let diff_full = app.focus == Pane::Diff && app.diff_full;
-    for (pane, rect) in pane_layout(root[2], app.focus, diff_full, repos_fit) {
+    for (pane, rect) in pane_layout(root[2], app.focus, app.hidden_panes(), repos_fit) {
         match pane {
             Pane::Repos => repos::draw_repos(f, app, rect),
             Pane::Files => match &app.commit_view {
@@ -106,30 +105,43 @@ pub(crate) fn visible_panes(width: u16) -> usize {
     }
 }
 
+/// Panes the user hid on top of what the width allows ([`App::hidden_panes`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Hidden {
+    None,
+    /// `←` on a repository row: Files and Diff only, until Repos has focus.
+    Repos,
+    /// `→` on the diff of a wide screen: the diff alone.
+    ReposAndFiles,
+}
+
 /// Visible panes and their areas. Wide screens show all three. Otherwise
 /// Repos focus shows Repos + Files, Files focus Files + Diff, and Diff focus
 /// the diff alone (the full width for reading); a narrow screen shows the
-/// focused pane alone. `diff_full` (`→` on the diff of a wide screen) shows
-/// the diff alone at any width. The focused pane is always visible, so moving
-/// left or right reveals the pane it moves to. Beside another pane, Repos
-/// shrinks to `repos_fit` ([`repos::fit_width`]) within its usual range.
+/// focused pane alone. `hidden` removes panes on top of that; on a wide
+/// screen, hiding Repos gives its width to Files; on a narrower one Files
+/// stands alone. The focused pane is always
+/// visible, so moving left or right reveals the pane it moves to. Beside
+/// another pane, Repos shrinks to `repos_fit` ([`repos::fit_width`]) within
+/// its usual range.
 pub(crate) fn pane_layout(
     area: Rect,
     focus: Pane,
-    diff_full: bool,
+    hidden: Hidden,
     repos_fit: u16,
 ) -> Vec<(Pane, Rect)> {
     let w = area.width;
-    let k = match visible_panes(w) {
-        _ if focus == Pane::Diff && diff_full => 1,
-        2 if focus == Pane::Diff => 1,
-        k => k,
-    };
-    let start = match k {
-        3 => 0,
-        1 => focus.index(),
-        _ if focus == Pane::Repos => 0,
-        _ => 1,
+    let three = visible_panes(w) == 3;
+    let (start, k) = match (visible_panes(w), hidden, focus) {
+        (_, Hidden::ReposAndFiles, Pane::Diff) => (2, 1),
+        (3, Hidden::Repos, Pane::Files | Pane::Diff) => (1, 2),
+        // Narrower, Files takes the place of Repos + Files: it stands alone.
+        (2, Hidden::Repos, Pane::Files) => (1, 1),
+        (3, ..) => (0, 3),
+        (1, ..) => (focus.index(), 1),
+        (_, _, Pane::Diff) => (2, 1),
+        (_, _, Pane::Repos) => (0, 2),
+        _ => (1, 2),
     };
     let panes = &Pane::ALL[start..start + k];
     let pct = |p: u16, lo: u16, hi: u16| (w * p / 100).clamp(lo, hi);
@@ -141,6 +153,11 @@ pub(crate) fn pane_layout(
             Constraint::Min(0),
         ],
         [Pane::Repos, _] => vec![Constraint::Length(repos(42, 28, 44)), Constraint::Min(0)],
+        // Hidden Repos hands its three-pane width to Files; Diff keeps its own.
+        [_, _] if three => vec![
+            Constraint::Length(repos(22, 30, 44) + pct(28, 40, 80)),
+            Constraint::Min(0),
+        ],
         [_, _] => vec![Constraint::Length(pct(40, 30, 80)), Constraint::Min(0)],
         _ => vec![Constraint::Min(0)],
     };
@@ -208,7 +225,7 @@ pub(crate) fn pane_footer(
     )
 }
 
-pub(crate) fn pane_block(app: &App, title: String, tone: Tone, pane: Pane) -> Block<'static> {
+pub(crate) fn pane_block(app: &App, title: String, tone: Tone) -> Block<'static> {
     let th = &app.theme;
     let (border, style) = frame_style(th, tone);
     let mut block = Block::default()
@@ -219,7 +236,7 @@ pub(crate) fn pane_block(app: &App, title: String, tone: Tone, pane: Pane) -> Bl
         .title_alignment(ratatui::layout::Alignment::Center)
         .padding(Padding::horizontal(1));
     if tone == Tone::Focused {
-        if pane != Pane::Repos {
+        if app.can_move_left() {
             block = block.title_top(Line::from("━ ← ").left_aligned().style(style));
         }
         if app.can_move_right() {
@@ -452,5 +469,7 @@ fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(Paragraph::new(line), area.inner(Margin::new(1, 0)));
 }
 
+#[cfg(test)]
+mod pane_tests;
 #[cfg(test)]
 mod tests;
