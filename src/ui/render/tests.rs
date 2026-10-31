@@ -207,7 +207,7 @@ fn group_headers_show_changes_only_while_folded() {
     let open = header(&app);
     assert!(!open.contains('Ⓜ'), "{open}");
     assert!(!open.contains(" 1 "), "no repository count: {open}");
-    app.press(&[key(KeyCode::Home), ch(' ')]);
+    app.press(&[key(KeyCode::Home), key(KeyCode::Left)]);
     let folded = header(&app);
     assert!(folded.contains("Ⓜ 2"), "{folded}");
 }

@@ -146,9 +146,10 @@ impl App {
         }
         let is_group = matches!(self.current_row(), Some(Row::Group { .. }));
         match key.code {
-            KeyCode::Enter | KeyCode::Char(' ') if is_group => self.toggle_group(),
-            // A group header has no files to open.
-            KeyCode::Right | KeyCode::Char('l') if is_group => {}
+            KeyCode::Enter if is_group => self.toggle_group(),
+            // A group header has no files to open: `→` unfolds it, `←` folds.
+            KeyCode::Right | KeyCode::Char('l') if is_group => self.fold_group(false),
+            KeyCode::Left | KeyCode::Char('h') if is_group => self.fold_group(true),
             KeyCode::Enter => self.open_with_folder(),
             KeyCode::Right | KeyCode::Char('l') => self.move_focus(1),
             KeyCode::Char('.') => self.toggle_pending_only(),
@@ -230,9 +231,23 @@ impl App {
     }
 
     pub(crate) fn toggle_group(&mut self) {
-        let Some(Row::Group { name, .. }) = self.current_row().cloned() else {
+        if let Some(Row::Group { collapsed, .. }) = self.current_row() {
+            self.fold_group(!collapsed);
+        }
+    }
+
+    /// Folds (`true`) or unfolds the group under the cursor; nothing when it
+    /// already is.
+    pub(crate) fn fold_group(&mut self, fold: bool) {
+        let Some(Row::Group {
+            name, collapsed, ..
+        }) = self.current_row().cloned()
+        else {
             return;
         };
+        if collapsed == fold {
+            return;
+        }
         if self.list_filtered() {
             self.notify(Level::Info, "Groups stay open while a filter is applied");
             return;

@@ -187,11 +187,18 @@ fn groups_are_created_assigned_folded_and_deleted() {
     app.press(&[key(KeyCode::Down), key(KeyCode::Enter)]);
     assert_eq!(app.store.repos[0].group.as_deref(), Some("work"));
 
-    app.press(&[key(KeyCode::Home), ch(' ')]);
+    // `←` folds a group and `→` unfolds it; each only one way, and `space`
+    // does neither.
+    app.press(&[key(KeyCode::Home), key(KeyCode::Left)]);
     assert!(app.store.is_collapsed(Some("work")));
     assert_eq!(app.rows.len(), 1);
-    app.press(&[ch(' ')]);
+    app.press(&[key(KeyCode::Left), ch(' ')]);
+    assert!(app.store.is_collapsed(Some("work")));
+    app.press(&[key(KeyCode::Right)]);
     assert_eq!(app.rows.len(), 2);
+    app.press(&[key(KeyCode::Right), ch(' ')]);
+    assert!(!app.store.is_collapsed(Some("work")));
+    assert_eq!(app.focus, crate::ui::Pane::Repos, "a group has no files");
 
     app.press(&[
         key(KeyCode::Home),

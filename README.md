@@ -76,7 +76,7 @@ one, a linked worktree (resolved to its repository), or a parent folder
 | `ctrl+n` | New group |
 | `ctrl+e` | Rename a group, or move a repository to a group |
 | `ctrl+d` / `delete` | Remove from the list · delete a group · remove a worktree (by row) |
-| `space` | Fold / unfold a group |
+| `←` `→` / `enter` (group header) | Fold / unfold a group (`enter` toggles) |
 | `c` | Commit (staged only, or all changes including untracked files) |
 | `P`, `p` | Push (asks first), pull (fast-forward only) |
 | `.` (Files / Diff pane) | Toggle diff line wrap |

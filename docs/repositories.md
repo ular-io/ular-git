@@ -78,10 +78,10 @@ repository row, below first, never to a group header (`App::place_cursor`).
   the repository into it).
 - `ctrl+d` on a group: Delete Group after a confirmation. Its repositories
   become ungrouped and move to the top of the list.
-- `→` / `l` do nothing on a group header (it has no files), and the Repos
-  pane shows no `→` arrow there.
-- `space` / `enter` on a group header folds or unfolds it (not while a filter
-  is applied). Fold state persists in `repos.json`.
+- On a group header (it has no files) `←` / `h` folds it, `→` / `l` unfolds
+  it (each does nothing when the group already is), and `enter` toggles; the
+  Repos pane shows no `→` arrow there. `space` does nothing. Not while a
+  filter is applied. Fold state persists in `repos.json`.
 - `enter` on a repository or worktree row opens Open With (see
   [architecture.md](./architecture.md) §Runtime); `→` / `l` move to Files.
 - Palette only: Move Group Up / Down, Fold / Unfold All Groups.

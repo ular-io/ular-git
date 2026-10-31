@@ -133,8 +133,8 @@ impl App {
                 h("pgup / pgdn", "Move a page"),
                 h("home / g", "First row"),
                 h("end / G", "Last row"),
-                h("space", "Fold / unfold group"),
-                h("→ / l", "Files pane"),
+                h("← / h", "Fold group"),
+                h("→ / l", "Unfold group / Files pane"),
                 h("delete", "Same as ctrl+d"),
             ],
             Pane::Files => vec![
