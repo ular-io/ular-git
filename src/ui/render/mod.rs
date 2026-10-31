@@ -60,7 +60,9 @@ pub fn draw(f: &mut Frame, app: &App) {
         draw_filter_line(f, app, root[1]);
     }
     let repos_fit = repos::fit_width(&app.store, &app.statuses);
-    for (pane, rect) in pane_layout(root[2], app.focus, repos_fit) {
+    app.panes_w.set(root[2].width);
+    let diff_full = app.focus == Pane::Diff && app.diff_full;
+    for (pane, rect) in pane_layout(root[2], app.focus, diff_full, repos_fit) {
         match pane {
             Pane::Repos => repos::draw_repos(f, app, rect),
             Pane::Files => match &app.commit_view {
@@ -107,12 +109,19 @@ pub(crate) fn visible_panes(width: u16) -> usize {
 /// Visible panes and their areas. Wide screens show all three. Otherwise
 /// Repos focus shows Repos + Files, Files focus Files + Diff, and Diff focus
 /// the diff alone (the full width for reading); a narrow screen shows the
-/// focused pane alone. The focused pane is always visible, so moving left or
-/// right reveals the pane it moves to. Beside another pane, Repos shrinks to
-/// `repos_fit` ([`repos::fit_width`]) within its usual range.
-pub(crate) fn pane_layout(area: Rect, focus: Pane, repos_fit: u16) -> Vec<(Pane, Rect)> {
+/// focused pane alone. `diff_full` (`→` on the diff of a wide screen) shows
+/// the diff alone at any width. The focused pane is always visible, so moving
+/// left or right reveals the pane it moves to. Beside another pane, Repos
+/// shrinks to `repos_fit` ([`repos::fit_width`]) within its usual range.
+pub(crate) fn pane_layout(
+    area: Rect,
+    focus: Pane,
+    diff_full: bool,
+    repos_fit: u16,
+) -> Vec<(Pane, Rect)> {
     let w = area.width;
     let k = match visible_panes(w) {
+        _ if focus == Pane::Diff && diff_full => 1,
         2 if focus == Pane::Diff => 1,
         k => k,
     };
@@ -213,7 +222,7 @@ pub(crate) fn pane_block(app: &App, title: String, tone: Tone, pane: Pane) -> Bl
         if pane != Pane::Repos {
             block = block.title_top(Line::from("━ ← ").left_aligned().style(style));
         }
-        if pane != Pane::Diff && app.can_move_right() {
+        if app.can_move_right() {
             block = block.title_top(Line::from(" → ━").right_aligned().style(style));
         }
     }

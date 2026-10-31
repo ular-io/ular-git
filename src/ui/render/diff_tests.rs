@@ -16,7 +16,7 @@ fn only_code_lines_carry_the_line_number_gutter() {
     app.focus = Pane::Files;
     app.wait_background(10);
     let rows = screen(&app, 150, 30);
-    let diff_x = pane_layout(Rect::new(0, 5, 150, 24), app.focus, u16::MAX)[1]
+    let diff_x = pane_layout(Rect::new(0, 5, 150, 24), app.focus, false, u16::MAX)[1]
         .1
         .x as usize
         + 2;
@@ -351,4 +351,38 @@ fn side_by_side_and_pane_width_changes_keep_the_top_line() {
     assert_eq!(line(&app), before, "unified at full width");
     app.focus = Pane::Files;
     assert_eq!(line(&app), before, "narrow again");
+}
+
+#[test]
+fn right_on_the_diff_of_three_panes_gives_it_the_full_width() {
+    let a = TestRepo::new();
+    a.write("x.txt", "a\nb\nc\n");
+    a.git(&["add", "x.txt"]);
+    a.git(&["commit", "-qm", "x"]);
+    a.write("x.txt", "a\nB\nc\n");
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.diff.split = true;
+    app.focus = Pane::Diff;
+    app.wait_background(10);
+    let paired = |rows: &[String]| rows.iter().any(|r| r.contains("-b") && r.contains("+B"));
+    // Three panes leave the diff too narrow for side by side; `→` is offered.
+    let rows = screen(&app, 160, 24);
+    assert!(shows(&rows, "Repos[1]") && !paired(&rows));
+    assert!(rows[5].contains("→"), "{}", rows[5]);
+    app.press(&[key(crossterm::event::KeyCode::Right)]);
+    let rows = screen(&app, 160, 24);
+    assert!(!shows(&rows, "Repos[1]"), "the diff alone");
+    assert!(paired(&rows), "wide enough for side by side");
+    assert!(!rows[5].contains("→"), "{}", rows[5]);
+    // `←` goes to Files with all three panes back.
+    app.press(&[key(crossterm::event::KeyCode::Left)]);
+    assert_eq!(app.focus, Pane::Files);
+    app.press(&[ch('l')]);
+    assert_eq!(app.focus, Pane::Diff);
+    let rows = screen(&app, 160, 24);
+    assert!(shows(&rows, "Repos[1]"), "back to three panes");
+    // Below 160 columns the diff is already alone: `→` does nothing.
+    screen(&app, 140, 24);
+    app.press(&[ch('l')]);
+    assert!(!app.diff_full);
 }

@@ -223,7 +223,7 @@ impl App {
             // An uncommitted file opens in an app, like a changed file.
             KeyCode::Enter if self.open_with_file() => {}
             KeyCode::Enter | KeyCode::Right | KeyCode::Char('l') => {
-                self.focus = super::Pane::Diff;
+                self.focus_pane(super::Pane::Diff);
             }
             KeyCode::Char('.') => self.toggle_wrap(),
             _ => {

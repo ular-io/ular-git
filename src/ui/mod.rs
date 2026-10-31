@@ -109,6 +109,12 @@ pub struct App {
 
     pub mode: UiMode,
     pub focus: Pane,
+    /// `→` on the diff of a three-pane screen: the diff takes the full width.
+    /// Cleared whenever the focus leaves the diff.
+    pub(crate) diff_full: bool,
+    /// Width of the pane area, recorded by the renderer (whether `→` on the
+    /// diff has three panes to collapse).
+    pub(crate) panes_w: Cell<u16>,
     /// Visible repository pane rows (rebuilt by [`App::rebuild_rows`]).
     pub rows: Vec<Row>,
     pub repo_sel: usize,
@@ -212,6 +218,8 @@ impl App {
             bg: Background::new(workers),
             mode: UiMode::Normal,
             focus: Pane::Repos,
+            diff_full: false,
+            panes_w: Cell::new(0),
             rows: Vec::new(),
             repo_sel: 0,
             repo_list: RefCell::new(Default::default()),

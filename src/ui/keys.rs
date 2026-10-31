@@ -166,6 +166,7 @@ impl App {
                 h("home / g", "Top"),
                 h("end / G", "Bottom"),
                 h("← / h", "Files pane"),
+                h("→ / l", "Diff at full width (160+ columns)"),
             ],
         }
     }

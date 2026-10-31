@@ -103,23 +103,27 @@ impl App {
         }
     }
 
-    /// Whether `→` moves on from the focused pane: not from Diff, and not from
-    /// a group header (it has no files).
+    /// Whether `→` moves on from the focused pane: not from a group header (it
+    /// has no files), and from Diff only to widen it out of three panes.
     pub(crate) fn can_move_right(&self) -> bool {
         match self.focus {
             Pane::Repos => !matches!(self.current_row(), Some(Row::Group { .. })),
             Pane::Files => true,
-            Pane::Diff => false,
+            Pane::Diff => !self.diff_full && super::render::visible_panes(self.panes_w.get()) == 3,
         }
     }
 
+    /// Moves the focus; leaving the diff ends its full-width view.
     pub(crate) fn focus_pane(&mut self, pane: Pane) {
+        if pane != self.focus {
+            self.diff_full = false;
+        }
         self.focus = pane;
     }
 
     fn move_focus(&mut self, delta: isize) {
         let i = (self.focus.index() as isize + delta).clamp(0, 2) as usize;
-        self.focus = Pane::ALL[i];
+        self.focus_pane(Pane::ALL[i]);
     }
 
     /// Repository pane keys. Returns whether the key was used.
@@ -197,6 +201,9 @@ impl App {
         }
         match key.code {
             KeyCode::Left | KeyCode::Char('h') => self.move_focus(-1),
+            KeyCode::Right | KeyCode::Char('l') if self.can_move_right() => {
+                self.diff_full = true;
+            }
             KeyCode::Char('.') => self.toggle_wrap(),
             _ => return false,
         }
@@ -274,7 +281,7 @@ impl App {
         self.filter_before = self.filter.value.clone();
         self.filter.end();
         self.mode = UiMode::Filter;
-        self.focus = Pane::Repos;
+        self.focus_pane(Pane::Repos);
     }
 
     /// `0`: clears the text filter and the changed-only view.

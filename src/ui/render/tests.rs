@@ -23,14 +23,14 @@ fn two_panes_follow_the_focus_and_wide_screens_show_three() {
     assert_eq!(visible_panes(50), 1);
     let wide = Rect::new(0, 0, 200, 20);
     for focus in Pane::ALL {
-        let panes: Vec<Pane> = pane_layout(wide, focus, u16::MAX)
+        let panes: Vec<Pane> = pane_layout(wide, focus, false, u16::MAX)
             .into_iter()
             .map(|(p, _)| p)
             .collect();
         assert_eq!(panes, Pane::ALL, "{focus:?}");
     }
     assert_eq!(
-        pane_layout(wide, Pane::Repos, u16::MAX)
+        pane_layout(wide, Pane::Repos, false, u16::MAX)
             .iter()
             .map(|(_, r)| r.width)
             .sum::<u16>(),
@@ -39,7 +39,7 @@ fn two_panes_follow_the_focus_and_wide_screens_show_three() {
     for width in [100, 150] {
         let area = Rect::new(0, 0, width, 20);
         let shown = |focus| -> Vec<Pane> {
-            pane_layout(area, focus, u16::MAX)
+            pane_layout(area, focus, false, u16::MAX)
                 .into_iter()
                 .map(|(p, _)| p)
                 .collect()
@@ -48,7 +48,7 @@ fn two_panes_follow_the_focus_and_wide_screens_show_three() {
         assert_eq!(shown(Pane::Files), [Pane::Files, Pane::Diff]);
         assert_eq!(shown(Pane::Diff), [Pane::Diff], "the diff alone");
         for focus in [Pane::Repos, Pane::Diff] {
-            let total: u16 = pane_layout(area, focus, u16::MAX)
+            let total: u16 = pane_layout(area, focus, false, u16::MAX)
                 .iter()
                 .map(|(_, r)| r.width)
                 .sum();
@@ -56,8 +56,11 @@ fn two_panes_follow_the_focus_and_wide_screens_show_three() {
         }
     }
     let narrow = Rect::new(0, 0, 50, 20);
-    assert_eq!(pane_layout(narrow, Pane::Files, u16::MAX)[0].0, Pane::Files);
-    assert_eq!(pane_layout(narrow, Pane::Diff, u16::MAX).len(), 1);
+    assert_eq!(
+        pane_layout(narrow, Pane::Files, false, u16::MAX)[0].0,
+        Pane::Files
+    );
+    assert_eq!(pane_layout(narrow, Pane::Diff, false, u16::MAX).len(), 1);
 }
 
 #[test]
@@ -224,6 +227,7 @@ fn the_selection_bar_reaches_the_right_border() {
     for (pane, rect) in pane_layout(
         area,
         app.focus,
+        false,
         super::repos::fit_width(&app.store, &app.statuses),
     )
     .into_iter()
@@ -316,7 +320,7 @@ fn a_dimmed_pane_selection_is_soft_dim_reversed_over_the_inactive_bar() {
 #[test]
 fn the_file_pane_grows_to_eighty_columns() {
     let width = |w: u16, focus: Pane| {
-        pane_layout(Rect::new(0, 0, w, 20), focus, u16::MAX)
+        pane_layout(Rect::new(0, 0, w, 20), focus, false, u16::MAX)
             .into_iter()
             .find(|(p, _)| *p == Pane::Files)
             .map(|(_, r)| r.width)
@@ -345,7 +349,7 @@ fn the_repository_pane_fits_its_longest_name_within_its_range() {
     };
     let fit = |store: &RepoStore| fit_width(store, &HashMap::new());
     let repos_w = |w: u16, store: &RepoStore| {
-        pane_layout(Rect::new(0, 0, w, 20), Pane::Repos, fit(store))[0]
+        pane_layout(Rect::new(0, 0, w, 20), Pane::Repos, false, fit(store))[0]
             .1
             .width
     };
@@ -387,7 +391,7 @@ fn a_selected_group_centers_its_message_on_a_small_fill() {
     let buf = terminal.backend().buffer().clone();
     let row = |y: u16| (0..w).map(|x| buf[(x, y)].symbol()).collect::<String>();
     let fit = super::repos::fit_width(&app.store, &app.statuses);
-    let files = pane_layout(Rect::new(0, 5, w, h - 6), Pane::Repos, fit)[1].1;
+    let files = pane_layout(Rect::new(0, 5, w, h - 6), Pane::Repos, false, fit)[1].1;
     let y = (0..h)
         .find(|&y| row(y).contains("Select a repository"))
         .unwrap();
