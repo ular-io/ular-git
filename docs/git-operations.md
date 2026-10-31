@@ -216,8 +216,18 @@ line count.
 - At most `max_diff_lines` (default 20 000) lines are read; the child process
   is killed at the limit and a note ends the diff. Tabs expand to 4 columns;
   control characters are dropped.
-- Loading is latest-wins: one load in flight, a newer request replaces the
-  queued one, results of older requests are dropped. A rescan of the selected
+- A file larger than `max_diff_file_mb` (default 10 MiB; 0 keeps git's 512
+  MiB) counts as binary and its contents are not read: git's `Binary files
+  … differ` line, `Bin` in a stat, no counts in the file lists. Every read
+  that computes a diff passes it (`git::diff_command`,
+  `-c core.bigFileThreshold=`): the diff pane, the uncommitted stat, and the
+  commit and Uncommitted Changes file lists. Without it git diffs a huge
+  text file in full even though only `max_diff_lines` are shown, because
+  the stat comes first.
+- Loading is latest-wins: one load in flight; a newer request cancels it
+  (`git::cancel::Cancel` kills its git process, so moving through the history
+  never waits for a slow commit it passed) and replaces the queued one;
+  results of older requests are dropped. A rescan of the selected
   tree reloads the same diff and keeps the scroll position.
 
 ## Commit

@@ -36,7 +36,12 @@ fn file_diff_has_sections_and_line_numbers() {
     let s = scan(&repo.root, false).unwrap();
     let entry = s.files[0].clone();
     assert_eq!(entry.code(), "MM");
-    let doc = diff::load(&repo.root, &DiffSource::File(entry), 1000).unwrap();
+    let doc = diff::load(
+        &repo.root,
+        &DiffSource::File(entry),
+        &diff::LoadOpts::lines(1000),
+    )
+    .unwrap();
     let sections: Vec<&str> = doc
         .lines
         .iter()
@@ -72,12 +77,22 @@ fn a_staged_rename_names_both_paths_and_a_new_file_counts_only_additions() {
     repo.write("n.txt", "x\ny\n");
     let s = scan(&repo.root, false).unwrap();
     let file = |p: &str| s.files.iter().find(|f| f.path == p).unwrap().clone();
-    let doc = diff::load(&repo.root, &DiffSource::File(file("docs/new.md")), 1000).unwrap();
+    let doc = diff::load(
+        &repo.root,
+        &DiffSource::File(file("docs/new.md")),
+        &diff::LoadOpts::lines(1000),
+    )
+    .unwrap();
     assert_eq!(doc.lines[0].text, "docs/old.md → docs/new.md");
     // A pure rename changes no line: no counts line, a blank, the section.
     assert_eq!(doc.lines[1].text, "");
     assert_eq!(doc.lines[2].kind, LineKind::Section);
-    let doc = diff::load(&repo.root, &DiffSource::File(file("n.txt")), 1000).unwrap();
+    let doc = diff::load(
+        &repo.root,
+        &DiffSource::File(file("n.txt")),
+        &diff::LoadOpts::lines(1000),
+    )
+    .unwrap();
     assert_eq!(doc.lines[1].text, "+2");
     assert_eq!(diff::counts_label(0, 3), "-3");
 }
@@ -89,10 +104,20 @@ fn untracked_file_diff_shows_every_line_added_and_respects_the_limit() {
     repo.write("new.txt", &body);
     let s = scan(&repo.root, false).unwrap();
     assert_eq!(s.files[0].kind, EntryKind::Untracked);
-    let doc = diff::load(&repo.root, &DiffSource::File(s.files[0].clone()), 1000).unwrap();
+    let doc = diff::load(
+        &repo.root,
+        &DiffSource::File(s.files[0].clone()),
+        &diff::LoadOpts::lines(1000),
+    )
+    .unwrap();
     assert_eq!(doc.added, 50);
     assert!(!doc.truncated);
-    let cut = diff::load(&repo.root, &DiffSource::File(s.files[0].clone()), 20).unwrap();
+    let cut = diff::load(
+        &repo.root,
+        &DiffSource::File(s.files[0].clone()),
+        &diff::LoadOpts::lines(20),
+    )
+    .unwrap();
     assert!(cut.truncated);
     assert!(cut.lines.len() <= 21);
 }
@@ -174,7 +199,12 @@ fn unpushed_commits_are_listed_against_the_upstream() {
     assert_eq!(s.branch.ahead, 1);
     assert_eq!(s.unpushed.len(), 1);
     assert_eq!(s.unpushed[0].subject, "second");
-    let doc = diff::load(&repo.root, &DiffSource::Commit(s.unpushed[0].clone()), 1000).unwrap();
+    let doc = diff::load(
+        &repo.root,
+        &DiffSource::Commit(s.unpushed[0].clone()),
+        &diff::LoadOpts::lines(1000),
+    )
+    .unwrap();
     assert_eq!(doc.lines[0].kind, LineKind::Byline);
     let byline = &doc.lines[0].text;
     assert!(

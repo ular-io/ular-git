@@ -6,6 +6,7 @@
 //! `worktree remove` in [`ops`], and `push` / `pull --ff-only` in [`remote`].
 
 pub mod blob;
+pub mod cancel;
 pub mod commit_files;
 pub mod diff;
 pub mod discover;
@@ -151,6 +152,18 @@ pub(crate) fn git_command(dir: &Path) -> Command {
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_PAGER", "cat")
         .stdin(Stdio::null());
+    cmd
+}
+
+/// [`git_command`] for a read that computes diffs: a file larger than
+/// `big_file` bytes counts as binary and is not read (`core.bigFileThreshold`,
+/// so a huge file never holds up a diff); 0 keeps git's own threshold.
+pub(crate) fn diff_command(dir: &Path, big_file: u64) -> Command {
+    let mut cmd = git_command(dir);
+    if big_file > 0 {
+        cmd.arg("-c")
+            .arg(format!("core.bigFileThreshold={big_file}"));
+    }
     cmd
 }
 

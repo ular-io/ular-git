@@ -73,10 +73,14 @@ impl CommitView {
     }
 }
 
-fn load_files(target: &std::path::Path, of: &ViewOf) -> Result<Vec<CommitFile>, String> {
+fn load_files(
+    target: &std::path::Path,
+    of: &ViewOf,
+    big_file: u64,
+) -> Result<Vec<CommitFile>, String> {
     match of {
-        ViewOf::Commit(c) => commit_files::load(target, &c.hash),
-        ViewOf::WorkTree => commit_files::load_worktree(target),
+        ViewOf::Commit(c) => commit_files::load(target, &c.hash, big_file),
+        ViewOf::WorkTree => commit_files::load_worktree(target, big_file),
     }
     .map_err(|e| e.to_string())
 }
@@ -111,8 +115,9 @@ impl App {
             return;
         };
         let (target, of) = (view.target.clone(), view.of.clone());
+        let big_file = self.cfg.max_diff_file_bytes();
         self.bg.spawn(move || {
-            let result = load_files(&target, &of);
+            let result = load_files(&target, &of, big_file);
             Box::new(move |app: &mut App| app.apply_commit_files(&target, &of, result))
         });
     }

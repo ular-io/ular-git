@@ -58,8 +58,9 @@ run_loop: poll_background (apply every Patch) ─► tick (timers) ─► draw o
 - Scans: `request_scan(path)` → pool job `git::scan` → `apply_scan` updates
   `App::statuses`, rescans the worktrees a repository reports, rebuilds rows,
   refreshes the file pane when the scanned tree is selected.
-- Diffs: `select_file` → `load_diff` (one in flight; newer requests replace
-  the queued one; results of older generations are dropped).
+- Diffs: `select_file` → `load_diff` (one in flight; a newer request cancels
+  it through `git::cancel::Cancel`, killing its git process, and replaces the
+  queued one; results of older generations are dropped).
 - Writes (commit, push, pull, worktree removal): a one-off thread, then a
   rescan of the affected tree.
 

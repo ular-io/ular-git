@@ -148,7 +148,7 @@ fn the_worktree_shows_its_stat_then_every_files_diff() {
     a.git(&["add", "a.txt"]);
     a.write("a.txt", "one\nTWO\nthree\nfour\n");
     a.write("new.txt", "n\n");
-    let doc = load(&a.root, &DiffSource::WorkTree, 1000).unwrap();
+    let doc = load(&a.root, &DiffSource::WorkTree, &LoadOpts::lines(1000)).unwrap();
     let rows: Vec<(LineKind, &str)> = doc
         .lines
         .iter()
@@ -168,7 +168,56 @@ fn the_worktree_shows_its_stat_then_every_files_diff() {
     assert!(rows.contains(&(Add, "+n")));
     assert_eq!((doc.added, doc.removed), (3, 1), "the stat's counts");
     // The line limit cuts the diffs, not the counts.
-    let cut = load(&a.root, &DiffSource::WorkTree, 6).unwrap();
+    let cut = load(&a.root, &DiffSource::WorkTree, &LoadOpts::lines(6)).unwrap();
     assert!(cut.truncated);
     assert_eq!((cut.added, cut.removed), (3, 1));
+}
+
+#[test]
+fn a_file_over_the_size_limit_shows_as_binary_unread() {
+    let a = crate::git::test_repo::TestRepo::new();
+    let big: String = (0..500).map(|i| format!("line {i}\n")).collect();
+    a.write("big.txt", &big);
+    a.write("small.txt", "s\n");
+    a.git(&["add", "."]);
+    a.git(&["commit", "-qm", "big"]);
+    a.write("big.txt", &format!("{big}more\n"));
+    a.write("new.txt", &big);
+    let head = crate::git::Commit {
+        hash: "HEAD".into(),
+        short: "HEAD".into(),
+        subject: "big".into(),
+    };
+    let opts = LoadOpts {
+        big_file: 1000,
+        ..LoadOpts::lines(1000)
+    };
+    let adds = |doc: &DiffDoc, text: &str| doc.lines.iter().any(|l| l.text == text);
+
+    let commit = load(&a.root, &DiffSource::Commit(head.clone()), &opts).unwrap();
+    assert!(!adds(&commit, "+line 1"), "the big file is not diffed");
+    assert!(adds(&commit, "+s"), "a small file still is");
+    let full = load(&a.root, &DiffSource::Commit(head), &LoadOpts::lines(1000)).unwrap();
+    assert!(adds(&full, "+line 1"), "no limit, no change");
+
+    // The uncommitted changes: tracked and untracked files alike.
+    let wt = load(&a.root, &DiffSource::WorkTree, &opts).unwrap();
+    assert!(
+        !adds(&wt, "+more") && !adds(&wt, "+line 1"),
+        "{:#?}",
+        wt.lines
+    );
+    let files = crate::git::commit_files::load_worktree(&a.root, 1000).unwrap();
+    let big = files.iter().find(|f| f.path == "big.txt").unwrap();
+    assert_eq!(big.counts, None, "counted as binary");
+}
+
+#[test]
+fn a_cancelled_load_fails_without_running_git() {
+    let a = crate::git::test_repo::TestRepo::new();
+    a.write("a.txt", "one\n");
+    let opts = LoadOpts::lines(1000);
+    opts.cancel.cancel();
+    let err = load(&a.root, &DiffSource::WorkTree, &opts).unwrap_err();
+    assert_eq!(err.to_string(), crate::git::cancel::CANCELLED);
 }

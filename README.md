@@ -97,6 +97,7 @@ every option commented out):
 | `refresh_interval_secs` | `60` | Rescan every repository this often (`0` = off) |
 | `scan_jobs` | `8` | Parallel git processes during a scan (1–32) |
 | `max_diff_lines` | `20000` | Diff lines read for one file |
+| `max_diff_file_mb` | `10` | Larger files show as binary in diffs, unread (`0` = git's 512 MiB) |
 | `editor` | `$VISUAL`, `$EDITOR`, `vi` | Editor for Edit Config |
 | `[[apps]]` | Open Folder (`open .`) | Open With apps for a repository or worktree |
 | `[[file_apps]]` | vim (`vim {path}`) | Open With apps for a file (before, after, or in the working tree) |

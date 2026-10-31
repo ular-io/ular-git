@@ -2,11 +2,12 @@
 //! classified per line with old/new line numbers so the diff pane can color
 //! and number it.
 
+use super::cancel::Cancel;
 use super::commit_files::CommitFile;
-use super::{git_command, Commit, EntryKind, FileEntry};
-use std::io::{BufRead, BufReader, Read};
+use super::{diff_command, Commit, EntryKind, FileEntry};
+use std::io::{BufRead, BufReader};
 use std::path::Path;
-use std::process::Stdio;
+use std::process::Command;
 
 /// What the diff pane shows.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -70,6 +71,30 @@ pub struct DiffLine {
     pub marks: Vec<(usize, usize)>,
 }
 
+/// How [`load`] reads a diff.
+#[derive(Debug, Clone, Default)]
+pub struct LoadOpts {
+    /// Lines of git output read in total.
+    pub max_lines: usize,
+    /// See [`super::diff_command`].
+    pub big_file: u64,
+    /// Kills the git process in flight when the load is no longer wanted.
+    pub cancel: Cancel,
+}
+
+impl LoadOpts {
+    pub fn lines(max_lines: usize) -> Self {
+        LoadOpts {
+            max_lines,
+            ..LoadOpts::default()
+        }
+    }
+
+    pub(crate) fn git(&self, dir: &Path) -> Command {
+        diff_command(dir, self.big_file)
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DiffDoc {
     pub lines: Vec<DiffLine>,
@@ -87,11 +112,12 @@ use parse::{header_path, parse_hunk};
 const BASE: &[&str] = &["--no-color", "--no-ext-diff"];
 
 /// Loads the diff for `source` in the working tree at `dir`, reading at most
-/// `max_lines` lines of git output in total.
-pub fn load(dir: &Path, source: &DiffSource, max_lines: usize) -> anyhow::Result<DiffDoc> {
+/// `opts.max_lines` lines of git output in total.
+pub fn load(dir: &Path, source: &DiffSource, opts: &LoadOpts) -> anyhow::Result<DiffDoc> {
+    let max_lines = opts.max_lines;
     let mut doc = DiffDoc::default();
     match source {
-        DiffSource::WorkTree => doc = worktree_doc(dir, max_lines)?,
+        DiffSource::WorkTree => doc = worktree_doc(dir, opts)?,
         DiffSource::Commit(c) => {
             let mut args = vec!["show"];
             args.extend(BASE);
@@ -104,7 +130,7 @@ pub fn load(dir: &Path, source: &DiffSource, max_lines: usize) -> anyhow::Result
                 "--format=%ad  %an <%ae>%n%B",
                 c.hash.as_str(),
             ]);
-            let (raw, cut) = run_limited(dir, &args, max_lines)?;
+            let (raw, cut) = run_limited(opts, dir, &args, max_lines)?;
             push_parsed(&mut doc, &raw, true);
             doc.truncated = cut;
         }
@@ -118,7 +144,7 @@ pub fn load(dir: &Path, source: &DiffSource, max_lines: usize) -> anyhow::Result
                 args.push(orig);
             }
             args.push(f.path.as_str());
-            let (raw, cut) = run_limited(dir, &args, max_lines)?;
+            let (raw, cut) = run_limited(opts, dir, &args, max_lines)?;
             if raw.iter().all(|l| l.trim().is_empty()) {
                 doc.lines.push(meta("(no textual changes)"));
             }
@@ -144,7 +170,7 @@ pub fn load(dir: &Path, source: &DiffSource, max_lines: usize) -> anyhow::Result
                 }
                 args.push(f.path.as_str());
             }
-            let (raw, cut) = run_limited(dir, &args, max_lines)?;
+            let (raw, cut) = run_limited(opts, dir, &args, max_lines)?;
             if raw.iter().all(|l| l.trim().is_empty()) {
                 doc.lines.push(meta("(no textual changes)"));
             }
@@ -194,7 +220,7 @@ pub fn load(dir: &Path, source: &DiffSource, max_lines: usize) -> anyhow::Result
                     break;
                 }
                 doc.lines.push(line_of(LineKind::Section, title));
-                let (raw, cut) = run_limited(dir, &args, budget)?;
+                let (raw, cut) = run_limited(opts, dir, &args, budget)?;
                 if raw.iter().all(|l| l.trim().is_empty()) {
                     doc.lines.push(meta("(no textual changes)"));
                 }
@@ -215,8 +241,9 @@ pub fn load(dir: &Path, source: &DiffSource, max_lines: usize) -> anyhow::Result
 /// together; the index on an unborn branch), then untracked files as added —
 /// until `max_lines`. The counts stay the stat's, which covers every file
 /// even when the diffs are cut.
-fn worktree_doc(dir: &Path, max_lines: usize) -> anyhow::Result<DiffDoc> {
-    let mut doc = super::stat::load(dir, max_lines)?;
+fn worktree_doc(dir: &Path, opts: &LoadOpts) -> anyhow::Result<DiffDoc> {
+    let max_lines = opts.max_lines;
+    let mut doc = super::stat::load(dir, opts)?;
     if doc.lines.iter().all(|l| l.kind != LineKind::Rule) {
         return Ok(doc);
     }
@@ -240,7 +267,7 @@ fn worktree_doc(dir: &Path, max_lines: usize) -> anyhow::Result<DiffDoc> {
             break;
         }
         let args: Vec<&str> = args.iter().map(String::as_str).collect();
-        let (raw, cut) = run_limited(dir, &args, budget)?;
+        let (raw, cut) = run_limited(opts, dir, &args, budget)?;
         push_parsed(&mut doc, &raw, true);
         doc.truncated |= cut;
     }
@@ -312,20 +339,21 @@ fn meta(text: &str) -> DiffLine {
 }
 
 /// Runs git reading at most `max` stdout lines; the child is killed once the
-/// limit is hit so a huge untracked file never has to be read in full.
-/// `git diff --no-index` exits 1 when files differ, so only stderr output with
-/// an empty stdout counts as failure.
-fn run_limited(dir: &Path, args: &[&str], max: usize) -> anyhow::Result<(Vec<String>, bool)> {
-    let mut child = git_command(dir)
-        .args(args)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| anyhow::anyhow!("cannot run git: {e}"))?;
-    let stdout = child.stdout.take().expect("piped stdout");
+/// limit is hit so a huge untracked file never has to be read in full, or
+/// when `opts.cancel` fires. `git diff --no-index` exits 1 when files differ,
+/// so only stderr output with an empty stdout counts as failure.
+fn run_limited(
+    opts: &LoadOpts,
+    dir: &Path,
+    args: &[&str],
+    max: usize,
+) -> anyhow::Result<(Vec<String>, bool)> {
+    let mut cmd = opts.git(dir);
+    cmd.args(args);
+    let mut run = opts.cancel.spawn(cmd)?;
     let mut lines = Vec::new();
     let mut cut = false;
-    let mut reader = BufReader::new(stdout);
+    let mut reader = BufReader::new(&mut run.stdout);
     let mut buf = Vec::new();
     loop {
         buf.clear();
@@ -340,14 +368,12 @@ fn run_limited(dir: &Path, args: &[&str], max: usize) -> anyhow::Result<(Vec<Str
             }
         }
     }
+    drop(reader);
     if cut {
-        let _ = child.kill();
+        run.kill();
     }
-    let mut err = String::new();
-    if let Some(mut stderr) = child.stderr.take() {
-        let _ = stderr.read_to_string(&mut err);
-    }
-    let status = child.wait()?;
+    let (status, err) = run.finish()?;
+    let err = String::from_utf8_lossy(&err);
     if !cut && lines.is_empty() && !status.success() {
         if let Some(line) = err.lines().map(str::trim).find(|l| !l.is_empty()) {
             anyhow::bail!("{}", line.trim_start_matches("fatal: "));

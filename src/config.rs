@@ -19,6 +19,9 @@ pub struct Config {
     pub scan_jobs: usize,
     /// Upper bound on diff lines loaded for one file (the rest is cut with a note).
     pub max_diff_lines: usize,
+    /// Files larger than this many MiB show as binary in diffs and are not
+    /// read (0 keeps git's own 512 MiB threshold).
+    pub max_diff_file_mb: u64,
     /// Editor command for Edit Config. None = `$VISUAL` / `$EDITOR` / `vi`.
     pub editor: Option<String>,
     /// Apps listed by Open With on a repository or worktree row; never empty.
@@ -75,6 +78,7 @@ impl Default for Config {
             refresh_interval_secs: 60,
             scan_jobs: 8,
             max_diff_lines: 20_000,
+            max_diff_file_mb: 10,
             editor: None,
             launchers: default_launchers(),
             file_launchers: default_file_launchers(),
@@ -89,6 +93,7 @@ struct FileConfig {
     refresh_interval_secs: Option<u64>,
     scan_jobs: Option<usize>,
     max_diff_lines: Option<usize>,
+    max_diff_file_mb: Option<u64>,
     editor: Option<String>,
     apps: Option<Vec<FileLauncher>>,
     file_apps: Option<Vec<FileLauncher>>,
@@ -131,10 +136,18 @@ impl Config {
         if let Some(v) = fc.max_diff_lines {
             self.max_diff_lines = v.max(100);
         }
+        if let Some(v) = fc.max_diff_file_mb {
+            self.max_diff_file_mb = v;
+        }
         self.editor = fc.editor.filter(|e| !e.trim().is_empty());
         self.launchers = launchers(fc.apps).unwrap_or_else(default_launchers);
         self.file_launchers = launchers(fc.file_apps).unwrap_or_else(default_file_launchers);
         self.diff_launchers = launchers(fc.diff_apps).unwrap_or_else(default_diff_launchers);
+    }
+
+    /// `max_diff_file_mb` in bytes.
+    pub fn max_diff_file_bytes(&self) -> u64 {
+        self.max_diff_file_mb.saturating_mul(1 << 20)
     }
 
     /// Editor command line: config `editor`, then `$VISUAL`, `$EDITOR`, `vi`.
@@ -220,6 +233,10 @@ const CONFIG_TEMPLATE: &str = "\
 
 # Upper bound on diff lines loaded for one file.
 # max_diff_lines = 20000
+
+# Files larger than this many MiB show as binary in diffs (their contents are
+# not read, so a huge file never slows the diff down). 0 keeps git's 512 MiB.
+# max_diff_file_mb = 10
 
 # Editor for Edit Config. Defaults to $VISUAL, then $EDITOR, then vi.
 # editor = \"code --wait\"

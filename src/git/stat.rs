@@ -3,7 +3,7 @@
 //! untracked file, as a stat block under a summary rule, like a commit's
 //! (`diff::worktree_doc` adds each file's diff below it).
 
-use super::diff::{DiffDoc, DiffLine, LineKind};
+use super::diff::{DiffDoc, DiffLine, LineKind, LoadOpts};
 use super::run;
 use std::io::Read;
 use std::path::Path;
@@ -22,8 +22,9 @@ struct Entry {
     lines: Option<(usize, usize)>,
 }
 
-pub fn load(dir: &Path, max_lines: usize) -> anyhow::Result<DiffDoc> {
-    let mut entries = tracked(dir)?;
+pub fn load(dir: &Path, opts: &LoadOpts) -> anyhow::Result<DiffDoc> {
+    let max_lines = opts.max_lines;
+    let mut entries = tracked(dir, opts)?;
     for path in untracked(dir)? {
         let lines = count_lines(&dir.join(&path)).map(|n| (n, 0));
         entries.push(Entry { path, lines });
@@ -138,16 +139,15 @@ fn tail(path: &str, max: usize) -> String {
 
 /// `git diff HEAD --numstat -z` (staged and unstaged together); against the
 /// index alone on an unborn branch.
-fn tracked(dir: &Path) -> anyhow::Result<Vec<Entry>> {
-    let mut out = run(
-        dir,
-        &["diff", "--no-ext-diff", "--numstat", "-z", "-M", "HEAD"],
-    )?;
+fn tracked(dir: &Path, opts: &LoadOpts) -> anyhow::Result<Vec<Entry>> {
+    let numstat = |base: &str| {
+        let mut cmd = opts.git(dir);
+        cmd.args(["diff", "--no-ext-diff", "--numstat", "-z", "-M", base]);
+        opts.cancel.output(cmd)
+    };
+    let mut out = numstat("HEAD")?;
     if !out.status.success() {
-        out = run(
-            dir,
-            &["diff", "--no-ext-diff", "--numstat", "-z", "--cached"],
-        )?;
+        out = numstat("--cached")?;
         if !out.status.success() {
             anyhow::bail!("{}", super::stderr_summary(&out));
         }

@@ -2,7 +2,7 @@
 //! parent for a merge, against nothing for a root commit, renames detected.
 //! [`load_worktree`] lists the uncommitted changes the same way.
 
-use super::{run, run_ok};
+use super::diff_command;
 use std::path::Path;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,9 +18,18 @@ pub struct CommitFile {
     pub counts: Option<(usize, usize)>,
 }
 
-pub fn load(dir: &Path, hash: &str) -> anyhow::Result<Vec<CommitFile>> {
-    let raw = run_ok(
+/// Runs a diff read (see [`diff_command`]) whatever its exit status.
+fn run(dir: &Path, big_file: u64, args: &[&str]) -> anyhow::Result<std::process::Output> {
+    diff_command(dir, big_file)
+        .args(args)
+        .output()
+        .map_err(|e| anyhow::anyhow!("cannot run git: {e}"))
+}
+
+pub fn load(dir: &Path, hash: &str, big_file: u64) -> anyhow::Result<Vec<CommitFile>> {
+    let out = run(
         dir,
+        big_file,
         &[
             "diff-tree",
             "--no-commit-id",
@@ -34,13 +43,16 @@ pub fn load(dir: &Path, hash: &str) -> anyhow::Result<Vec<CommitFile>> {
             hash,
         ],
     )?;
-    Ok(parse(&raw))
+    if !out.status.success() {
+        anyhow::bail!("{}", super::stderr_summary(&out));
+    }
+    Ok(parse(&out.stdout))
 }
 
 /// Every uncommitted change against HEAD, staged and unstaged together
 /// (against the index alone on an unborn branch), then every untracked file
 /// (`?`, its line count as added).
-pub fn load_worktree(dir: &Path) -> anyhow::Result<Vec<CommitFile>> {
+pub fn load_worktree(dir: &Path, big_file: u64) -> anyhow::Result<Vec<CommitFile>> {
     let args = |base: &'static str| {
         [
             "diff",
@@ -52,9 +64,9 @@ pub fn load_worktree(dir: &Path) -> anyhow::Result<Vec<CommitFile>> {
             base,
         ]
     };
-    let mut out = run(dir, &args("HEAD"))?;
+    let mut out = run(dir, big_file, &args("HEAD"))?;
     if !out.status.success() {
-        out = run(dir, &args("--cached"))?;
+        out = run(dir, big_file, &args("--cached"))?;
         if !out.status.success() {
             anyhow::bail!("{}", super::stderr_summary(&out));
         }
@@ -153,7 +165,7 @@ mod tests {
         a.write("staged.txt", "s\n");
         a.git(&["add", "staged.txt"]);
         a.write("new.txt", "x\ny\n");
-        let files = load_worktree(&a.root).unwrap();
+        let files = load_worktree(&a.root, 0).unwrap();
         let got: Vec<String> = files
             .iter()
             .map(|f| format!("{} {} {:?}", f.status, f.path, f.counts))
@@ -173,11 +185,11 @@ mod tests {
         a.git(&["add", "m.txt"]);
         a.git(&["commit", "-qm", "on main"]);
         a.git(&["merge", "-q", "--no-ff", "-m", "merge feat", "feat"]);
-        let merge = load(&a.root, "HEAD").unwrap();
+        let merge = load(&a.root, "HEAD", 0).unwrap();
         assert_eq!(merge.len(), 1, "{merge:?}");
         assert_eq!((merge[0].status, merge[0].path.as_str()), ('A', "f.txt"));
         let root = a.git(&["rev-list", "--max-parents=0", "HEAD"]);
-        let first = load(&a.root, root.trim()).unwrap();
+        let first = load(&a.root, root.trim(), 0).unwrap();
         assert!(!first.is_empty());
         assert!(first.iter().all(|f| f.status == 'A'), "{first:?}");
     }
