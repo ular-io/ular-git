@@ -140,3 +140,35 @@ fn a_gap_marks_skipped_lines_between_hunks_only() {
     assert_eq!(doc.lines[4].old, Some(40));
     assert!(!doc.lines.iter().any(|l| l.text.contains("@@")));
 }
+
+#[test]
+fn the_worktree_shows_its_stat_then_every_files_diff() {
+    let a = crate::git::test_repo::TestRepo::new();
+    a.write("a.txt", "one\nTWO\nthree\n");
+    a.git(&["add", "a.txt"]);
+    a.write("a.txt", "one\nTWO\nthree\nfour\n");
+    a.write("new.txt", "n\n");
+    let doc = load(&a.root, &DiffSource::WorkTree, 1000).unwrap();
+    let rows: Vec<(LineKind, &str)> = doc
+        .lines
+        .iter()
+        .filter(|l| !l.text.is_empty())
+        .map(|l| (l.kind, l.text.as_str()))
+        .collect();
+    use LineKind::*;
+    assert_eq!(
+        rows[0],
+        (Rule, "2 files changed, 3 insertions(+), 1 deletion(-)")
+    );
+    assert_eq!(rows[1].0, Stat);
+    let titles: Vec<&str> = rows.iter().filter(|r| r.0 == File).map(|r| r.1).collect();
+    assert_eq!(titles, ["a.txt", "new.txt"], "tracked, then untracked");
+    // Staged and unstaged together, against HEAD.
+    assert!(rows.contains(&(Add, "+TWO")) && rows.contains(&(Add, "+four")));
+    assert!(rows.contains(&(Add, "+n")));
+    assert_eq!((doc.added, doc.removed), (3, 1), "the stat's counts");
+    // The line limit cuts the diffs, not the counts.
+    let cut = load(&a.root, &DiffSource::WorkTree, 6).unwrap();
+    assert!(cut.truncated);
+    assert_eq!((cut.added, cut.removed), (3, 1));
+}

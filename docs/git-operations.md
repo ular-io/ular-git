@@ -27,7 +27,11 @@
      against HEAD, staged and unstaged together (`git diff HEAD --numstat
      -z -M`; the index alone on an unborn branch), and every untracked file
      with its line count, as a stat block under a rule carrying git's
-     summary; the pane title reads `Uncommitted Changes +N -N`;
+     summary, then each file's diff under its title like a shown commit
+     (`worktree_doc` in `src/git/diff.rs`: `git diff -M HEAD`, then
+     `git diff --no-index /dev/null <file>` per untracked file, until
+     `max_diff_lines`; the counts stay the stat's when the diffs are cut);
+     the pane title reads `Uncommitted Changes +N -N`;
   4. the commit history from HEAD with its branch graph, faded, one row per
      commit (no connector rows). Lanes stay in place and keep their color;
      joints sit on the commit row: `─╮` a merge opens a lane, `─┤` a merge

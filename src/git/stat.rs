@@ -1,6 +1,7 @@
 //! Working-tree summary shown when the history's top row is selected: every
 //! uncommitted change against HEAD (staged and unstaged together) and every
-//! untracked file, as a stat block under a summary rule, like a commit's.
+//! untracked file, as a stat block under a summary rule, like a commit's
+//! (`diff::worktree_doc` adds each file's diff below it).
 
 use super::diff::{DiffDoc, DiffLine, LineKind};
 use super::run;

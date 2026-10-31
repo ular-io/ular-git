@@ -91,11 +91,7 @@ const BASE: &[&str] = &["--no-color", "--no-ext-diff"];
 pub fn load(dir: &Path, source: &DiffSource, max_lines: usize) -> anyhow::Result<DiffDoc> {
     let mut doc = DiffDoc::default();
     match source {
-        DiffSource::WorkTree => {
-            let mut doc = super::stat::load(dir, max_lines)?;
-            space_dividers(&mut doc.lines);
-            return Ok(doc);
-        }
+        DiffSource::WorkTree => doc = worktree_doc(dir, max_lines)?,
         DiffSource::Commit(c) => {
             let mut args = vec!["show"];
             args.extend(BASE);
@@ -210,6 +206,45 @@ pub fn load(dir: &Path, source: &DiffSource, max_lines: usize) -> anyhow::Result
     }
     super::inline::mark(&mut doc.lines);
     space_dividers(&mut doc.lines);
+    Ok(doc)
+}
+
+/// Every uncommitted change, laid out like a shown commit without its
+/// message: the stat block (see [`super::stat`]), then each file's diff
+/// under its title — tracked files against HEAD (staged and unstaged
+/// together; the index on an unborn branch), then untracked files as added —
+/// until `max_lines`. The counts stay the stat's, which covers every file
+/// even when the diffs are cut.
+fn worktree_doc(dir: &Path, max_lines: usize) -> anyhow::Result<DiffDoc> {
+    let mut doc = super::stat::load(dir, max_lines)?;
+    if doc.lines.iter().all(|l| l.kind != LineKind::Rule) {
+        return Ok(doc);
+    }
+    let (added, removed) = (doc.added, doc.removed);
+    let has_head = super::run_ok(dir, &["rev-parse", "--verify", "-q", "HEAD"]).is_ok();
+    let mut tracked = vec!["diff"];
+    tracked.extend(BASE);
+    tracked.extend(["-M", if has_head { "HEAD" } else { "--cached" }]);
+    let mut runs: Vec<Vec<String>> = vec![tracked.iter().map(|a| a.to_string()).collect()];
+    for path in super::stat::untracked(dir)? {
+        let mut a: Vec<String> = ["diff", "--no-color", "--no-ext-diff", "--no-index", "--"]
+            .map(String::from)
+            .to_vec();
+        a.extend(["/dev/null".to_string(), path]);
+        runs.push(a);
+    }
+    for args in runs {
+        let budget = max_lines.saturating_sub(doc.lines.len());
+        if budget == 0 {
+            doc.truncated = true;
+            break;
+        }
+        let args: Vec<&str> = args.iter().map(String::as_str).collect();
+        let (raw, cut) = run_limited(dir, &args, budget)?;
+        push_parsed(&mut doc, &raw, true);
+        doc.truncated |= cut;
+    }
+    (doc.added, doc.removed) = (added, removed);
     Ok(doc)
 }
 
