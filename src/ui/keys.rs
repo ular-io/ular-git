@@ -179,7 +179,6 @@ pub fn dialog() -> Vec<Hint> {
 /// Keys available everywhere on the screen.
 pub fn anywhere() -> Vec<Hint> {
     vec![
-        h("1 / 2 / 3", "Focus Repos / Files / Diff"),
         h("/", "Filter repositories"),
         h("0", "Clear the filter and the changed-only view"),
         h("+", "Add repository"),

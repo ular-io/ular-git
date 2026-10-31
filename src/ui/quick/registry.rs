@@ -65,7 +65,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         FocusRepos,
         "focus-repos",
         "Focus Repos Pane",
-        Some("1"),
+        None,
         ["go", "pane", "list"],
         None
     ),
@@ -73,7 +73,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         FocusFiles,
         "focus-files",
         "Focus Files Pane",
-        Some("2"),
+        None,
         ["go", "pane", "changes"],
         None
     ),
@@ -81,7 +81,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         FocusDiff,
         "focus-diff",
         "Focus Diff Pane",
-        Some("3"),
+        None,
         ["go", "pane", "patch"],
         None
     ),

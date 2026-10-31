@@ -70,7 +70,6 @@ one, a linked worktree (resolved to its repository), or a parent folder
 | `←→` `h l` | Move between panes (`enter` too, on a history commit) |
 | `→` (history commit) | List the commit's files; each shows its own diff, `←` goes back |
 | `enter` (repository, worktree, or changed file) | Open With: pick an app from `config.toml` and open it there |
-| `1` `2` `3` | Focus Repos / Files / Diff |
 | `/`, `0` | Filter repositories, clear the filter |
 | `.` (Repos pane) | Show only repositories with uncommitted changes, commits to pull or push, or a stash (toggle) |
 | `+` | Add repository |

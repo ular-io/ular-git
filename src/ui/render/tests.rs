@@ -89,8 +89,8 @@ fn full_screen_shows_header_two_panes_and_one_footer_row() {
         "logo shown when wide"
     );
     assert!(
-        rows[29].contains("<1> Repos"),
-        "footer falls back to pane keys"
+        rows[29].contains(" Repos   Files ") && !rows[29].contains("<1>"),
+        "footer falls back to pane names, without number keys"
     );
     // Exactly one row below the pane bottoms.
     let bottom = rows

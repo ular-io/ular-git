@@ -99,9 +99,6 @@ impl App {
             'p' => self.start_pull(),
             '>' => self.cycle_ref_labels(),
             's' => self.toggle_split(),
-            '1' => self.focus_pane(Pane::Repos),
-            '2' => self.focus_pane(Pane::Files),
-            '3' => self.focus_pane(Pane::Diff),
             _ => {}
         }
     }

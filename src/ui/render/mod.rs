@@ -297,7 +297,7 @@ fn draw_filter_line(f: &mut Frame, app: &App, area: Rect) {
     f.set_cursor_position((inner.x + prompt.len() as u16 + cursor_x, inner.y));
 }
 
-/// Footer: the latest result while it lasts, then the pane shortcuts with the
+/// Footer: the latest result while it lasts, then the pane names with the
 /// focused pane highlighted.
 fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
     let th = &app.theme;
@@ -320,25 +320,18 @@ fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
         None => {
             let mut spans = Vec::new();
             for (i, pane) in Pane::ALL.iter().enumerate() {
-                let current = *pane == app.focus;
-                let key_style = if current {
+                let style = if *pane == app.focus {
                     Style::default()
                         .fg(th.selection_fg)
                         .bg(th.selection_bg)
                         .add_modifier(Modifier::BOLD)
                 } else {
-                    th.key_style()
-                };
-                let name_style = if current {
-                    Style::default().fg(th.accent).add_modifier(Modifier::BOLD)
-                } else {
                     th.soft_dim()
                 };
                 if i > 0 {
-                    spans.push(Span::raw("  "));
+                    spans.push(Span::raw(" "));
                 }
-                spans.push(Span::styled(format!("<{}>", i + 1), key_style));
-                spans.push(Span::styled(format!(" {}", pane.title()), name_style));
+                spans.push(Span::styled(format!(" {} ", pane.title()), style));
             }
             Line::from(spans)
         }

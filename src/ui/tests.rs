@@ -44,7 +44,7 @@ fn the_file_cursor_stays_on_its_file_across_a_rescan() {
     a.write("b.txt", "b\n");
     a.write("c.txt", "c\n");
     let mut app = scanned_app(store_of(&[&a.root]));
-    app.press(&[ch('2'), key(KeyCode::Down)]);
+    app.press(&[key(KeyCode::Right), key(KeyCode::Down)]);
     assert_eq!(app.file_key.as_deref(), Some("f:c.txt"));
     a.write("0.txt", "sorts first\n");
     app.refresh_all(false);
@@ -256,7 +256,7 @@ fn front_layer_takes_every_key_but_ctrl_c_arms_quit() {
     let mut app = scanned_app(store_of(&[&a.root]));
     app.press(&[ch('?')]);
     assert_eq!(app.mode, UiMode::Help);
-    app.press(&[ch('2'), ch('+')]);
+    app.press(&[key(KeyCode::Right), ch('+')]);
     assert_eq!(app.mode, UiMode::Help);
     assert_eq!(app.focus, Pane::Repos);
     app.press(&[ctrl('c')]);
@@ -396,7 +396,7 @@ fn discard_file_changes_runs_from_the_palette_after_a_confirmation() {
     a.write("new.txt", "n\n");
     let mut app = scanned_app(store_of(&[&a.root]));
     app.wait_background(10);
-    app.press(&[ch('2')]);
+    app.press(&[key(KeyCode::Right)]);
     assert_eq!(app.file_key.as_deref(), Some("f:a.txt"));
     app.press(&[ch(':')]);
     app.type_text("discard");

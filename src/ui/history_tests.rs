@@ -62,7 +62,7 @@ fn more_reads_a_longer_history_and_keeps_the_cursor_in_place() {
     app.wait_background(10);
     let items = app.file_items().len();
     assert_eq!(items, 101, "100 commits and `… more`");
-    app.press(&[ch('2'), key(KeyCode::End)]);
+    app.press(&[key(KeyCode::Right), key(KeyCode::End)]);
     assert_eq!(app.file_key.as_deref(), Some("more"));
     app.wait_background(10);
     assert_eq!(app.file_items().len(), 106, "all 106 commits, no more row");
