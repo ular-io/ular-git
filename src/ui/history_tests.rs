@@ -233,17 +233,12 @@ fn ref_labels_keep_their_badge_colors_on_the_selected_row() {
     assert_eq!(bar, app.theme.selection_bg);
     assert_ne!(label, bar, "the tag keeps its own color on the bar");
     assert_ne!(label, app.theme.warning, "deepened, not the raw role color");
-    // A dimmed pane fades the badge, but less than halfway to the background.
+    // A dimmed pane shows the same faded colors.
     app.focus = Pane::Repos;
     let (dimmed, _) = bgs(&app);
-    assert_ne!(dimmed, label);
-    let gap = |c: ratatui::style::Color| {
-        let ((r, g, b), (br, bg, bb)) = (crate::theme::color_rgb(c), app.theme.bg_rgb());
-        (r as i32 - br as i32).abs() + (g as i32 - bg as i32).abs() + (b as i32 - bb as i32).abs()
-    };
-    assert!(
-        gap(dimmed) > gap(label) / 3,
-        "still clear of the background"
+    assert_eq!(
+        dimmed, label,
+        "same badge whether or not the pane has focus"
     );
 }
 

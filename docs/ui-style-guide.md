@@ -59,7 +59,8 @@ ular-git applies them.
   `muted`: the history graph is lane color faded once when focused and twice
   when not (`↑` / `↓` nodes: full branch color, then faded once). `muted` can
   be stronger than a faded color, so swapping to it would make a dimmed pane
-  look bolder.
+  look bolder. History ref labels are the exception: they always use the
+  faded colors, focused or not.
 - Row content in the repository and file panes is never bold: status codes,
   badges, `↑` / `↓` nodes, ref labels, and the running `push…` / `pull…`
   label use color alone. Bold marks focus only (the focused pane's selection

@@ -151,7 +151,6 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                                 refs_of(v),
                                 app.history.labels,
                                 row_w.saturating_sub(used + SUBJECT_MIN),
-                                tone,
                                 th,
                             );
                             let labels_w: usize = labels.iter().map(|s| s.content.width()).sum();
@@ -335,15 +334,10 @@ const SUBJECT_MIN: usize = 12;
 /// fit is left out with the rest. The kind is told by
 /// color: local branches the branch color, remote branches
 /// the hunk color, tags the warning color, each moved a quarter toward the
-/// text color so the badge stands out of the background (a dimmed pane fades
-/// it back a third, not the usual half).
-fn ref_spans(
-    refs: &[RefLabel],
-    labels: RefLabels,
-    room: usize,
-    tone: Tone,
-    th: &Theme,
-) -> Vec<Span<'static>> {
+/// text color, then faded back a third toward the background so the badge
+/// stays readable without outweighing the subject. Labels look the same
+/// whether or not the pane has focus.
+fn ref_spans(refs: &[RefLabel], labels: RefLabels, room: usize, th: &Theme) -> Vec<Span<'static>> {
     let mut spans: Vec<Span<'static>> = Vec::new();
     let mut used = 0;
     for r in refs {
@@ -359,10 +353,7 @@ fn ref_spans(
             Color::Reset => (0, 0, 0),
             c => color_rgb(c),
         };
-        let mut badge = mix(color_rgb(color), ink, 25);
-        if tone == Tone::Dimmed {
-            badge = mix(badge, th.bg_rgb(), 35);
-        }
+        let badge = mix(mix(color_rgb(color), ink, 25), th.bg_rgb(), 35);
         let rgb = |(r, g, b): (u8, u8, u8)| Color::Rgb(r, g, b);
         let style = Style::default().bg(rgb(badge)).fg(rgb(th.bg_rgb()));
         let sep = usize::from(spans.last().is_some_and(|s| s.style.bg == style.bg));

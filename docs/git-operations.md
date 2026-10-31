@@ -54,9 +54,10 @@
   padding cell to the border. Color tells
   the kind: local branch the branch color (`HEAD` when
   detached), remote branch the hunk color, tag the warning color; each is
-  moved a quarter toward the text color, with the background color as text,
-  and a dimmed pane fades them a third. A remote branch with a local twin on
-  the same commit (`origin/main` next to `main`) is left out. A tag copied
+  moved a quarter toward the text color and then faded a third toward the
+  background, with the background color as text, in the same colors whether
+  or not the pane has focus. A remote branch with
+  a local twin on the same commit (`origin/main` next to `main`) is left out. A tag copied
   under `refs/remotes/<remote>/tags/` (a fetch refspec
   `+refs/tags/*:refs/remotes/origin/tags/*`) counts as that tag: left out next
   to the local tag, shown as the tag without it. Names are cut at 24 columns;
