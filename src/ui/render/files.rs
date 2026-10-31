@@ -31,7 +31,7 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
     let tone = pane_tone(app, Pane::Files);
     let tree = app.current_tree();
     let status = tree.and_then(|t| t.status.as_ref());
-    let mut block = pane_block(app, pane_title(app), tone);
+    let mut block = pane_block(app, pane_title(app), tone, Pane::Files);
     if let Some(label) = commits_label(app, area.width) {
         block = pane_footer(block, label, tone, th);
     }

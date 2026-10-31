@@ -210,8 +210,8 @@ line count.
 - `.` toggles line wrapping (default: lines cut at the pane edge). Wrapped
   continuation lines keep a blank gutter.
 - The line on top stays on top when the layout changes: `.`, `s`, or a new
-  diff pane width (focus moving between Files and Diff below 160 columns,
-  a terminal resize). The renderer records the top line and its layout each
+  diff pane width (`1` / `2` / `3`, focus moving across panes, a terminal
+  resize). The renderer records the top line and its layout each
   frame (`Anchor` in `src/ui/diff_view.rs`, `top_row` in
   `src/ui/render/diff.rs`) and starts the next frame at that line's first
   row when the layout differs. A scroll since that frame wins; near the end

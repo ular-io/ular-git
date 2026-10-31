@@ -109,13 +109,11 @@ pub struct App {
 
     pub mode: UiMode,
     pub focus: Pane,
-    /// `→` on the diff of a three-pane screen: the diff takes the full width.
-    /// Cleared whenever the focus leaves the diff.
-    pub(crate) diff_full: bool,
-    /// `←` on a repository row: Repos is hidden until it has focus again.
-    pub(crate) repos_hidden: bool,
-    /// Width of the pane area, recorded by the renderer (whether `→` on the
-    /// diff has three panes to collapse).
+    /// Panes shown side by side (`1` / `2` / `3`, saved); a narrower screen
+    /// shows fewer ([`render::pane_layout`]).
+    pub pane_count: usize,
+    /// Width of the pane area, recorded by the renderer (which of `1` / `2` /
+    /// `3` the width allows).
     pub(crate) panes_w: Cell<u16>,
     /// Visible repository pane rows (rebuilt by [`App::rebuild_rows`]).
     pub rows: Vec<Row>,
@@ -198,6 +196,7 @@ impl App {
             let view = history_view::load_view();
             app.history.labels = view.history_labels;
             app.diff.split = view.split_diff;
+            app.pane_count = view.pane_count.clamp(1, 3);
             app.launch_dir = std::env::current_dir().ok();
         }
         if let Some(err) = load_error {
@@ -220,8 +219,7 @@ impl App {
             bg: Background::new(workers),
             mode: UiMode::Normal,
             focus: Pane::Repos,
-            diff_full: false,
-            repos_hidden: false,
+            pane_count: 3,
             panes_w: Cell::new(0),
             rows: Vec::new(),
             repo_sel: 0,

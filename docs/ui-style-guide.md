@@ -22,23 +22,17 @@ ular-git applies them.
 
 ## Width
 
-- ≥ 160 columns: all three panes, whatever has focus (Repos 22 % 30–44,
-  Files 28 % 40–80, Diff the rest). `→` on the diff shows it alone at full
-  width (side by side then starts at 124 columns); `←` returns to Files and
-  the panes shown before. Leaving the diff by any route ends the full width
-  (`App::diff_full`); it is never saved.
-- `←` on a repository or worktree row hides Repos at any width and moves to
-  Files (on a group header it folds the group); Files takes Repos's place.
-  At ≥ 160 columns Files gets Repos's width on top of its own and Diff keeps
-  its width; below 160 Files is shown alone at the full width (Diff focus
-  still shows the diff alone). Repos stays hidden while Files and Diff have
-  focus; `←` on Files, or anything else that focuses Repos, shows it again
-  (`App::repos_hidden`, never saved).
-- 64–159 columns: Repos focus shows Repos + Files; Files focus shows
-  Files + Diff, so the diff follows while files are browsed; Diff focus
-  shows the diff alone at full width for reading. Below 64 columns only the
-  focused pane is shown.
-- Moving left or right always reveals the pane the focus moves to.
+- `1` / `2` / `3` choose how many panes are shown side by side
+  (`App::pane_count`, default 3, saved in `view.json`). The width caps the
+  count: 3 from 160 columns, 2 from 64, 1 below. A key the width cannot
+  show does nothing, so below 64 columns none applies. `\` moves to the
+  next count the width can show, starting from the count shown now
+  (1 → 2 → 3 → 1, or 1 ↔ 2).
+- 1: the focused pane alone. 2: the focused pane and the one to its right;
+  Diff has none, so Diff focus shows Files + Diff. 3: all three (Repos
+  22 % 30–44, Files 28 % 40–80, Diff the rest).
+- The count stays while the focus moves; moving left or right always
+  reveals the pane the focus moves to.
 - Repos 42 % (28–44) beside Files; Files 40 % (30–80) beside Diff.
 - Repos shrinks below those widths to fit its longest name (never below the
   minimum): every registered repository, group header, and known worktree
@@ -59,8 +53,7 @@ ular-git applies them.
 ## Focus and tone
 
 - Focused pane: `Thick` border, `accent` + bold title, `←` / `→` on the top
-  border only for the directions it can move (`←` on Repos only on a
-  repository or worktree row, `→` on the diff only at ≥ 160 columns).
+  border only for the directions it can move.
 - Another pane focused: `Plain` border, soft-dim frame, title, and text. The
   diff keeps its colors faded halfway toward the background so `+` / `-` stay
   readable.

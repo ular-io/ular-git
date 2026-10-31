@@ -45,10 +45,17 @@ pub(crate) struct SavedView {
     /// Side-by-side diffs on wide panes (`s`).
     #[serde(default = "on")]
     pub split_diff: bool,
+    /// Panes shown side by side (`1` / `2` / `3`); the width may show fewer.
+    #[serde(default = "all_panes")]
+    pub pane_count: usize,
 }
 
 fn on() -> bool {
     true
+}
+
+fn all_panes() -> usize {
+    3
 }
 
 impl Default for SavedView {
@@ -56,6 +63,7 @@ impl Default for SavedView {
         SavedView {
             history_labels: RefLabels::default(),
             split_diff: true,
+            pane_count: 3,
         }
     }
 }
@@ -84,6 +92,7 @@ impl App {
         let view = SavedView {
             history_labels: self.history.labels,
             split_diff: self.diff.split,
+            pane_count: self.pane_count,
         };
         if let Ok(data) = serde_json::to_string_pretty(&view) {
             let _ = crate::config::write_atomic(&view_path(), data.as_bytes());
@@ -263,15 +272,17 @@ mod tests {
         let view = SavedView {
             history_labels: RefLabels::BranchesAndTags,
             split_diff: false,
+            pane_count: 2,
         };
         let json = serde_json::to_string(&view).unwrap();
         assert_eq!(
             json,
-            r#"{"history_labels":"branches_and_tags","split_diff":false}"#
+            r#"{"history_labels":"branches_and_tags","split_diff":false,"pane_count":2}"#
         );
         // A file from before split_diff existed keeps side-by-side on.
         let back: SavedView = serde_json::from_str(r#"{"history_labels":"tags"}"#).unwrap();
         assert_eq!(back.history_labels, RefLabels::Tags);
         assert!(back.split_diff);
+        assert_eq!(back.pane_count, 3, "all panes until a count is chosen");
     }
 }

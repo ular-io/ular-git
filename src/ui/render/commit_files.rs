@@ -29,7 +29,7 @@ pub(super) fn draw_commit_files(f: &mut Frame, app: &App, area: Rect, view: &Com
         Some(c) => ("●", c.subject.as_str()),
         None => ("○", WORKTREE_TITLE),
     };
-    let block = pane_block(app, pane_title(app), tone);
+    let block = pane_block(app, pane_title(app), tone, Pane::Files);
     let inner = block.inner(area);
     f.render_widget(block, area);
     let page = inner.height as usize;

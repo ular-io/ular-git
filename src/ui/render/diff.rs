@@ -262,7 +262,7 @@ fn title(app: &App) -> String {
 pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
     let th = &app.theme;
     let tone = pane_tone(app, Pane::Diff);
-    let block = pane_block(app, title(app), tone);
+    let block = pane_block(app, title(app), tone, Pane::Diff);
     let inner = block.inner(area);
     f.render_widget(block, area);
     let view = inner.height as usize;

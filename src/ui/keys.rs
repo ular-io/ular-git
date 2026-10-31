@@ -133,7 +133,7 @@ impl App {
                 h("pgup / pgdn", "Move a page"),
                 h("home / g", "First row"),
                 h("end / G", "Last row"),
-                h("← / h", "Fold group / hide this pane"),
+                h("← / h", "Fold group"),
                 h("→ / l", "Unfold group / Files pane"),
                 h("delete", "Same as ctrl+d"),
             ],
@@ -166,7 +166,6 @@ impl App {
                 h("home / g", "Top"),
                 h("end / G", "Bottom"),
                 h("← / h", "Files pane"),
-                h("→ / l", "Diff at full width (160+ columns)"),
             ],
         }
     }
@@ -195,6 +194,8 @@ pub fn anywhere() -> Vec<Hint> {
         h("p", "Pull, fast-forward only"),
         h(">", "History labels: none → branches → + tags → tags"),
         h("s", "Side-by-side diff on wide panes / unified"),
+        h("1 / 2 / 3", "Show 1, 2, or 3 panes (as the width allows)"),
+        h("\\", "Next pane count: 1 → 2 → 3 → 1"),
         h(":", "Quick command (every command)"),
         h("!", "Run a shell command in the repository"),
         h("ctrl+u", "Rescan every repository"),

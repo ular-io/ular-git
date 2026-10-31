@@ -99,51 +99,29 @@ impl App {
             'p' => self.start_pull(),
             '>' => self.cycle_ref_labels(),
             's' => self.toggle_split(),
+            '1'..='3' => self.set_pane_count(c as usize - '0' as usize),
+            '\\' => self.cycle_pane_count(),
             _ => {}
         }
     }
 
-    /// Whether `←` leaves the focused pane: Repos hides itself from a
-    /// repository or worktree row (on a group header `←` folds it).
-    pub(crate) fn can_move_left(&self) -> bool {
-        self.focus != Pane::Repos || !matches!(self.current_row(), Some(Row::Group { .. }))
-    }
-
-    /// Panes hidden by `←` on Repos or `→` on a wide diff.
-    pub(crate) fn hidden_panes(&self) -> super::render::Hidden {
-        use super::render::Hidden;
-        match self.focus {
-            Pane::Diff if self.diff_full => Hidden::ReposAndFiles,
-            Pane::Files | Pane::Diff if self.repos_hidden => Hidden::Repos,
-            _ => Hidden::None,
-        }
-    }
-
-    /// Whether `→` moves on from the focused pane: not from a group header (it
-    /// has no files), and from Diff only to widen it at 160+ columns.
+    /// Whether `→` moves on from the focused pane: not from Diff, and not from
+    /// a group header (it has no files).
     pub(crate) fn can_move_right(&self) -> bool {
         match self.focus {
             Pane::Repos => !matches!(self.current_row(), Some(Row::Group { .. })),
             Pane::Files => true,
-            Pane::Diff => !self.diff_full && super::render::visible_panes(self.panes_w.get()) == 3,
+            Pane::Diff => false,
         }
     }
 
-    /// Moves the focus; leaving the diff ends its full-width view, and
-    /// focusing Repos shows it again.
     pub(crate) fn focus_pane(&mut self, pane: Pane) {
-        if pane != self.focus {
-            self.diff_full = false;
-        }
-        if pane == Pane::Repos {
-            self.repos_hidden = false;
-        }
         self.focus = pane;
     }
 
     fn move_focus(&mut self, delta: isize) {
         let i = (self.focus.index() as isize + delta).clamp(0, 2) as usize;
-        self.focus_pane(Pane::ALL[i]);
+        self.focus = Pane::ALL[i];
     }
 
     /// Repository pane keys. Returns whether the key was used.
@@ -173,10 +151,6 @@ impl App {
             KeyCode::Left | KeyCode::Char('h') if is_group => self.fold_group(true),
             KeyCode::Enter => self.open_with_folder(),
             KeyCode::Right | KeyCode::Char('l') => self.move_focus(1),
-            KeyCode::Left | KeyCode::Char('h') => {
-                self.repos_hidden = true;
-                self.focus_pane(Pane::Files);
-            }
             KeyCode::Char('.') => self.toggle_pending_only(),
             _ => return false,
         }
@@ -225,13 +199,28 @@ impl App {
         }
         match key.code {
             KeyCode::Left | KeyCode::Char('h') => self.move_focus(-1),
-            KeyCode::Right | KeyCode::Char('l') if self.can_move_right() => {
-                self.diff_full = true;
-            }
             KeyCode::Char('.') => self.toggle_wrap(),
             _ => return false,
         }
         true
+    }
+
+    /// `1` / `2` / `3`: how many panes to show side by side. Only counts the
+    /// width can show apply, and none when it shows one pane.
+    pub(crate) fn set_pane_count(&mut self, count: usize) {
+        let fits = super::render::visible_panes(self.panes_w.get());
+        if fits < 2 || count > fits || count == self.pane_count {
+            return;
+        }
+        self.pane_count = count;
+        self.save_view();
+    }
+
+    /// `\`: the next pane count the width can show, from the one shown now
+    /// (1 → 2 → 3 → 1; 1 ↔ 2 below 160 columns).
+    pub(crate) fn cycle_pane_count(&mut self) {
+        let fits = super::render::visible_panes(self.panes_w.get());
+        self.set_pane_count(self.pane_count.min(fits) % fits + 1);
     }
 
     /// `s`: side-by-side diffs on wide panes, or always unified.
@@ -305,7 +294,7 @@ impl App {
         self.filter_before = self.filter.value.clone();
         self.filter.end();
         self.mode = UiMode::Filter;
-        self.focus_pane(Pane::Repos);
+        self.focus = Pane::Repos;
     }
 
     /// `0`: clears the text filter and the changed-only view.

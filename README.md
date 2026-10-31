@@ -68,6 +68,8 @@ one, a linked worktree (resolved to its repository), or a parent folder
 | --- | --- |
 | `↑↓` `j k`, `pgup pgdn`, `home end` `g G` | Move in lists; scroll the diff |
 | `←→` `h l` | Move between panes (`enter` too, on a history commit) |
+| `1` `2` `3` | Show 1 pane (the focused one), 2 (it and the one to its right), or all 3, as the terminal width allows (remembered) |
+| `\` | Cycle the pane count 1 → 2 → 3 → 1 (1 ↔ 2 when only two panes fit) |
 | `→` (history commit or Uncommitted Changes) | List its files; each shows its own diff, `←` goes back |
 | `enter` (repository, worktree, or file) | Open With: pick an app from `config.toml` and open it there; on a file, `←→` pick a diff, the file before / after, or the working tree's |
 | `/`, `0` | Filter repositories, clear the filter |
