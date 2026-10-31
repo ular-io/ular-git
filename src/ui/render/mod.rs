@@ -10,12 +10,12 @@ mod split;
 
 use super::components::input::input_view;
 use super::components::modal::{backdrop_dimmed, dim_backdrop};
-use super::components::text::truncate_w;
+use super::components::text::{truncate_w, wrap_w};
 use super::{App, Level, Pane, UiMode};
 use crate::theme::Theme;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Margin, Rect},
-    style::{Modifier, Style},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Padding, Paragraph},
     Frame,
@@ -263,13 +263,88 @@ pub(crate) fn selection_style(tone: Tone, th: &Theme) -> Style {
     }
 }
 
-/// Empty-state line drawn in place of a list.
+/// Empty-state message drawn in place of a list: word-wrapped to the width,
+/// each line centered, the block centered vertically.
 pub(crate) fn empty_line(f: &mut Frame, area: Rect, text: &str, style: Style) {
+    let Some((lines, rect)) = centered_lines(area, text) else {
+        return;
+    };
+    let lines: Vec<Line> = lines
+        .into_iter()
+        .map(|l| Line::from(Span::styled(l, style)))
+        .collect();
     f.render_widget(
-        Paragraph::new(Span::styled(text.to_string(), style))
-            .wrap(ratatui::widgets::Wrap { trim: true }),
-        area,
+        Paragraph::new(lines).alignment(ratatui::layout::Alignment::Center),
+        rect,
     );
+}
+
+/// Rows and columns of fill around a [`empty_box`] message.
+const BOX_PAD_Y: u16 = 2;
+const BOX_PAD_X: u16 = 8;
+
+/// [`empty_line`] on a `bg` fill reaching two rows above and below the
+/// message and eight cells to each side, cut at the area.
+pub(crate) fn empty_box(f: &mut Frame, area: Rect, text: &str, style: Style, bg: Color) {
+    let Some((lines, rect)) = centered_lines(area, text) else {
+        return;
+    };
+    let text_w = lines.iter().map(|l| l.width()).max().unwrap_or(0) as u16;
+    // Where `Alignment::Center` puts the widest line (it halves each width
+    // separately).
+    let x = rect.x + (rect.width / 2).saturating_sub(text_w / 2);
+    let left = x.saturating_sub(BOX_PAD_X).max(area.x);
+    let top = rect.y.saturating_sub(BOX_PAD_Y).max(area.y);
+    let right = (x + text_w + BOX_PAD_X).min(area.right());
+    let bottom = (rect.bottom() + BOX_PAD_Y).min(area.bottom());
+    f.render_widget(
+        Block::default().style(Style::default().bg(bg)),
+        Rect::new(left, top, right - left, bottom - top),
+    );
+    empty_line(f, area, text, style);
+}
+
+/// The wrapped message lines and the full-width rows they take, centered
+/// vertically in `area`; `None` when nothing fits.
+fn centered_lines(area: Rect, text: &str) -> Option<(Vec<String>, Rect)> {
+    if area.width == 0 || area.height == 0 {
+        return None;
+    }
+    let lines = word_wrap(text, area.width as usize);
+    let n = (lines.len() as u16).min(area.height);
+    let rect = Rect {
+        y: area.y + (area.height - n) / 2,
+        height: n,
+        ..area
+    };
+    Some((lines, rect))
+}
+
+/// Words packed into lines of at most `max_w` cells; a word wider than a
+/// line is split across lines.
+fn word_wrap(text: &str, max_w: usize) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    let mut line = String::new();
+    for word in text.split_whitespace() {
+        let pieces = if word.width() > max_w {
+            wrap_w(word, max_w)
+        } else {
+            vec![word.to_string()]
+        };
+        for piece in pieces {
+            if !line.is_empty() && line.width() + 1 + piece.width() > max_w {
+                lines.push(std::mem::take(&mut line));
+            }
+            if !line.is_empty() {
+                line.push(' ');
+            }
+            line.push_str(&piece);
+        }
+    }
+    if !line.is_empty() {
+        lines.push(line);
+    }
+    lines
 }
 
 fn draw_filter_line(f: &mut Frame, app: &App, area: Rect) {

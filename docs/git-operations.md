@@ -74,7 +74,9 @@
 - The cursor starts on the first item: the first changed file, or the
   newest commit of a clean tree.
 - Empty states: `Select a repository` (group row), `Scanning…`, the scan
-  error, `Loading history…` (below the working-tree row).
+  error, `Loading history…` (below the working-tree row). Messages are
+  centered. `Select a repository` sits on a `group_bg` fill reaching two rows
+  above and below it and eight cells to each side.
 - `enter` on a commit moves to the diff with the whole commit; `→` / `l`
   open the commit view instead.
 

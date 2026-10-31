@@ -3,7 +3,8 @@
 //! divider.
 
 use super::{
-    body_style, draw_divider, empty_line, pane_block, pane_tone, selection_style, Divider, Tone,
+    body_style, draw_divider, empty_box, empty_line, pane_block, pane_tone, selection_style,
+    Divider, Tone,
 };
 use crate::git::graph::Cell;
 use crate::git::history::{RefKind, RefLabel};
@@ -50,12 +51,10 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
     let dim_style = Style::default().fg(th.dim);
 
     if app.current_target().is_none() {
-        let text = if app.rows.is_empty() {
-            ""
-        } else {
-            "Select a repository"
-        };
-        empty_line(f, inner, text, dim_style);
+        // A group header: the message sits on the group row color.
+        if !app.rows.is_empty() {
+            empty_box(f, inner, "Select a repository", dim_style, th.group_bg);
+        }
         return;
     }
     let Some(status) = status else {

@@ -372,3 +372,51 @@ fn the_repository_pane_fits_its_longest_name_within_its_range() {
     let cut: String = rows[6].chars().take(37).collect();
     assert!(cut.contains(&name25) && cut.contains('?'), "{cut}");
 }
+
+#[test]
+fn a_selected_group_centers_its_message_on_a_small_fill() {
+    let a = TestRepo::new();
+    let mut store = store_of(&[&a.root]);
+    store.add_group("work").unwrap();
+    store.set_group(&a.root, Some("work".into()));
+    let mut app = scanned_app(store);
+    app.press(&[key(KeyCode::Home)]);
+    let (w, h) = (150u16, 30u16);
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).unwrap();
+    terminal.draw(|f| super::draw(f, &app)).unwrap();
+    let buf = terminal.backend().buffer().clone();
+    let row = |y: u16| (0..w).map(|x| buf[(x, y)].symbol()).collect::<String>();
+    let fit = super::repos::fit_width(&app.store, &app.statuses);
+    let files = pane_layout(Rect::new(0, 5, w, h - 6), Pane::Repos, fit)[1].1;
+    let y = (0..h)
+        .find(|&y| row(y).contains("Select a repository"))
+        .unwrap();
+    let mid = files.y + files.height / 2;
+    assert!(y.abs_diff(mid) <= 1, "vertically centered: {y} vs {mid}");
+    // Byte offsets in `row` are off by the multi-byte frame glyphs; find the
+    // cell instead.
+    let start = (0..w)
+        .find(|&x| buf[(x, y)].symbol() == "S" && buf[(x + 1, y)].symbol() == "e")
+        .unwrap();
+    let end = start + "Select a repository".len() as u16;
+    let (left, right) = (start - files.x, files.right() - end);
+    assert!(
+        left.abs_diff(right) <= 1,
+        "horizontally centered: {left} {right}"
+    );
+    // The fill reaches two rows above and below and eight cells to each side.
+    let bg = |x: u16, y: u16| buf[(x, y)].bg == app.theme.group_bg;
+    assert!(bg(start, y) && bg(end - 1, y));
+    assert!(bg(start - 8, y - 2) && bg(end + 7, y + 2));
+    assert!(!bg(start - 9, y) && !bg(end + 8, y));
+    assert!(!bg(start, y - 3) && !bg(start, y + 3));
+    assert!(
+        !bg(files.x + 2, files.y + 2),
+        "the rest of the pane keeps its color"
+    );
+    // A repository selected: no fill.
+    app.press(&[key(KeyCode::Down)]);
+    terminal.draw(|f| super::draw(f, &app)).unwrap();
+    let buf = terminal.backend().buffer().clone();
+    assert_ne!(buf[(start, y)].bg, app.theme.group_bg);
+}
