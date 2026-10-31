@@ -144,8 +144,8 @@ line count.
 - Title: the folder name, as in a commit's view. Row 0:
   `○ Uncommitted Changes`, showing the summary stat
   (`DiffSource::WorkTree`). Status letters as in a commit's view, `?` in the
-  untracked color, `U` in the error color. Unlike a commit's view, the
-  cursor starts on the first file.
+  untracked color, `U` in the error color. As in a commit's view, the
+  cursor starts on row 0.
 - A file shows its change against HEAD, staged and unstaged together
   (`DiffSource::WorkTreeFile`: `git diff -M HEAD -- [old] <path>`, an
   untracked file as added), unlike the changed-file rows' sections.

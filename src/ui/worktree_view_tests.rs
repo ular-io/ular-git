@@ -63,7 +63,12 @@ fn right_on_uncommitted_changes_lists_its_files_with_combined_diffs() {
         view_paths(&app),
         [('M', "a.txt".to_string()), ('?', "new.txt".to_string())]
     );
+    // The cursor starts on row 0, the summary the history row showed.
+    assert_eq!(view.sel, 0);
+    assert_eq!(diff_key(&app), "wt");
     // Staged and unstaged together, against HEAD.
+    app.press(&[key(KeyCode::Down)]);
+    app.wait_background(10);
     assert_eq!(diff_key(&app), "wf:a.txt");
     let text = diff_text(&app);
     assert!(
@@ -103,7 +108,7 @@ fn right_on_uncommitted_changes_lists_its_files_with_combined_diffs() {
 #[test]
 fn a_rescan_rereads_the_files_and_keeps_the_cursor_on_its_file() {
     let (a, mut app) = open_view();
-    app.press(&[key(KeyCode::Down)]);
+    app.press(&[key(KeyCode::Down), key(KeyCode::Down)]);
     app.wait_background(10);
     assert_eq!(diff_key(&app), "wf:new.txt");
     // A file sorted before the cursor's appears.
@@ -118,6 +123,7 @@ fn a_rescan_rereads_the_files_and_keeps_the_cursor_on_its_file() {
 #[test]
 fn the_uncommitted_files_are_the_working_trees_and_can_be_discarded() {
     let (a, mut app) = open_view();
+    app.press(&[key(KeyCode::Down)]);
     assert_eq!(app.selected_file().map(|f| f.path), Some("a.txt".into()));
     app.press(&[ch(':')]);
     app.type_text("discard");
