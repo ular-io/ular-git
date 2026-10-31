@@ -178,7 +178,7 @@ fn parse_numstat(text: &str) -> Vec<Entry> {
     entries
 }
 
-fn untracked(dir: &Path) -> anyhow::Result<Vec<String>> {
+pub(crate) fn untracked(dir: &Path) -> anyhow::Result<Vec<String>> {
     let out = run(dir, &["ls-files", "--others", "--exclude-standard", "-z"])?;
     if !out.status.success() {
         anyhow::bail!("{}", super::stderr_summary(&out));
@@ -191,7 +191,7 @@ fn untracked(dir: &Path) -> anyhow::Result<Vec<String>> {
 }
 
 /// Lines of a text file (the first MiB); `None` for binary or unreadable.
-fn count_lines(path: &Path) -> Option<usize> {
+pub(crate) fn count_lines(path: &Path) -> Option<usize> {
     let mut buf = Vec::new();
     std::fs::File::open(path)
         .ok()?

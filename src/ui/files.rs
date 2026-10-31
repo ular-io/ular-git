@@ -78,12 +78,13 @@ impl App {
         items
     }
 
-    /// The changed file under the file cursor (not a commit or `… more`).
-    /// Never a file of the commit view: those are past versions, and
-    /// discarding or opening one would act on the working tree's file.
+    /// The changed file under the file cursor (not a commit or `… more`),
+    /// or under the uncommitted changes' view. Never a file of a commit's
+    /// view: those are past versions, and discarding or opening one would
+    /// act on the working tree's file.
     pub(crate) fn selected_file(&self) -> Option<FileEntry> {
         if self.commit_view.is_some() {
-            return None;
+            return self.view_worktree_file();
         }
         match self.file_items().get(self.file_sel)? {
             FileItem::File(f) => Some((*f).clone()),
@@ -104,9 +105,11 @@ impl App {
     /// the same item when it is still listed, then reloads the diff.
     pub(crate) fn refresh_files(&mut self) {
         self.ensure_history();
-        // A commit's files do not change; another working tree closes them.
+        // A commit's files do not change (the uncommitted changes are read
+        // again); another working tree closes the view.
         if let Some(view) = &self.commit_view {
             if self.current_target().as_ref() == Some(&view.target) {
+                self.rescan_commit_files();
                 return;
             }
             self.commit_view = None;

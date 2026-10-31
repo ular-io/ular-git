@@ -1,7 +1,8 @@
 //! Files one commit changed (`→` on a history commit): against its first
 //! parent for a merge, against nothing for a root commit, renames detected.
+//! [`load_worktree`] lists the uncommitted changes the same way.
 
-use super::run_ok;
+use super::{run, run_ok};
 use std::path::Path;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,6 +35,41 @@ pub fn load(dir: &Path, hash: &str) -> anyhow::Result<Vec<CommitFile>> {
         ],
     )?;
     Ok(parse(&raw))
+}
+
+/// Every uncommitted change against HEAD, staged and unstaged together
+/// (against the index alone on an unborn branch), then every untracked file
+/// (`?`, its line count as added).
+pub fn load_worktree(dir: &Path) -> anyhow::Result<Vec<CommitFile>> {
+    let args = |base: &'static str| {
+        [
+            "diff",
+            "--no-ext-diff",
+            "-M",
+            "--raw",
+            "--numstat",
+            "-z",
+            base,
+        ]
+    };
+    let mut out = run(dir, &args("HEAD"))?;
+    if !out.status.success() {
+        out = run(dir, &args("--cached"))?;
+        if !out.status.success() {
+            anyhow::bail!("{}", super::stderr_summary(&out));
+        }
+    }
+    let mut files = parse(&out.stdout);
+    for path in super::stat::untracked(dir)? {
+        let counts = super::stat::count_lines(&dir.join(&path)).map(|n| (n, 0));
+        files.push(CommitFile {
+            status: '?',
+            path,
+            orig_path: None,
+            counts,
+        });
+    }
+    Ok(files)
 }
 
 /// `--raw --numstat -z` output: every raw record (`:modes oids STATUS`, then
@@ -109,6 +145,20 @@ mod tests {
         assert_eq!((files[1].status, files[1].path.as_str()), ('A', "b"));
         assert_eq!(files[1].counts, Some((2, 0)));
         assert_eq!(files[2].counts, None, "binary");
+    }
+
+    #[test]
+    fn the_worktree_lists_staged_unstaged_and_untracked_changes() {
+        let a = TestRepo::new();
+        a.write("staged.txt", "s\n");
+        a.git(&["add", "staged.txt"]);
+        a.write("new.txt", "x\ny\n");
+        let files = load_worktree(&a.root).unwrap();
+        let got: Vec<String> = files
+            .iter()
+            .map(|f| format!("{} {} {:?}", f.status, f.path, f.counts))
+            .collect();
+        assert_eq!(got, ["A staged.txt Some((1, 0))", "? new.txt Some((2, 0))"]);
     }
 
     #[test]

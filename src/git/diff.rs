@@ -17,6 +17,9 @@ pub enum DiffSource {
     CommitFile(Commit, CommitFile),
     /// Every uncommitted change, as a stat (see [`super::stat`]).
     WorkTree,
+    /// One file of the uncommitted changes, against HEAD (staged and
+    /// unstaged together); `?` an untracked file.
+    WorkTreeFile(CommitFile),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -119,6 +122,32 @@ pub fn load(dir: &Path, source: &DiffSource, max_lines: usize) -> anyhow::Result
                 args.push(orig);
             }
             args.push(f.path.as_str());
+            let (raw, cut) = run_limited(dir, &args, max_lines)?;
+            if raw.iter().all(|l| l.trim().is_empty()) {
+                doc.lines.push(meta("(no textual changes)"));
+            }
+            push_parsed(&mut doc, &raw, false);
+            doc.truncated = cut;
+            push_path_head(&mut doc, &f.path, f.orig_path.as_deref());
+        }
+        DiffSource::WorkTreeFile(f) => {
+            let mut args = vec!["diff"];
+            args.extend(BASE);
+            if f.status == '?' {
+                args.extend(["--no-index", "--", "/dev/null", f.path.as_str()]);
+            } else {
+                // The index alone on an unborn branch (no HEAD to diff to).
+                let base = if super::run_ok(dir, &["rev-parse", "--verify", "-q", "HEAD"]).is_ok() {
+                    "HEAD"
+                } else {
+                    "--cached"
+                };
+                args.extend(["-M", base, "--"]);
+                if let Some(orig) = f.orig_path.as_deref() {
+                    args.push(orig);
+                }
+                args.push(f.path.as_str());
+            }
             let (raw, cut) = run_limited(dir, &args, max_lines)?;
             if raw.iter().all(|l| l.trim().is_empty()) {
                 doc.lines.push(meta("(no textual changes)"));

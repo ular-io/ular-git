@@ -107,9 +107,31 @@ brought in against its first parent, a root commit its added files).
   the commit (or where it was if a history reload dropped it).
 - Rescans and history reloads leave the view and its diff alone; selecting
   another working tree closes it.
-- `App::selected_file` is `None` while the view is open, so Open With,
+- `App::selected_file` is `None` while a commit's view is open, so Open With,
   discarding a file, and palette commands never act on a commit's file
   (it is a past version; the working tree's file of that path may differ).
+
+### Uncommitted changes view
+
+`→` / `l` on the Uncommitted Changes row open the same view
+(`ViewOf::WorkTree`) over the working tree, read by
+`git::commit_files::load_worktree`: `git diff -M --raw --numstat -z HEAD`
+(`--cached` on an unborn branch), then every untracked file as `?` with its
+line count.
+
+- Title and row 0: `○ Uncommitted Changes`; row 0 shows the summary stat
+  (`DiffSource::WorkTree`). Status letters as in a commit's view, `?` in the
+  untracked color, `U` in the error color.
+- A file shows its change against HEAD, staged and unstaged together
+  (`DiffSource::WorkTreeFile`: `git diff -M HEAD -- [old] <path>`, an
+  untracked file as added), unlike the changed-file rows' sections.
+- Every rescan of the tree re-reads the list (`App::rescan_commit_files`
+  from `refresh_files`); the cursor stays on its file while it is listed.
+  The view closes once the tree is clean.
+- `App::selected_file` is the working tree's entry for the file under the
+  cursor, so `enter` (Open With), discarding, and palette commands act on it
+  as on a changed-file row. `enter` on row 0 moves to Diff.
+- `←` / `h` return to the Uncommitted Changes row.
 
 ## Diff pane
 

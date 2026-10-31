@@ -68,7 +68,7 @@ one, a linked worktree (resolved to its repository), or a parent folder
 | --- | --- |
 | `↑↓` `j k`, `pgup pgdn`, `home end` `g G` | Move in lists; scroll the diff |
 | `←→` `h l` | Move between panes (`enter` too, on a history commit) |
-| `→` (history commit) | List the commit's files; each shows its own diff, `←` goes back |
+| `→` (history commit or Uncommitted Changes) | List its files; each shows its own diff, `←` goes back |
 | `enter` (repository, worktree, or changed file) | Open With: pick an app from `config.toml` and open it there |
 | `/`, `0` | Filter repositories, clear the filter |
 | `.` (Repos pane) | Show only repositories with uncommitted changes, commits to pull or push, or a stash (toggle) |

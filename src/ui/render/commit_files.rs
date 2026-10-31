@@ -1,6 +1,7 @@
 //! File pane while a commit's files are open: the commit row, a `Files`
 //! divider, then one row per file (status letter, path, `+N -N`).
 
+use super::files::WORKTREE_TITLE;
 use super::{
     body_style, draw_divider, empty_line, pane_block, pane_tone, selection_style, Divider, Tone,
 };
@@ -22,11 +23,18 @@ use unicode_width::UnicodeWidthStr;
 pub(super) fn draw_commit_files(f: &mut Frame, app: &App, area: Rect, view: &CommitView) {
     let th = &app.theme;
     let tone = pane_tone(app, Pane::Files);
-    let c = &view.commit;
-    // The centered title stays clear of the focused pane's `━ ← ` and ` → ━`
-    // on both sides: two borders, two arrows of four cells, three spaces.
-    let room = (area.width as usize).saturating_sub(13 + c.short.width());
-    let title = format!(" {} {} ", c.short, truncate_w(&c.subject, room));
+    // The commit's node and subject, or the uncommitted changes' `○`.
+    let (node, subject, title) = match view.commit() {
+        Some(c) => {
+            // The centered title stays clear of the focused pane's `━ ← `
+            // and ` → ━` on both sides: two borders, two arrows of four
+            // cells, three spaces.
+            let room = (area.width as usize).saturating_sub(13 + c.short.width());
+            let title = format!(" {} {} ", c.short, truncate_w(&c.subject, room));
+            ("●", c.subject.as_str(), title)
+        }
+        None => ("○", WORKTREE_TITLE, format!(" {WORKTREE_TITLE} ")),
+    };
     let block = pane_block(app, title, tone, Pane::Files);
     let inner = block.inner(area);
     f.render_widget(block, area);
@@ -41,9 +49,9 @@ pub(super) fn draw_commit_files(f: &mut Frame, app: &App, area: Rect, view: &Com
     let dim = |s: Style| body_style(tone, s, th);
 
     let mut rows: Vec<Vec<Span>> = vec![vec![
-        Span::styled(" ● ", dim(Style::default().fg(th.branch))),
+        Span::styled(format!(" {node} "), dim(Style::default().fg(th.branch))),
         Span::styled(
-            truncate_w(&c.subject, w.saturating_sub(3)),
+            truncate_w(subject, w.saturating_sub(3)),
             dim(Style::default()),
         ),
     ]];
@@ -116,8 +124,9 @@ fn file_spans(file: &CommitFile, w: usize, tone: Tone, th: &Theme) -> Vec<Span<'
     let dim = |s: Style| body_style(tone, s, th);
     let code = match file.status {
         'A' => th.success,
-        'D' => th.error,
+        'D' | 'U' => th.error,
         'R' | 'C' => th.branch,
+        '?' => th.untracked,
         _ => th.warning,
     };
     let mut counts: Vec<Span> = match file.counts {
@@ -154,7 +163,7 @@ fn file_spans(file: &CommitFile, w: usize, tone: Tone, th: &Theme) -> Vec<Span<'
 }
 
 /// Diff pane title while the commit view is open: the file name, or the
-/// commit's hash and counts on the commit row.
+/// commit's hash (`Uncommitted Changes`) and counts on row 0.
 pub(super) fn diff_title(app: &App, view: &CommitView) -> String {
     if let Some(file) = view.selected() {
         let name = file.path.rsplit('/').next().unwrap_or(&file.path);
@@ -166,5 +175,8 @@ pub(super) fn diff_title(app: &App, view: &CommitView) -> String {
         .as_ref()
         .map(|d| format!(" +{} -{}", d.added, d.removed))
         .unwrap_or_default();
-    format!(" {}{stats} ", view.commit.hash)
+    match view.commit() {
+        Some(c) => format!(" {}{stats} ", c.hash),
+        None => format!(" {WORKTREE_TITLE}{stats} "),
+    }
 }

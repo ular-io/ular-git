@@ -139,7 +139,13 @@ impl App {
             ],
             Pane::Files if self.commit_view.is_some() => vec![
                 h("↑↓ / j k", "Select file (diff follows)"),
-                h("home / g", "The commit (whole diff)"),
+                h(
+                    "home / g",
+                    match self.commit_view.as_ref().and_then(|v| v.commit()) {
+                        Some(_) => "The commit (whole diff)",
+                        None => "Uncommitted Changes (summary)",
+                    },
+                ),
                 h("end / G", "Last file"),
                 h("pgup / pgdn", "Scroll the diff"),
                 h("← / h", "Back to changes and history"),
