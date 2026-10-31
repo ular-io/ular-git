@@ -9,6 +9,7 @@ pub mod config;
 pub mod git;
 pub mod launch;
 mod runtime;
+pub mod scratch;
 pub mod store;
 pub mod theme;
 pub mod ui;

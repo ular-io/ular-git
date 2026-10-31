@@ -5,6 +5,7 @@
 //! The only writes are `commit` (optionally after `add -A`) and
 //! `worktree remove` in [`ops`], and `push` / `pull --ff-only` in [`remote`].
 
+pub mod blob;
 pub mod commit_files;
 pub mod diff;
 pub mod discover;

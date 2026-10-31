@@ -54,6 +54,7 @@ pub fn run() -> Result<()> {
         return add_from_cli(&dir);
     }
     install_panic_hook();
+    crate::scratch::sweep_stale();
     let mut app = App::new(Config::load());
     let mut session = TerminalSession::enter()?;
     let run_result = run_loop(&mut session, &mut app);

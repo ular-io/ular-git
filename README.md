@@ -69,7 +69,7 @@ one, a linked worktree (resolved to its repository), or a parent folder
 | `↑↓` `j k`, `pgup pgdn`, `home end` `g G` | Move in lists; scroll the diff |
 | `←→` `h l` | Move between panes (`enter` too, on a history commit) |
 | `→` (history commit or Uncommitted Changes) | List its files; each shows its own diff, `←` goes back |
-| `enter` (repository, worktree, or changed file) | Open With: pick an app from `config.toml` and open it there |
+| `enter` (repository, worktree, or file) | Open With: pick an app from `config.toml` and open it there; on a file, `←→` pick a diff, the file before / after, or the working tree's |
 | `/`, `0` | Filter repositories, clear the filter |
 | `.` (Repos pane) | Show only repositories with uncommitted changes, commits to pull or push, or a stash (toggle) |
 | `+` | Add repository |
@@ -99,11 +99,13 @@ every option commented out):
 | `max_diff_lines` | `20000` | Diff lines read for one file |
 | `editor` | `$VISUAL`, `$EDITOR`, `vi` | Editor for Edit Config |
 | `[[apps]]` | Open Folder (`open .`) | Open With apps for a repository or worktree |
-| `[[file_apps]]` | vim (`vim {path}`) | Open With apps for a changed file |
+| `[[file_apps]]` | vim (`vim {path}`) | Open With apps for a file (before, after, or in the working tree) |
+| `[[diff_apps]]` | vimdiff (`vimdiff {old} {new}`) | Open With apps for a file's Diff tab |
 
 Each app has a `name`, a `command` run in the working tree (`{path}` becomes
-the quoted folder or file path), and `gui = true` for apps that open their own
-window. Terminal apps (the default) take over the terminal until they exit,
+the quoted folder or file path, `{old}` and `{new}` the two files of a diff),
+and `gui = true` for apps that open their own window. Versions read from git
+are opened as read-only temporary copies, removed when ular-git exits. Terminal apps (the default) take over the terminal until they exit,
 then ular-git comes back and rescans; GUI apps start without leaving ular-git.
 
 ```toml
@@ -119,6 +121,11 @@ gui = true
 [[file_apps]]
 name = "vim"
 command = "vim {path}"
+
+[[diff_apps]]
+name = "VS Code"
+command = "code --diff {old} {new}"
+gui = true
 ```
 
 Custom themes go in `~/.config/ular-git/themes/*.toml`; `:` → **Change Theme**

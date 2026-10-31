@@ -8,6 +8,7 @@ pub mod background;
 pub mod commit_files;
 pub mod components;
 pub mod diff_view;
+pub mod file_versions;
 mod files;
 pub mod history_view;
 pub mod input;
@@ -143,6 +144,8 @@ pub struct App {
     pub(crate) message: Option<overlays::message::MessageDialog>,
     pub(crate) open_with: Option<overlays::open_with::OpenWithDialog>,
     pub(crate) last_apps: overlays::open_with::LastApps,
+    /// Folder for Open With's temporary file versions ([`crate::scratch`]).
+    pub(crate) versions_dir: std::path::PathBuf,
     pub(crate) theme_select: Option<overlays::theme::ThemeSelectState>,
     pub(crate) help_scroll: Cell<usize>,
     pub(crate) help_max: Cell<usize>,
@@ -238,6 +241,7 @@ impl App {
             terminal_history: Vec::new(),
             open_with: None,
             last_apps: Default::default(),
+            versions_dir: crate::scratch::session_dir(),
             theme: crate::theme::current(),
             notice: None,
             should_quit: false,
@@ -376,6 +380,7 @@ impl App {
     /// Runs on exit: the cache lets the next launch show this state instantly.
     pub fn shutdown(&mut self) {
         self.save_status_cache();
+        crate::scratch::remove(&self.versions_dir);
     }
 }
 

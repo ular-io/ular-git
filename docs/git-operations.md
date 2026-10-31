@@ -102,14 +102,18 @@ brought in against its first parent, a root commit its added files).
   counts head like a changed file); the diff title is the file name. The
   commit row shows the whole commit as before (for a merge git's combined
   diff, not the first-parent one).
-- `→` / `l` / `enter` move to Diff; `←` there comes back to the commit view.
+- `→` / `l` move to Diff; `←` there comes back to the commit view. `enter`
+  on a file opens Open With with the commit's tabs (Diff, Parent, the
+  commit, Working Tree; see architecture.md §Runtime); on the commit row it
+  moves to Diff.
   `←` / `h` in the view return to the changes and history with the cursor on
   the commit (or where it was if a history reload dropped it).
 - Rescans and history reloads leave the view and its diff alone; selecting
   another working tree closes it.
-- `App::selected_file` is `None` while a commit's view is open, so Open With,
-  discarding a file, and palette commands never act on a commit's file
-  (it is a past version; the working tree's file of that path may differ).
+- `App::selected_file` is `None` while a commit's view is open, so
+  discarding a file and palette commands never act on a commit's file (it
+  is a past version; the working tree's file of that path may differ).
+  Open With reads the versions from git instead (`App::file_tabs`).
 
 ### Uncommitted changes view
 
@@ -129,8 +133,9 @@ line count.
   from `refresh_files`); the cursor stays on its file while it is listed.
   The view closes once the tree is clean.
 - `App::selected_file` is the working tree's entry for the file under the
-  cursor, so `enter` (Open With), discarding, and palette commands act on it
-  as on a changed-file row. `enter` on row 0 moves to Diff.
+  cursor, so discarding and palette commands act on it as on a changed-file
+  row; `enter` opens Open With with the uncommitted tabs (Diff, HEAD,
+  Working Tree). `enter` on row 0 moves to Diff.
 - `←` / `h` return to the Uncommitted Changes row.
 
 ## Diff pane

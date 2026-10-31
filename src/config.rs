@@ -25,13 +25,16 @@ pub struct Config {
     pub launchers: Vec<Launcher>,
     /// Apps listed by Open With on a changed file; never empty.
     pub file_launchers: Vec<Launcher>,
+    /// Apps listed by Open With's Diff tab (`{old}` / `{new}`); never empty.
+    pub diff_launchers: Vec<Launcher>,
 }
 
 /// An app Open With runs in the selected working tree.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Launcher {
     pub name: String,
-    /// Shell command run in the working tree; `{path}` becomes its quoted path.
+    /// Shell command run in the working tree; `{path}` becomes its quoted
+    /// path (a diff app's `{old}` and `{new}` the two files).
     pub command: String,
     /// Started detached, the screen kept (GUI apps). Otherwise the terminal is
     /// handed over until the command exits (terminal apps).
@@ -57,6 +60,15 @@ fn default_file_launchers() -> Vec<Launcher> {
     }]
 }
 
+/// Open With Diff entry used when config.toml lists no `[[diff_apps]]`.
+fn default_diff_launchers() -> Vec<Launcher> {
+    vec![Launcher {
+        name: "vimdiff".into(),
+        command: "vimdiff {old} {new}".into(),
+        gui: false,
+    }]
+}
+
 impl Default for Config {
     fn default() -> Self {
         Config {
@@ -66,6 +78,7 @@ impl Default for Config {
             editor: None,
             launchers: default_launchers(),
             file_launchers: default_file_launchers(),
+            diff_launchers: default_diff_launchers(),
         }
     }
 }
@@ -79,9 +92,10 @@ struct FileConfig {
     editor: Option<String>,
     apps: Option<Vec<FileLauncher>>,
     file_apps: Option<Vec<FileLauncher>>,
+    diff_apps: Option<Vec<FileLauncher>>,
 }
 
-/// One `[[apps]]` / `[[file_apps]]` table; `name` defaults to the command.
+/// One `[[apps]]` / `[[file_apps]]` / `[[diff_apps]]` table; `name` defaults to the command.
 #[derive(Debug, Deserialize)]
 struct FileLauncher {
     name: Option<String>,
@@ -120,6 +134,7 @@ impl Config {
         self.editor = fc.editor.filter(|e| !e.trim().is_empty());
         self.launchers = launchers(fc.apps).unwrap_or_else(default_launchers);
         self.file_launchers = launchers(fc.file_apps).unwrap_or_else(default_file_launchers);
+        self.diff_launchers = launchers(fc.diff_apps).unwrap_or_else(default_diff_launchers);
     }
 
     /// Editor command line: config `editor`, then `$VISUAL`, `$EDITOR`, `vi`.
@@ -210,11 +225,16 @@ const CONFIG_TEMPLATE: &str = "\
 # editor = \"code --wait\"
 
 # Apps offered by Open With: `enter` on a repository or worktree row lists
-# [[apps]], `enter` on a changed file lists [[file_apps]]. Commands run in the
-# working tree; {path} is replaced with the quoted folder or file path.
-# Terminal apps take over this terminal until they exit; `gui = true` apps are
-# started without leaving ular-git. Without entries, folders open with
-# Open Folder (`open .`) and files with vim (`vim {path}`).
+# [[apps]]. `enter` on a file (a changed file, or one in a commit's or the
+# uncommitted changes' file list) has tabs: Diff lists [[diff_apps]], the
+# other tabs (the file before, after, or in the working tree) list
+# [[file_apps]]. Commands run in the working tree; {path} is replaced with the
+# quoted folder or file path, {old} and {new} with the two files of a diff.
+# Versions from git are written to read-only temporary files, removed when
+# ular-git exits. Terminal apps take over this terminal until they exit;
+# `gui = true` apps are started without leaving ular-git. Without entries,
+# folders open with Open Folder (`open .`), files with vim (`vim {path}`), and
+# diffs with vimdiff (`vimdiff {old} {new}`).
 # [[apps]]
 # name = \"gitui\"
 # command = \"gitui\"
@@ -227,6 +247,11 @@ const CONFIG_TEMPLATE: &str = "\
 # [[file_apps]]
 # name = \"Zed\"
 # command = \"zed {path}\"
+# gui = true
+#
+# [[diff_apps]]
+# name = \"VS Code\"
+# command = \"code --diff {old} {new}\"
 # gui = true
 ";
 
@@ -332,6 +357,9 @@ mod tests {
             ]
         );
         assert_eq!(cfg.file_launchers, default_file_launchers());
+        assert_eq!(cfg.diff_launchers, default_diff_launchers());
+        cfg.apply(toml::from_str("[[diff_apps]]\ncommand = \"meld {old} {new}\"\n").unwrap());
+        assert_eq!(cfg.diff_launchers[0].name, "meld {old} {new}");
         let mut cfg = Config::default();
         cfg.apply(toml::from_str("apps = []").unwrap());
         assert_eq!(cfg.launchers, default_launchers());

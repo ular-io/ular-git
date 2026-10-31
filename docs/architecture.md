@@ -29,6 +29,7 @@
 | `cache.rs` | Status cache file |
 | `config.rs` | `config.toml` (including the Open With app lists), app paths, atomic writes |
 | `launch.rs` | Detached start of Open With GUI apps |
+| `scratch.rs` | Open With's temporary file versions (per-run folder, cleanup) |
 | `theme/` | Theme roles, 40 built-in palettes, custom themes, selection |
 | `ui/mod.rs` | `App`, `UiMode` (who gets keys), `Pane` (focus), row rebuild and cursor placement |
 | `ui/background.rs` | Scan pool, one-off threads, `Patch` channel |
@@ -74,16 +75,33 @@ run_loop: poll_background (apply every Patch) ─► tick (timers) ─► draw o
 - `!` and Edit Config hand the terminal to `$SHELL -c <command>`; on return the
   config is reloaded and every repository rescanned.
 - Open With (`ui/overlays/open_with.rs`): `enter` on a repository / worktree
-  row lists `Config::launchers` (`[[apps]]`, default Open Folder `open .`);
-  `enter` on a changed file lists `Config::file_launchers` (`[[file_apps]]`,
-  default `vim {path}`). `{path}` becomes the shell-quoted folder or file
-  path; the command runs in the working tree. A terminal app goes through the
+  row lists `Config::launchers` (`[[apps]]`, default Open Folder `open .`).
+  `enter` on a file — a changed file, or a file of a commit's or the
+  uncommitted changes' view (`App::file_tabs`) — shows tabs above the list
+  (`ui/file_versions.rs`, pure: versions follow the row's status letters).
+  A commit's file: `Diff` (first parent against the commit), `Parent`, the
+  short hash, `Working Tree`; an uncommitted or changed file: `Diff` (HEAD
+  against the working tree), `HEAD`, `Working Tree`. A tab is left out when
+  that side has no file (added: no parent / HEAD; deleted: no commit /
+  working-tree file); a missing diff side is an empty file. `←` / `→` (stop
+  at the ends) and `tab` switch tabs. `Diff` lists `Config::diff_launchers`
+  (`[[diff_apps]]`, default `vimdiff {old} {new}`), the others
+  `Config::file_launchers` (`[[file_apps]]`, default `vim {path}`). The
+  first tab is the one used last when the file has it, else `Working Tree`,
+  else `Diff`. A version from git is read by `git::blob::read`
+  (`git cat-file blob <rev>:<path>`) and written read-only by
+  `scratch::write_version` to `<tmp>/ular-git-<pid>/<label>/<path>` on a
+  one-off thread before the app starts (`empty/<path>` for a missing side);
+  `App::shutdown` removes the folder, and `runtime::run` removes other runs'
+  folders older than a day. `{path}` becomes the shell-quoted folder or file
+  path (`{old}` / `{new}` the two diff files); the command runs in the
+  working tree. A terminal app goes through the
   same handover (`TerminalRequest.name` names it in the return notice, no pause
   unless it fails). A `gui = true` app runs on a one-off thread through
   `launch::spawn_detached` (stdin / stdout null, own process group); a
   non-zero exit within 3 s reports its last stderr line, a command still
-  running after that is left running. The app used last per kind is kept in
-  `open_with.json` and preselected. A deleted file is not opened.
+  running after that is left running. The app used last per list and the
+  last tab are kept in `open_with.json` and preselected.
 
 ## Persistence ownership
 
@@ -94,7 +112,8 @@ run_loop: poll_background (apply every Patch) ─► tick (timers) ─► draw o
 | `~/.config/ular-git/theme.json` | app | Theme dialog |
 | `~/.config/ular-git/themes/*.toml` | user | — |
 | `~/.config/ular-git/{quick,terminal}_history.json` | app | Palette / `!` |
-| `~/.config/ular-git/open_with.json` | app | Open With (last app per folder / file) |
+| `~/.config/ular-git/open_with.json` | app | Open With (last app per folder / file / diff list, last tab) |
+| `<tmp>/ular-git-<pid>/` | app | Open With's read-only file versions; removed on exit (other runs' after a day) |
 | `~/.config/ular-git/view.json` | app | History ref labels (`>`), side-by-side diff (`s`) |
 | `<OS cache>/ular-git/status.json` | app | `save_status_cache` when the scan queue drains and on exit (versioned; another version is discarded) |
 

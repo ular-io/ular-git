@@ -81,6 +81,19 @@ fn right_on_uncommitted_changes_lists_its_files_with_combined_diffs() {
     let rows = screen(&app, 160, 20);
     assert!(shows(&rows, " ○ Uncommitted Changes"), "{rows:#?}");
     assert!(shows(&rows, " ? new.txt"), "{rows:#?}");
+    // `enter` on a file: Open With with HEAD and the working tree's file.
+    app.press(&[key(KeyCode::End), key(KeyCode::Up), key(KeyCode::Enter)]);
+    assert_eq!(app.mode, UiMode::OpenWith);
+    let tabs: Vec<&str> = app
+        .open_with
+        .as_ref()
+        .unwrap()
+        .tabs
+        .iter()
+        .map(|t| t.label.as_str())
+        .collect();
+    assert_eq!(tabs, ["Diff", "HEAD", "Working Tree"]);
+    app.press(&[key(KeyCode::Esc), key(KeyCode::Home)]);
     // `←` returns to the row it was opened from.
     app.press(&[key(KeyCode::Left)]);
     assert!(app.commit_view.is_none());

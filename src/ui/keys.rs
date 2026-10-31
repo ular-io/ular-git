@@ -72,7 +72,7 @@ impl App {
             }
             Pane::Files => [
                 {
-                    let enter = if self.selected_file().is_some() {
+                    let enter = if self.file_openable() {
                         "Open With…"
                     } else {
                         "Open Diff"
@@ -150,6 +150,7 @@ impl App {
                 h("pgup / pgdn", "Scroll the diff"),
                 h("← / h", "Back to changes and history"),
                 h("→ / l", "Diff pane"),
+                h("enter", "Open With (on a file) / Diff pane"),
             ],
             Pane::Files => vec![
                 h("↑↓ / j k", "Select file (diff follows)"),
