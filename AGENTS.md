@@ -19,7 +19,7 @@ planning; backlog entries are not implementation authorization.
 | If you change… | Read first |
 | --- | --- |
 | Repository list, groups, filter, Add / Remove Repository, worktree rows, scanning, status cache (`src/ui/tree.rs`, `src/ui/scan.rs`, `src/store.rs`, `src/cache.rs`, `src/git/{status,worktree,discover}.rs`) | [repositories.md](./docs/repositories.md) |
-| Files pane, diff pane, commit, push / pull, worktree removal (`src/ui/files.rs`, `src/ui/diff_view.rs`, `src/ui/sync.rs`, `src/git/{diff,ops,remote}.rs`, `src/ui/overlays/{commit,confirm}.rs`) | [git-operations.md](./docs/git-operations.md) |
+| Files pane, diff pane, commit, push / pull, worktree removal (`src/ui/files.rs`, `src/ui/commit_files.rs`, `src/ui/diff_view.rs`, `src/ui/sync.rs`, `src/git/{diff,ops,remote}.rs`, `src/ui/overlays/{commit,confirm}.rs`) | [git-operations.md](./docs/git-operations.md) |
 | TUI layout, pane widths, focus, badges, header / footer, dialogs, keys, help, palette (`src/ui/render/`, `src/ui/keys.rs`, `src/ui/input.rs`, `src/ui/overlays/`, `src/ui/quick/`) | [ui-style-guide.md](./docs/ui-style-guide.md) |
 | Terminal lifecycle, paste, text input (`src/runtime.rs`, `src/runtime/terminal.rs`, `src/ui/components/input.rs`) | [architecture.md](./docs/architecture.md) §Runtime + [testing.md](./docs/testing.md) |
 | Open With apps (`src/ui/overlays/open_with.rs`, `src/launch.rs`, `[[apps]]` / `[[file_apps]]` in `src/config.rs`) | [architecture.md](./docs/architecture.md) §Runtime |

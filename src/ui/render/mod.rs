@@ -1,6 +1,7 @@
 //! Frame rendering. Order is fixed: theme base → header / filter line / panes
 //! / footer → backdrop fade → the active overlay.
 
+mod commit_files;
 mod diff;
 mod files;
 mod header;
@@ -61,7 +62,10 @@ pub fn draw(f: &mut Frame, app: &App) {
     for (pane, rect) in pane_layout(root[2], app.focus, repos_fit) {
         match pane {
             Pane::Repos => repos::draw_repos(f, app, rect),
-            Pane::Files => files::draw_files(f, app, rect),
+            Pane::Files => match &app.commit_view {
+                Some(view) => commit_files::draw_commit_files(f, app, rect, view),
+                None => files::draw_files(f, app, rect),
+            },
             Pane::Diff => diff::draw_diff(f, app, rect),
         }
     }

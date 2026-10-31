@@ -1,6 +1,8 @@
-//! Diff text for one changed file or one unpushed commit, classified per line
-//! with old/new line numbers so the diff pane can color and number it.
+//! Diff text for one changed file, one commit, or one file of a commit,
+//! classified per line with old/new line numbers so the diff pane can color
+//! and number it.
 
+use super::commit_files::CommitFile;
 use super::{git_command, Commit, EntryKind, FileEntry};
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
@@ -11,6 +13,8 @@ use std::process::Stdio;
 pub enum DiffSource {
     File(FileEntry),
     Commit(Commit),
+    /// One file of a commit, against the commit's first parent.
+    CommitFile(Commit, CommitFile),
     /// Every uncommitted change, as a stat (see [`super::stat`]).
     WorkTree,
 }
@@ -105,6 +109,24 @@ pub fn load(dir: &Path, source: &DiffSource, max_lines: usize) -> anyhow::Result
             push_parsed(&mut doc, &raw, true);
             doc.truncated = cut;
         }
+        DiffSource::CommitFile(c, f) => {
+            let mut args = vec!["show"];
+            args.extend(BASE);
+            args.extend(["--format=", "-M", "--diff-merges=first-parent"]);
+            args.extend([c.hash.as_str(), "--"]);
+            // Both paths of a rename, or git sees only an added file.
+            if let Some(orig) = f.orig_path.as_deref() {
+                args.push(orig);
+            }
+            args.push(f.path.as_str());
+            let (raw, cut) = run_limited(dir, &args, max_lines)?;
+            if raw.iter().all(|l| l.trim().is_empty()) {
+                doc.lines.push(meta("(no textual changes)"));
+            }
+            push_parsed(&mut doc, &raw, false);
+            doc.truncated = cut;
+            push_path_head(&mut doc, &f.path, f.orig_path.as_deref());
+        }
         DiffSource::File(f) => {
             let mut sections: Vec<(&str, Vec<&str>)> = Vec::new();
             let path = f.path.as_str();
@@ -154,21 +176,27 @@ pub fn load(dir: &Path, source: &DiffSource, max_lines: usize) -> anyhow::Result
                 push_parsed(&mut doc, &raw, false);
                 doc.truncated |= cut;
             }
-            let path = match f.orig_path.as_deref() {
-                Some(orig) => format!("{orig} → {}", f.path),
-                None => f.path.clone(),
-            };
-            let mut head = vec![line_of(LineKind::Path, &path)];
-            let counts = counts_label(doc.added, doc.removed);
-            if !counts.is_empty() {
-                head.push(line_of(LineKind::Counts, &counts));
-            }
-            doc.lines.splice(0..0, head);
+            push_path_head(&mut doc, &f.path, f.orig_path.as_deref());
         }
     }
     super::inline::mark(&mut doc.lines);
     space_dividers(&mut doc.lines);
     Ok(doc)
+}
+
+/// A single-file diff starts with the file's path (`old → new` for a
+/// rename) and its line counts.
+fn push_path_head(doc: &mut DiffDoc, path: &str, orig: Option<&str>) {
+    let path = match orig {
+        Some(orig) => format!("{orig} → {path}"),
+        None => path.to_string(),
+    };
+    let mut head = vec![line_of(LineKind::Path, &path)];
+    let counts = counts_label(doc.added, doc.removed);
+    if !counts.is_empty() {
+        head.push(line_of(LineKind::Counts, &counts));
+    }
+    doc.lines.splice(0..0, head);
 }
 
 /// One blank line above and below every rule and title (section, file, the

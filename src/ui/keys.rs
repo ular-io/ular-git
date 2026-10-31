@@ -71,19 +71,19 @@ impl App {
                 [first, second]
             }
             Pane::Files => [
-                vec![
-                    h(
-                        "enter",
-                        if self.selected_file().is_some() {
-                            "Open With…"
-                        } else {
-                            "Open Diff"
-                        },
-                    ),
-                    h("c", "Commit"),
-                    h(".", "Wrap Lines"),
-                    h(">", self.next_labels_hint()),
-                ],
+                {
+                    let enter = if self.selected_file().is_some() {
+                        "Open With…"
+                    } else {
+                        "Open Diff"
+                    };
+                    let mut col = vec![h("enter", enter), h("c", "Commit"), h(".", "Wrap Lines")];
+                    // History labels mean nothing among a commit's files.
+                    if self.commit_view.is_none() {
+                        col.push(h(">", self.next_labels_hint()));
+                    }
+                    col
+                },
                 vec![
                     h("P", "Push"),
                     h("p", "Pull"),
@@ -137,13 +137,21 @@ impl App {
                 h("→ / l", "Unfold group / Files pane"),
                 h("delete", "Same as ctrl+d"),
             ],
+            Pane::Files if self.commit_view.is_some() => vec![
+                h("↑↓ / j k", "Select file (diff follows)"),
+                h("home / g", "The commit (whole diff)"),
+                h("end / G", "Last file"),
+                h("pgup / pgdn", "Scroll the diff"),
+                h("← / h", "Back to changes and history"),
+                h("→ / l", "Diff pane"),
+            ],
             Pane::Files => vec![
                 h("↑↓ / j k", "Select file (diff follows)"),
                 h("home / g", "First file"),
                 h("end / G", "Last file"),
                 h("pgup / pgdn", "Scroll the diff"),
                 h("← / h", "Repos pane"),
-                h("→ / l", "Diff pane"),
+                h("→ / l", "The commit's files (on a commit) / Diff pane"),
             ],
             Pane::Diff => vec![
                 h("↑↓ / j k", "Scroll a line"),

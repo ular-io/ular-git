@@ -5,6 +5,7 @@
 //! `Pane` says which pane has focus while the screen itself does.
 
 pub mod background;
+pub mod commit_files;
 pub mod components;
 pub mod diff_view;
 mod files;
@@ -121,6 +122,10 @@ pub struct App {
     pub diff: DiffView,
     /// Commit graph of the selected working tree (file pane, below the files).
     pub history: history_view::HistoryView,
+    /// The files of one history commit, shown in the file pane instead of
+    /// the changes and history while open.
+    pub(crate) commit_view: Option<commit_files::CommitView>,
+    pub(crate) commit_list: RefCell<ratatui::widgets::ListState>,
 
     /// Repository filter text (`/`); applies while non-empty.
     pub filter: TextInput,
@@ -214,6 +219,8 @@ impl App {
             file_page: Cell::new(1),
             diff: DiffView::default(),
             history: history_view::HistoryView::default(),
+            commit_view: None,
+            commit_list: RefCell::new(Default::default()),
             filter: TextInput::new(String::new()),
             pending_only: false,
             filter_before: String::new(),
@@ -372,6 +379,8 @@ impl App {
     }
 }
 
+#[cfg(test)]
+mod commit_files_tests;
 #[cfg(test)]
 mod history_tests;
 #[cfg(test)]

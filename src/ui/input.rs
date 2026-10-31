@@ -159,12 +159,17 @@ impl App {
     }
 
     fn on_key_files(&mut self, key: &KeyEvent) -> bool {
+        if self.commit_view.is_some() {
+            return self.on_key_commit_files(key);
+        }
         match key.code {
             KeyCode::PageUp => self.diff.page_by(-1),
             KeyCode::PageDown => self.diff.page_by(1),
             KeyCode::Left | KeyCode::Char('h') => self.move_focus(-1),
             // A changed file opens in an app; a commit row shows its diff.
             KeyCode::Enter if self.open_with_file() => {}
+            // A commit lists its files; `enter` still opens its whole diff.
+            KeyCode::Right | KeyCode::Char('l') if self.open_commit_files() => {}
             KeyCode::Enter | KeyCode::Right | KeyCode::Char('l') => self.move_focus(1),
             KeyCode::Char('.') => self.toggle_wrap(),
             _ => {

@@ -3,7 +3,8 @@
 > Status: Current
 > Read when: Changing the file pane, the diff pane, commit, push / pull, or
 > worktree removal.
-> Entry points: `src/ui/files.rs`, `src/ui/diff_view.rs`, `src/ui/sync.rs`,
+> Entry points: `src/ui/files.rs`, `src/ui/commit_files.rs`,
+> `src/ui/diff_view.rs`, `src/ui/sync.rs`,
 > `src/git/{diff,ops,remote}.rs`, `src/ui/overlays/{commit,confirm}.rs`,
 > `src/ui/render/{files,diff}.rs`
 
@@ -74,6 +75,38 @@
   newest commit of a clean tree.
 - Empty states: `Select a repository` (group row), `Scanning…`, the scan
   error, `Loading history…` (below the working-tree row).
+- `enter` on a commit moves to the diff with the whole commit; `→` / `l`
+  open the commit view instead.
+
+### Commit view
+
+`→` / `l` on a history commit replace the pane's rows with that commit's
+files (`CommitView` in `src/ui/commit_files.rs`, drawn by
+`src/ui/render/commit_files.rs`), read in the background by
+`git::commit_files::load` (`git diff-tree -r -M --root
+--diff-merges=first-parent --raw --numstat -z`: a merge lists what it
+brought in against its first parent, a root commit its added files).
+
+- Title: the short hash and the subject. Rows: the commit (`● subject`), a
+  `Files` divider joined to the pane border, then one row per file: git's
+  status letter (`A` success, `D` error, `R` / `C` branch, others warning
+  color), the path (`old → new` for a rename, folder soft-dim, tail kept when
+  cut), and `+N -N` right-aligned in the diff colors (`Bin` for binary).
+  `Loading files…`, the error, or `No files changed` sit below the divider.
+- The cursor starts on the first file. The diff shows that file alone
+  (`DiffSource::CommitFile`: `git show --format= -M
+  --diff-merges=first-parent <hash> -- [old] <path>`, then the path and
+  counts head like a changed file); the diff title is the file name. The
+  commit row shows the whole commit as before (for a merge git's combined
+  diff, not the first-parent one).
+- `→` / `l` / `enter` move to Diff; `←` there comes back to the commit view.
+  `←` / `h` in the view return to the changes and history with the cursor on
+  the commit (or where it was if a history reload dropped it).
+- Rescans and history reloads leave the view and its diff alone; selecting
+  another working tree closes it.
+- `App::selected_file` is `None` while the view is open, so Open With,
+  discarding a file, and palette commands never act on a commit's file
+  (it is a past version; the working tree's file of that path may differ).
 
 ## Diff pane
 

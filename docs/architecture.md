@@ -19,6 +19,7 @@
 | `git/status.rs` | `status --porcelain=v2 --branch -z` parsing, unpushed log, stash count |
 | `git/worktree.rs` | `worktree list --porcelain -z` parsing |
 | `git/history.rs` | History: `git log --topo-order` commits with parents |
+| `git/commit_files.rs` | Files one commit changed (`git diff-tree`), with status and counts |
 | `git/graph.rs` | Graph layout: lanes, joints, and lane colors per commit row (pure) |
 | `git/diff.rs` | Diff loading (file sections, untracked, conflict, `git show`), line classification and numbering, line limit |
 | `git/ops.rs` | Commit, worktree remove / prune |
@@ -34,6 +35,7 @@
 | `ui/scan.rs` | Scan scheduling, focus rescan, auto rescan, cache load / save |
 | `ui/tree.rs` | Repository pane rows (pure) |
 | `ui/files.rs`, `ui/diff_view.rs`, `ui/history_view.rs` | File-pane items (files, history commits, `… more`) and selection; latest-wins diff and history loaders |
+| `ui/commit_files.rs` | Commit view of the file pane: one commit's files, its cursor and keys |
 | `ui/sync.rs` | Push / pull from the UI |
 | `ui/input.rs`, `ui/keys.rs` | Key routing; header / help hints |
 | `ui/render/` | Frame, pane layout, header, panes |

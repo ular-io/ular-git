@@ -219,6 +219,7 @@ impl App {
     /// The selected working tree changed: reset the file and diff panes and
     /// schedule the focus rescan.
     pub(crate) fn on_target_changed(&mut self) {
+        self.commit_view = None;
         self.file_sel = 0;
         self.file_key = None;
         *self.file_list.borrow_mut().offset_mut() = 0;

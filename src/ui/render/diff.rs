@@ -243,6 +243,9 @@ fn gutter(line: &DiffLine, first: bool) -> String {
 }
 
 fn title(app: &App) -> String {
+    if let Some(view) = &app.commit_view {
+        return super::commit_files::diff_title(app, view);
+    }
     let items = app.file_items();
     let Some(item) = items.get(app.file_sel) else {
         return " Diff ".into();

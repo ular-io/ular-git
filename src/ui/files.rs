@@ -79,7 +79,12 @@ impl App {
     }
 
     /// The changed file under the file cursor (not a commit or `… more`).
+    /// Never a file of the commit view: those are past versions, and
+    /// discarding or opening one would act on the working tree's file.
     pub(crate) fn selected_file(&self) -> Option<FileEntry> {
+        if self.commit_view.is_some() {
+            return None;
+        }
         match self.file_items().get(self.file_sel)? {
             FileItem::File(f) => Some((*f).clone()),
             _ => None,
@@ -99,6 +104,13 @@ impl App {
     /// the same item when it is still listed, then reloads the diff.
     pub(crate) fn refresh_files(&mut self) {
         self.ensure_history();
+        // A commit's files do not change; another working tree closes them.
+        if let Some(view) = &self.commit_view {
+            if self.current_target().as_ref() == Some(&view.target) {
+                return;
+            }
+            self.commit_view = None;
+        }
         let items = self.file_items();
         let pos = self
             .file_key
@@ -124,6 +136,13 @@ impl App {
             .and_then(|key| items.iter().position(|i| &i.key() == key));
         let len = items.len();
         drop(items);
+        // The commit view keeps its diff; `←` finds the commit again.
+        if self.commit_view.is_some() {
+            if let Some(i) = pos {
+                self.file_sel = i;
+            }
+            return;
+        }
         // After `… more` loaded, the cursor stays put: on the first new commit.
         if more_loaded {
             self.select_file(self.file_sel);
