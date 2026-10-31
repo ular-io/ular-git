@@ -18,15 +18,16 @@
   3. the working-tree row (`FileItem::WorkTree`): a `○` node on the lane
      leading to HEAD (`History::worktree`, laid out as a hash-less commit
      whose parent is HEAD; `history::load(.., worktree)` adds it only for a
-     tree with changes, and the history reloads when that flips) and
-     `N changes · M modified · U untracked · C conflicted` (zero parts left
-     out), plus `· N behind` with commits to pull. A clean tree has neither
+     tree with changes, and the history reloads when that flips),
+     `Uncommitted Changes` (`WORKTREE_TITLE`), and right-aligned badges as in
+     the repository pane: `!N` conflicts, `Ⓜ N` other changes (untracked
+     included), `↓N` commits to pull (zero badges left out). A clean tree has neither
      row and starts with the history. Selecting it shows
      `DiffSource::WorkTree` (`src/git/stat.rs`): every uncommitted change
      against HEAD, staged and unstaged together (`git diff HEAD --numstat
      -z -M`; the index alone on an unborn branch), and every untracked file
      with its line count, as a stat block under a rule carrying git's
-     summary; the pane title reads `Working Tree +N -N`;
+     summary; the pane title reads `Uncommitted Changes +N -N`;
   4. the commit history from HEAD with its branch graph, faded, one row per
      commit (no connector rows). Lanes stay in place and keep their color;
      joints sit on the commit row: `─╮` a merge opens a lane, `─┤` a merge

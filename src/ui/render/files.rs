@@ -2,6 +2,7 @@
 //! with its branch graph (one row per commit), faded, under a `History`
 //! divider.
 
+use super::repos::CHANGED;
 use super::{
     body_style, draw_divider, empty_box, empty_line, pane_block, pane_tone, selection_style,
     Divider, Tone,
@@ -179,10 +180,14 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                             let cells = if cells.is_empty() { &node[..] } else { cells };
                             let mut spans = graph_spans(cells, graph_w, Mark::Shared, tone, th);
                             let used: usize = spans.iter().map(|s| s.content.width()).sum();
-                            spans.push(Span::styled(
-                                truncate_w(&worktree_summary(status), w.saturating_sub(used)),
-                                dim(Style::default()),
-                            ));
+                            let badges = worktree_badges(status, tone, th);
+                            let badges_w: usize = badges.iter().map(|s| s.content.width()).sum();
+                            let title =
+                                truncate_w(WORKTREE_TITLE, w.saturating_sub(used + badges_w + 1));
+                            let gap = w.saturating_sub(used + title.width() + badges_w);
+                            spans.push(Span::styled(title, dim(Style::default())));
+                            spans.push(Span::raw(" ".repeat(gap)));
+                            spans.extend(badges);
                             spans
                         }
                         FileItem::More => vec![Span::styled(" … more", th.soft_dim())],
@@ -249,25 +254,36 @@ fn graph_of<'a>(v: &Visual<'a>) -> &'a [Cell] {
     }
 }
 
-/// `3 changes · 2 modified · 1 untracked`, then `· N behind` with commits
-/// to pull (the row exists only while the tree has changes).
-fn worktree_summary(status: &crate::git::RepoStatus) -> String {
-    let n = status.counts().changed;
-    let mut parts = vec![format!("{n} change{}", if n == 1 { "" } else { "s" })];
-    let kind = |k: EntryKind| status.files.iter().filter(|f| f.kind == k).count();
-    for (count, what) in [
-        (kind(EntryKind::Tracked), "modified"),
-        (kind(EntryKind::Untracked), "untracked"),
-        (kind(EntryKind::Conflict), "conflicted"),
-    ] {
-        if count > 0 {
-            parts.push(format!("{count} {what}"));
+/// The working-tree row's label; the diff pane title uses the same words.
+pub(crate) const WORKTREE_TITLE: &str = "Uncommitted Changes";
+
+/// Right-aligned badges of the working-tree row, as in the repository pane:
+/// `!1` conflicts, `Ⓜ 3` other changes (untracked included), `↓2` commits to
+/// pull (the row exists only while the tree has changes).
+fn worktree_badges(status: &crate::git::RepoStatus, tone: Tone, th: &Theme) -> Vec<Span<'static>> {
+    let dim = |s: Style| body_style(tone, s, th);
+    let c = status.counts();
+    let mut out: Vec<Span<'static>> = Vec::new();
+    let mut push = |text: String, style: Style| {
+        if !out.is_empty() {
+            out.push(Span::raw(" "));
         }
+        out.push(Span::styled(text, dim(style)));
+    };
+    if c.conflicts > 0 {
+        push(format!("!{}", c.conflicts), Style::default().fg(th.error));
+    }
+    let other = c.changed - c.conflicts;
+    if other > 0 {
+        push(format!("{CHANGED}{other}"), Style::default().fg(th.warning));
     }
     if status.branch.behind > 0 {
-        parts.push(format!("{} behind", status.branch.behind));
+        push(
+            format!("↓{}", status.branch.behind),
+            Style::default().fg(th.branch),
+        );
     }
-    parts.join(" · ")
+    out
 }
 
 fn refs_of<'a>(v: &Visual<'a>) -> &'a [RefLabel] {

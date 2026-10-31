@@ -1,5 +1,6 @@
 //! Diff pane: colored, line-numbered diff of the selected file or commit.
 
+use super::files::WORKTREE_TITLE;
 use super::{draw_divider, empty_line, pane_block, pane_tone, split, Divider, Tone};
 use crate::git::diff::{DiffLine, LineKind};
 use crate::theme::{color_rgb, Theme};
@@ -267,9 +268,9 @@ fn title(app: &App) -> String {
         }
         FileItem::WorkTree => match app.diff.doc.as_ref() {
             Some(d) if d.added + d.removed > 0 => {
-                format!(" Working Tree +{} -{} ", d.added, d.removed)
+                format!(" {WORKTREE_TITLE} +{} -{} ", d.added, d.removed)
             }
-            _ => " Working Tree ".into(),
+            _ => format!(" {WORKTREE_TITLE} "),
         },
         FileItem::More => " Diff ".into(),
     }

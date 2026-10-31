@@ -274,16 +274,20 @@ fn a_dirty_tree_keeps_the_divider_and_summarizes_its_changes() {
         .position(|r| r.contains(" History "))
         .expect("divider kept");
     assert!(
-        rows[divider + 1].contains("○ 2 changes · 1 modified · 1 untracked"),
+        rows[divider + 1].contains("○ Uncommitted Changes"),
         "{rows:#?}"
+    );
+    assert!(
+        rows[divider + 1].contains(" Ⓜ 2 ┃"),
+        "the changed badge at the right edge: {rows:#?}"
     );
     // The first file is selected first; the working-tree row shows a stat.
     assert_eq!(app.file_key.as_deref(), Some("f:a.txt"));
-    app.press(&[ch('2'), key(KeyCode::Down), key(KeyCode::Down)]);
+    app.press(&[key(KeyCode::Down), key(KeyCode::Down)]);
     assert_eq!(app.file_key.as_deref(), Some("wt"));
     app.wait_background(10);
     let rows = screen(&app, 160, 20);
-    assert!(shows(&rows, " Working Tree +"), "{rows:#?}");
+    assert!(shows(&rows, " Uncommitted Changes +"), "{rows:#?}");
     assert!(
         shows(&rows, "2 files changed, "),
         "summary on the rule: {rows:#?}"
