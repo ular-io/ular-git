@@ -67,16 +67,15 @@ ular-git applies them.
   bar, title, and border).
 - Selected row: the bar runs from the left padding cell to the cell before the
   right border (where the scrollbar sits). Focused → `selection_bg` +
-  `selection_fg` + bold; dimmed pane → `selection_inactive_bg` with the plain
-  text color (`fg`) at normal weight, no reverse; neutral → `selection_inactive_bg` +
+  `selection_fg` + bold; dimmed pane → soft-dim reversed over
+  `selection_inactive_bg`; neutral → `selection_inactive_bg` +
   `selection_fg` + bold. Text keeps one cell of margin on the right.
-  (Deliberately not the rust-tui weak reverse — muted text reversed over the
-  inactive color — which put pale text on a mid-tone bar on light themes.)
 
 ## Repository rows
 
 - Group headers are muted (`muted` text, no bold) on `group_bg`, so they label
-  the rows below without outweighing them.
+  the rows below without outweighing them. The `group_bg` band stays when the
+  repository pane loses focus; a folded group's `Ⓜ N` turns muted.
 - Badge colors: conflicts `error` bold, changed `warning`, ahead / behind
   `branch`, stashes soft-dim, failed scan `error`, running push / pull
   `accent` bold. A clean tree has no badge.

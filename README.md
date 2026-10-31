@@ -23,7 +23,7 @@ changed, and what the diff is.
 - **Worktrees** nest under the repository they belong to, with their branch.
 - **Groups**: file repositories under groups, fold them, filter by name.
 - **Arrow-key flow**: Repos → Files → Diff; the diff follows the file cursor.
-- **History with the branch graph** below the changed files (faded; unpushed
+- **History with the branch graph** below the changed files (unpushed
   commits marked `↑`); any commit opens as `git show`.
 - **Fast with many repositories**: the last status is cached so launch is
   instant, and scans run in parallel in the background without blocking keys.

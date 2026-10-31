@@ -32,8 +32,9 @@
      `git diff --no-index /dev/null <file>` per untracked file, until
      `max_diff_lines`; the counts stay the stat's when the diffs are cut);
      the pane title reads `Uncommitted Changes +N -N`;
-  4. the commit history from HEAD with its branch graph, faded, one row per
-     commit (no connector rows). Lanes stay in place and keep their color;
+  4. the commit history from HEAD with its branch graph, one row per
+     commit (no connector rows). Subjects use the file rows' text style; the
+     graph lanes are faded. Lanes stay in place and keep their color;
      joints sit on the commit row: `─╮` a merge opens a lane, `─┤` a merge
      joins a lane already open (the same branch merged again, or a lane that
      ends on this row and is reused at once by the merge's new lane), `─╯` a lane

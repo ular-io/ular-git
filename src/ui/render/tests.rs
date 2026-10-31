@@ -292,7 +292,7 @@ fn the_header_names_the_selected_repository_above_its_branch() {
 }
 
 #[test]
-fn a_dimmed_pane_selection_is_a_light_bar_with_plain_text() {
+fn a_dimmed_pane_selection_is_soft_dim_reversed_over_the_inactive_bar() {
     let a = TestRepo::new();
     a.write("a.txt", "changed\n");
     let mut app = scanned_app(store_of(&[&a.root]));
@@ -308,9 +308,9 @@ fn a_dimmed_pane_selection_is_a_light_bar_with_plain_text() {
         .unwrap();
     let cell = &buf[(x, y)];
     assert_eq!(cell.bg, app.theme.selection_inactive_bg);
-    assert_eq!(cell.fg, app.theme.fg);
+    assert_eq!(cell.fg, app.theme.muted);
     assert!(!cell.modifier.contains(ratatui::style::Modifier::BOLD));
-    assert!(!cell.modifier.contains(ratatui::style::Modifier::REVERSED));
+    assert!(cell.modifier.contains(ratatui::style::Modifier::REVERSED));
 }
 
 #[test]
@@ -453,4 +453,25 @@ fn the_file_pane_bottom_border_counts_the_history() {
         Some(" 2 / 3 ")
     );
     assert_eq!(super::files::commits_label(&app, 13), None);
+}
+
+#[test]
+fn a_group_header_keeps_its_band_when_the_repository_pane_loses_focus() {
+    let a = TestRepo::new();
+    let mut store = store_of(&[&a.root]);
+    store.add_group("work").unwrap();
+    store.set_group(&a.root, Some("work".into()));
+    let mut app = scanned_app(store);
+    // The cursor on the repository, so the header is not on the selection bar.
+    app.press(&[key(KeyCode::Home), key(KeyCode::Down)]);
+    app.focus = crate::ui::Pane::Files;
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(200, 20)).unwrap();
+    terminal.draw(|f| super::draw(f, &app)).unwrap();
+    let buf = terminal.backend().buffer().clone();
+    let row = |y: u16| (0..200).map(|x| buf[(x, y)].symbol()).collect::<String>();
+    // Three panes at 200 columns, so the repository pane stays on screen.
+    let y = (0..20).find(|&y| row(y).contains("▾ work")).unwrap();
+    let x = (0..200).find(|&x| buf[(x, y)].symbol() == "w").unwrap();
+    assert_eq!(buf[(x, y)].bg, app.theme.group_bg);
+    assert_eq!(buf[(x, y)].fg, app.theme.muted);
 }

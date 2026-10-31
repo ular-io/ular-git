@@ -309,3 +309,24 @@ fn only_same_colored_labels_get_a_line_between_them() {
         "{row}"
     );
 }
+
+#[test]
+fn history_subjects_use_the_file_rows_text_style() {
+    let a = TestRepo::new();
+    a.write("a.txt", "next\n");
+    a.git(&["commit", "-qam", "second"]);
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.wait_background(10);
+    app.focus = Pane::Files;
+    // The `init` subject: not selected (the cursor is on `second`).
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(150, 20)).unwrap();
+    terminal.draw(|f| crate::ui::render::draw(f, &app)).unwrap();
+    let buf = terminal.backend().buffer().clone();
+    let row = |y: u16| (0..150).map(|x| buf[(x, y)].symbol()).collect::<String>();
+    let y = (0..20).find(|&y| row(y).contains("● init")).unwrap();
+    let x = (0..150).find(|&x| buf[(x, y)].symbol() == "●").unwrap() + 2;
+    assert_eq!(buf[(x, y)].symbol(), "i");
+    assert_ne!(buf[(x, y)].fg, app.theme.muted);
+    // The same text color as a changed file's name in a focused pane.
+    assert_eq!(buf[(x, y)].fg, app.theme.fg);
+}

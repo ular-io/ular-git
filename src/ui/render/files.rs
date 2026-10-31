@@ -1,6 +1,5 @@
 //! File pane: changed files (status code + path), then the commit history
-//! with its branch graph (one row per commit), faded, under a `History`
-//! divider.
+//! with its branch graph (one row per commit) under a `History` divider.
 
 use super::repos::CHANGED;
 use super::{
@@ -154,12 +153,7 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                                 th,
                             );
                             let labels_w: usize = labels.iter().map(|s| s.content.width()).sum();
-                            // Commits to push or pull stand out of the faded history.
-                            let style = if mark == Mark::Shared {
-                                th.soft_dim()
-                            } else {
-                                dim(Style::default())
-                            };
+                            let style = dim(Style::default());
                             let room = if labels.is_empty() { w } else { row_w };
                             let subject = truncate_w(
                                 &c.subject,

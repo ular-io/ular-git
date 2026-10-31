@@ -205,7 +205,9 @@ pub(super) fn draw_repos(f: &mut Frame, app: &App, area: Rect) {
                     collapsed,
                     ..
                 } => {
-                    let fill = dim(Style::default().bg(th.group_bg));
+                    // The band keeps its background when the pane loses
+                    // focus; the text is muted either way.
+                    let fill = Style::default().bg(th.group_bg);
                     let arrow = if *collapsed { "▸ " } else { "▾ " };
                     let label = name.clone().unwrap_or_else(|| "Ungrouped".into());
                     // Headers are muted: they label the rows below and
@@ -218,7 +220,7 @@ pub(super) fn draw_repos(f: &mut Frame, app: &App, area: Rect) {
                     // group shows only how many changed files it hides.
                     let right = if *collapsed && *changed > 0 {
                         let style = if tone == Tone::Dimmed {
-                            fill
+                            fill.fg(th.muted)
                         } else {
                             fill.fg(th.warning)
                         };
