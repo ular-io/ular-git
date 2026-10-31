@@ -74,7 +74,8 @@
   `D `, `R `, `??`, `UU`). Paths keep their tail when cut (`…/mod.rs`);
   renames show `old → new`.
 - Title: the selected repository's (or worktree's) folder name; `Files` while
-  a group header is selected.
+  a group header is selected. The title stays the same inside a commit's or
+  the uncommitted changes' files (`files::pane_title`).
 - Commit count on the bottom border, right-aligned, soft-dim:
   `2 / 123 commits` on a history commit (its place in the list, 1 at the
   top), `123 commits` on any other row (a changed file, Uncommitted Changes,
@@ -107,7 +108,8 @@ files (`CommitView` in `src/ui/commit_files.rs`, drawn by
 --diff-merges=first-parent --raw --numstat -z`: a merge lists what it
 brought in against its first parent, a root commit its added files).
 
-- Title: the short hash and the subject. Rows: the commit (`● subject`), a
+- Title: the repository's (or worktree's) folder name, as in the changes
+  and history. Rows: the commit (`● subject`), a
   `Files` divider joined to the pane border, then one row per file: git's
   status letter (`A` success, `D` error, `R` / `C` branch, others warning
   color), the path (`old → new` for a rename, folder soft-dim, tail kept when
@@ -139,7 +141,8 @@ brought in against its first parent, a root commit its added files).
 (`--cached` on an unborn branch), then every untracked file as `?` with its
 line count.
 
-- Title and row 0: `○ Uncommitted Changes`; row 0 shows the summary stat
+- Title: the folder name, as in a commit's view. Row 0:
+  `○ Uncommitted Changes`, showing the summary stat
   (`DiffSource::WorkTree`). Status letters as in a commit's view, `?` in the
   untracked color, `U` in the error color. Unlike a commit's view, the
   cursor starts on the first file.

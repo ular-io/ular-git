@@ -1,7 +1,7 @@
 //! File pane while a commit's files are open: the commit row, a `Files`
 //! divider, then one row per file (status letter, path, `+N -N`).
 
-use super::files::WORKTREE_TITLE;
+use super::files::{pane_title, WORKTREE_TITLE};
 use super::{
     body_style, draw_divider, empty_line, pane_block, pane_tone, selection_style, Divider, Tone,
 };
@@ -23,19 +23,13 @@ use unicode_width::UnicodeWidthStr;
 pub(super) fn draw_commit_files(f: &mut Frame, app: &App, area: Rect, view: &CommitView) {
     let th = &app.theme;
     let tone = pane_tone(app, Pane::Files);
-    // The commit's node and subject, or the uncommitted changes' `○`.
-    let (node, subject, title) = match view.commit() {
-        Some(c) => {
-            // The centered title stays clear of the focused pane's `━ ← `
-            // and ` → ━` on both sides: two borders, two arrows of four
-            // cells, three spaces.
-            let room = (area.width as usize).saturating_sub(13 + c.short.width());
-            let title = format!(" {} {} ", c.short, truncate_w(&c.subject, room));
-            ("●", c.subject.as_str(), title)
-        }
-        None => ("○", WORKTREE_TITLE, format!(" {WORKTREE_TITLE} ")),
+    // The commit's node and subject, or the uncommitted changes' `○`. The
+    // title stays the repository's name; row 0 names what is open.
+    let (node, subject) = match view.commit() {
+        Some(c) => ("●", c.subject.as_str()),
+        None => ("○", WORKTREE_TITLE),
     };
-    let block = pane_block(app, title, tone, Pane::Files);
+    let block = pane_block(app, pane_title(app), tone, Pane::Files);
     let inner = block.inner(area);
     f.render_widget(block, area);
     let page = inner.height as usize;

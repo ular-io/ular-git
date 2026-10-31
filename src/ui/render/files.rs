@@ -31,19 +31,7 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
     let tone = pane_tone(app, Pane::Files);
     let tree = app.current_tree();
     let status = tree.and_then(|t| t.status.as_ref());
-    // The selected repository's (or worktree's) folder name; `Files` when a
-    // group header is selected.
-    let title = match app.current_target() {
-        Some(target) => format!(
-            " {} ",
-            target
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_default()
-        ),
-        None => " Files ".to_string(),
-    };
-    let mut block = pane_block(app, title, tone, Pane::Files);
+    let mut block = pane_block(app, pane_title(app), tone, Pane::Files);
     if let Some(label) = commits_label(app, area.width) {
         block = pane_footer(block, label, tone, th);
     }
@@ -273,6 +261,22 @@ fn graph_of<'a>(v: &Visual<'a>) -> &'a [Cell] {
     match v {
         Visual::Graph(_, g, _) | Visual::WorkTree(_, g) => g,
         _ => &[],
+    }
+}
+
+/// The file pane's title in every view (changes and history, a commit's
+/// files, the uncommitted changes' files): the selected repository's (or
+/// worktree's) folder name; `Files` when a group header is selected.
+pub(super) fn pane_title(app: &App) -> String {
+    match app.current_target() {
+        Some(target) => format!(
+            " {} ",
+            target
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default()
+        ),
+        None => " Files ".to_string(),
     }
 }
 

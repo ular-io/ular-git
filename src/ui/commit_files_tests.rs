@@ -144,8 +144,6 @@ fn the_commit_view_shows_the_commit_a_files_divider_and_the_files() {
     app.press(&[key(KeyCode::Right)]);
     app.wait_background(10);
     let rows = screen(&app, 160, 20);
-    let short = a.git(&["rev-parse", "--short", "HEAD"]).trim().to_string();
-    assert!(shows(&rows, &format!(" {short} two files ")), "{rows:#?}");
     assert!(shows(&rows, " ● two files"), "{rows:#?}");
     assert!(shows(&rows, " Files "), "{rows:#?}");
     let row = |text: &str| rows.iter().find(|r| r.contains(text)).unwrap().clone();
@@ -159,19 +157,25 @@ fn the_commit_view_shows_the_commit_a_files_divider_and_the_files() {
 }
 
 #[test]
-fn the_commit_title_stays_clear_of_the_pane_arrows() {
+fn the_file_pane_keeps_the_repository_name_as_its_title_in_a_commit() {
     let a = TestRepo::new();
     a.write("a.txt", "changed\n");
-    a.git(&["commit", "-qam", &"a long subject ".repeat(8)]);
+    a.git(&["commit", "-qam", "a subject"]);
+    let name = a.root.file_name().unwrap().to_string_lossy().into_owned();
     let mut app = scanned_app(store_of(&[&a.root]));
     app.focus = Pane::Files;
     app.wait_background(10);
     app.press(&[key(KeyCode::Right)]);
+    assert!(app.commit_view.is_some());
     let short = a.git(&["rev-parse", "--short", "HEAD"]).trim().to_string();
     for w in [160, 100, 56] {
         let rows = screen(&app, w, 20);
+        // The Files pane's top border alone: the diff title carries the hash.
         let top = &rows[5];
-        assert!(top.contains(&format!(" {short} a long")), "{w}: {top}");
+        let start = top.find('┏').unwrap();
+        let top = &top[start..start + top[start..].find('┓').unwrap()];
+        assert!(top.contains(&format!(" {name} ")), "{w}: {top}");
+        assert!(!top.contains(&short), "{w}: {top}");
         assert!(top.contains("━ ← ") && top.contains(" → ━"), "{w}: {top}");
     }
 }
