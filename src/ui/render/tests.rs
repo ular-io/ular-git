@@ -420,3 +420,37 @@ fn a_selected_group_centers_its_message_on_a_small_fill() {
     let buf = terminal.backend().buffer().clone();
     assert_ne!(buf[(start, y)].bg, app.theme.group_bg);
 }
+
+#[test]
+fn the_file_pane_bottom_border_counts_the_history() {
+    let a = TestRepo::new();
+    for i in 0..2 {
+        a.write("a.txt", &format!("{i}\n"));
+        a.git(&["add", "-A"]);
+        a.git(&["commit", "-qm", &format!("c{i}")]);
+    }
+    a.write("a.txt", "changed\n");
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.focus = Pane::Files;
+    app.wait_background(10);
+    assert_eq!(app.history.commits, Some(3));
+    // A changed file: the count alone, on the bottom border.
+    let rows = screen(&app, 150, 30);
+    let bottom = rows.iter().rev().find(|r| r.contains('┛')).unwrap();
+    assert!(bottom.contains("━ 3 commits ━┛"), "{bottom}");
+    // Items: the file, Uncommitted Changes, then c1, c0, init.
+    app.file_sel = 3;
+    let rows = screen(&app, 150, 30);
+    let bottom = rows.iter().rev().find(|r| r.contains('┛')).unwrap();
+    assert!(bottom.contains("━ 2 / 3 commits ━┛"), "{bottom}");
+    // Narrow panes drop the unit, then the label.
+    assert_eq!(
+        super::files::commits_label(&app, 22).as_deref(),
+        Some(" 2 / 3 commits ")
+    );
+    assert_eq!(
+        super::files::commits_label(&app, 21).as_deref(),
+        Some(" 2 / 3 ")
+    );
+    assert_eq!(super::files::commits_label(&app, 13), None);
+}

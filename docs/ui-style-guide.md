@@ -39,7 +39,10 @@ ular-git applies them.
   `src/ui/render/repos.rs`). The space it frees goes to Diff (three panes) or
   Files (two).
 - The file pane is titled with the selected repository's (or worktree's)
-  folder name.
+  folder name. Its bottom border carries the commit count, right-aligned
+  and soft-dim, one border cell before the corner (`pane_footer`):
+  `━ 2 / 123 commits ━┛`. The bottom border holds nothing else, so it never
+  meets the `←` / `→` arrows on the top border.
 - Header: when space runs out the logo goes first, then shortcut columns from
   the right. Below 40×10 only `Terminal too small for ular-git` is drawn.
 

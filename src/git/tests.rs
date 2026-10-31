@@ -390,6 +390,7 @@ fn history_lists_commits_to_pull_above_head() {
         rows,
         [("upstream 1", true), ("upstream 0", true), ("init", false)]
     );
+    assert_eq!(super::history::count(&repo.root), Some(3), "as listed");
 }
 
 #[test]
@@ -407,6 +408,11 @@ fn a_diverged_branch_shows_both_sides_meeting_at_their_base() {
         .map(|r| r.commit.subject.as_str())
         .collect();
     assert_eq!(incoming, ["upstream 0"]);
+    assert_eq!(
+        super::history::count(&repo.root),
+        Some(3),
+        "both sides, once"
+    );
     assert!(h
         .rows
         .iter()

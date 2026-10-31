@@ -73,6 +73,17 @@
   renames show `old → new`.
 - Title: the selected repository's (or worktree's) folder name; `Files` while
   a group header is selected.
+- Commit count on the bottom border, right-aligned, soft-dim:
+  `2 / 123 commits` on a history commit (its place in the list, 1 at the
+  top), `123 commits` on any other row (a changed file, Uncommitted Changes,
+  `… more`), `2 / 123` when the pane is narrow, nothing when even that does
+  not fit (`commits_label` in `src/ui/render/files.rs`). The total covers the
+  same commits as the list read in full, not only the loaded page
+  (`history::count`: `git rev-list --count HEAD @{upstream}`, HEAD alone
+  without an upstream). It is counted on its own thread whenever the
+  history reloads (`request_count` in `src/ui/history_view.rs`), so a long
+  history never holds up the list; it is absent until the first count
+  arrives. Not shown in a commit's file view.
 - Moving the cursor loads that item's diff immediately (a commit opens as
   `git show`). The cursor stays on the same file or commit across rescans and
   history reloads while it is listed.

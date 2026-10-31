@@ -106,6 +106,10 @@ pub struct HistoryView {
     pub history: Option<History>,
     pub loading: bool,
     pub error: Option<String>,
+    /// The history's commit count ([`history::count`]), counted apart from
+    /// the list; `None` until it arrives.
+    pub commits: Option<usize>,
+    count_generation: u64,
     generation: u64,
     in_flight: bool,
     queued: Option<(PathBuf, usize, bool)>,
@@ -131,6 +135,7 @@ impl App {
         let Some(target) = self.current_target() else {
             self.history = HistoryView {
                 labels: self.history.labels,
+                count_generation: self.history.count_generation + 1,
                 ..HistoryView::default()
             };
             return;
@@ -160,9 +165,27 @@ impl App {
         if !same_tree {
             self.history.history = None;
             self.history.error = None;
+            self.history.commits = None;
         }
         self.history.head = head;
-        self.request_history(target, limit);
+        self.request_history(target.clone(), limit);
+        self.request_count(target);
+    }
+
+    /// Counts the history's commits on its own thread, so a long history
+    /// never holds up the list; the latest request wins. The count shown
+    /// stays until the new one arrives.
+    fn request_count(&mut self, target: PathBuf) {
+        self.history.count_generation += 1;
+        let generation = self.history.count_generation;
+        self.bg.spawn(move || {
+            let commits = history::count(&target);
+            Box::new(move |app: &mut App| {
+                if app.history.count_generation == generation {
+                    app.history.commits = commits;
+                }
+            })
+        });
     }
 
     /// `… more`: reads twice as many commits (the graph needs one pass from

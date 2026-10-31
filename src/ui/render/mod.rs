@@ -164,16 +164,44 @@ pub(crate) fn pane_tone(app: &App, pane: Pane) -> Tone {
 
 /// Framed pane block with the navigation arrows of a focused pane (only
 /// toward panes the focus can actually move to).
-pub(crate) fn pane_block(app: &App, title: String, tone: Tone, pane: Pane) -> Block<'static> {
-    let th = &app.theme;
-    let (border, style) = match tone {
+/// A pane's border type and its border and title style.
+fn frame_style(th: &Theme, tone: Tone) -> (BorderType, Style) {
+    match tone {
         Tone::Focused => (
             BorderType::Thick,
             Style::default().fg(th.accent).add_modifier(Modifier::BOLD),
         ),
         Tone::Dimmed => (BorderType::Plain, th.soft_dim()),
         Tone::Neutral => (BorderType::Plain, Style::default()),
+    }
+}
+
+/// `label` (soft-dim, spaces included) on the bottom border, right-aligned
+/// one border cell before the corner.
+pub(crate) fn pane_footer(
+    block: Block<'static>,
+    label: String,
+    tone: Tone,
+    th: &Theme,
+) -> Block<'static> {
+    let (border, style) = frame_style(th, tone);
+    let line = if border == BorderType::Thick {
+        "━"
+    } else {
+        "─"
     };
+    block.title_bottom(
+        Line::from(vec![
+            Span::styled(label, th.soft_dim()),
+            Span::styled(line, style),
+        ])
+        .right_aligned(),
+    )
+}
+
+pub(crate) fn pane_block(app: &App, title: String, tone: Tone, pane: Pane) -> Block<'static> {
+    let th = &app.theme;
+    let (border, style) = frame_style(th, tone);
     let mut block = Block::default()
         .borders(Borders::ALL)
         .border_type(border)

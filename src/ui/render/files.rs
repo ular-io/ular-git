@@ -4,8 +4,8 @@
 
 use super::repos::CHANGED;
 use super::{
-    body_style, draw_divider, empty_box, empty_line, pane_block, pane_tone, selection_style,
-    Divider, Tone,
+    body_style, draw_divider, empty_box, empty_line, pane_block, pane_footer, pane_tone,
+    selection_style, Divider, Tone,
 };
 use crate::git::graph::Cell;
 use crate::git::history::{RefKind, RefLabel};
@@ -44,7 +44,10 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
         ),
         None => " Files ".to_string(),
     };
-    let block = pane_block(app, title, tone, Pane::Files);
+    let mut block = pane_block(app, title, tone, Pane::Files);
+    if let Some(label) = commits_label(app, area.width) {
+        block = pane_footer(block, label, tone, th);
+    }
     let inner = block.inner(area);
     f.render_widget(block, area);
     let view = inner.height as usize;
@@ -230,6 +233,32 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
         }
     }
     draw_vscrollbar(f, area, tone == Tone::Focused, offset, total, view, th);
+}
+
+/// The bottom border's `1 / 123 commits`: the selected commit's place in the
+/// history and the history's commit count, or the count alone off a commit;
+/// `1 / 123` when narrow, nothing when even that leaves no border to its left.
+pub(super) fn commits_label(app: &App, width: u16) -> Option<String> {
+    let total = app.history.commits?;
+    let items = app.file_items();
+    let is_commit = |i: &FileItem| matches!(i, FileItem::Commit(..));
+    let unit = if total == 1 { "commit" } else { "commits" };
+    let labels = match items.get(app.file_sel) {
+        Some(item) if is_commit(item) => {
+            let pos = items[..=app.file_sel]
+                .iter()
+                .filter(|i| is_commit(i))
+                .count();
+            vec![
+                format!(" {pos} / {total} {unit} "),
+                format!(" {pos} / {total} "),
+            ]
+        }
+        _ => vec![format!(" {total} {unit} ")],
+    };
+    // Two corners, the border cell after the label, four before it.
+    let room = (width as usize).saturating_sub(2 + 1 + 4);
+    labels.into_iter().find(|l| l.width() <= room)
 }
 
 /// Graph columns shown at most; wider graphs are cut on the right.

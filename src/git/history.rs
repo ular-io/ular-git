@@ -53,6 +53,21 @@ pub struct History {
     pub more: bool,
 }
 
+/// Commits the history lists once fully read: those reachable from HEAD,
+/// plus the upstream's when it has commits HEAD lacks (the list starts from
+/// both then; counting the union of both is the same when it has none).
+/// HEAD alone without an upstream; `None` on an unborn branch.
+pub fn count(dir: &Path) -> Option<usize> {
+    let count = |args: &[&str]| {
+        run(dir, args)
+            .ok()
+            .filter(|o| o.status.success())
+            .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse().ok())
+    };
+    count(&["rev-list", "--count", "HEAD", "@{upstream}"])
+        .or_else(|| count(&["rev-list", "--count", "HEAD"]))
+}
+
 /// Field separator in the format string.
 const SEP: char = '\x1f';
 
