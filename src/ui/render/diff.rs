@@ -1,6 +1,7 @@
 //! Diff pane: colored, line-numbered diff of the selected file or commit.
 
 use super::files::WORKTREE_TITLE;
+use super::gutter::{is_code, Gutter};
 use super::{draw_divider, empty_line, pane_block, pane_tone, split, Divider, Tone};
 use crate::git::diff::{DiffLine, LineKind};
 use crate::theme::{color_rgb, Theme};
@@ -18,9 +19,6 @@ use ratatui::{
     Frame,
 };
 use unicode_width::UnicodeWidthStr;
-
-/// `old new ` line-number gutter.
-const GUTTER_W: usize = 10;
 
 fn kind_style(kind: LineKind, tone: Tone, th: &Theme) -> Style {
     let colored = |c: Color| {
@@ -59,11 +57,6 @@ fn is_message(kind: LineKind) -> bool {
         kind,
         LineKind::Byline | LineKind::Subject | LineKind::Header
     )
-}
-
-/// Lines that carry old/new numbers (and the gutter).
-fn is_code(kind: LineKind) -> bool {
-    matches!(kind, LineKind::Add | LineKind::Del | LineKind::Context)
 }
 
 /// `+20 -3` with each side in its diff color.
@@ -211,6 +204,7 @@ fn side_spans(
     side: Option<Seg>,
     width: usize,
     old: bool,
+    gutter: &Gutter,
     tone: Tone,
     th: &Theme,
 ) -> Vec<Span<'static>> {
@@ -219,11 +213,8 @@ fn side_spans(
     };
     let line = &doc.lines[seg.line];
     let n = if old { line.old } else { line.new };
-    let num = match (seg.first, n) {
-        (true, Some(n)) => format!("{n:>4} "),
-        _ => " ".repeat(split::SIDE_GUTTER_W),
-    };
-    let pad = width.saturating_sub(split::SIDE_GUTTER_W + seg.text.width());
+    let num = gutter.split_text(old, n, !seg.first);
+    let pad = width.saturating_sub(gutter.split_side(old) + seg.text.width());
     let mut spans = vec![Span::styled(num, Style::default().fg(th.dim))];
     spans.extend(marked_spans(
         seg.text,
@@ -233,14 +224,6 @@ fn side_spans(
     ));
     spans.push(Span::raw(" ".repeat(pad)));
     spans
-}
-
-fn gutter(line: &DiffLine, first: bool) -> String {
-    if !first {
-        return " ".repeat(GUTTER_W);
-    }
-    let n = |v: Option<u32>| v.map(|v| v.to_string()).unwrap_or_default();
-    format!("{:>4} {:>4} ", n(line.old), n(line.new))
 }
 
 fn title(app: &App) -> String {
@@ -298,15 +281,15 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
         return;
     };
 
-    let numbered =
-        inner.width as usize >= 50 && doc.lines.iter().any(|l| l.new.is_some() || l.old.is_some());
+    let gutter = Gutter::of(&doc.lines);
+    let numbered = inner.width as usize >= 50 && !gutter.is_empty();
     // Only code lines carry the gutter; headers, meta, and hunk lines start
     // at the left edge and get the full width.
     let full_w = (inner.width as usize).max(1);
     let has_gutter = |line: &DiffLine| numbered && is_code(line.kind);
     let width_of = |line: &DiffLine| {
         if has_gutter(line) {
-            full_w.saturating_sub(GUTTER_W).max(1)
+            full_w.saturating_sub(gutter.width()).max(1)
         } else {
             full_w
         }
@@ -351,7 +334,8 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
         let mut all = Vec::new();
         if split_on {
             let (lw, rw) = split::sides(full_w);
-            let code_w = |side: usize| side.saturating_sub(split::SIDE_GUTTER_W).max(1);
+            let code_w =
+                |side: usize, old: bool| side.saturating_sub(gutter.split_side(old)).max(1);
             for item in split::pair(&doc.lines) {
                 match item {
                     split::Item::Full(i) => {
@@ -363,11 +347,11 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
                         );
                     }
                     split::Item::Pair(l, r) => {
-                        let side = |i: Option<usize>, w: usize| -> Vec<Seg> {
-                            i.map(|i| segs_of(i, segments(&doc.lines[i], code_w(w))))
+                        let side = |i: Option<usize>, w: usize, old: bool| -> Vec<Seg> {
+                            i.map(|i| segs_of(i, segments(&doc.lines[i], code_w(w, old))))
                                 .unwrap_or_default()
                         };
-                        let (ls, rs) = (side(l, lw), side(r, rw));
+                        let (ls, rs) = (side(l, lw, true), side(r, rw, false));
                         let n = ls.len().max(rs.len()).max(1);
                         let (mut ls, mut rs) = (ls.into_iter(), rs.into_iter());
                         for _ in 0..n {
@@ -433,9 +417,9 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
                 Row::Line(seg) => seg,
                 Row::Pair(l, r) => {
                     let (lw, rw) = split::sides(full_w);
-                    let mut spans = side_spans(doc, l, lw, true, tone, th);
+                    let mut spans = side_spans(doc, l, lw, true, &gutter, tone, th);
                     spans.push(Span::styled("│", Style::default().fg(th.dim)));
-                    spans.extend(side_spans(doc, r, rw, false, tone, th));
+                    spans.extend(side_spans(doc, r, rw, false, &gutter, tone, th));
                     return Line::from(spans);
                 }
             };
@@ -457,9 +441,9 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
                 });
                 return Line::default();
             }
-            // The gap marker sits in the old-number column of the gutter.
+            // The gap marker sits in the first number column of the gutter.
             if line.kind == LineKind::Gap {
-                let at = if numbered { "   ⋯" } else { "⋯" };
+                let at = if numbered { gutter.gap() } else { "⋯".into() };
                 return Line::from(Span::styled(at, style));
             }
             if line.kind == LineKind::Counts {
@@ -467,7 +451,7 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
             }
             let mut spans = Vec::new();
             if has_gutter(line) {
-                spans.push(Span::styled(gutter(line, first), num_style));
+                spans.push(Span::styled(gutter.text(line, !first), num_style));
             }
             spans.extend(marked_spans(seg, start, &line.marks, style));
             Line::from(spans)

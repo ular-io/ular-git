@@ -41,14 +41,14 @@ fn only_code_lines_carry_the_line_number_gutter() {
         .position(|r| r.contains(" Unstaged changes "))
         .unwrap();
     assert!(
-        rows[at + 2].contains("    1    1  one"),
+        rows[at + 2].contains("│ 1 1  one"),
         "{:?}",
         &rows[at..at + 3]
     );
     // git's redundant file header lines are not shown.
     assert!(!shows(&rows, "diff --git") && !shows(&rows, "index ") && !shows(&rows, "+++ b/"));
-    // Code lines start after the number gutter.
-    assert_eq!(starts("+2"), diff_x + 10);
+    // Code lines start after the number gutter, sized to one-digit numbers.
+    assert_eq!(starts("+2"), diff_x + 4);
 }
 
 #[test]
@@ -219,7 +219,7 @@ fn a_gap_line_separates_hunks() {
     app.focus = Pane::Files;
     app.wait_background(10);
     let rows = screen(&app, 160, 40);
-    let gaps: Vec<&String> = rows.iter().filter(|r| r.contains("   ⋯")).collect();
+    let gaps: Vec<&String> = rows.iter().filter(|r| r.contains("│  ⋯")).collect();
     assert_eq!(gaps.len(), 1, "one gap between the two hunks: {rows:#?}");
     assert!(!shows(&rows, "@@"));
 }
@@ -242,7 +242,8 @@ fn a_wide_diff_pane_shows_old_and_new_side_by_side() {
         .find(|r| r.contains("-b"))
         .expect("the removed line");
     assert!(row.contains("+B"), "paired with the added line: {row}");
-    assert!(row.contains("│"), "{row}");
+    // The right side's number starts one space after the divider.
+    assert!(row.contains("│ 2 +B"), "{row}");
     assert!(row.find("-b").unwrap() < row.find("+B").unwrap());
     // `d` was added with nothing removed: alone on the right.
     let d = rows.iter().find(|r| r.contains("+d")).unwrap();

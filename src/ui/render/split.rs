@@ -9,9 +9,6 @@ use crate::git::diff::{DiffLine, LineKind};
 /// Diff pane inner width from which the side-by-side layout is used.
 pub(crate) const SPLIT_MIN_W: usize = 120;
 
-/// `old ` / `new ` number column on each side.
-pub(super) const SIDE_GUTTER_W: usize = 5;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Item {
     /// A line drawn across the pane (index into the lines).

@@ -169,7 +169,11 @@ line count.
   muted: new / deleted file mode, mode change, similarity, binary.
 - A gutter with old / new line numbers appears on code lines (added, removed,
   context) when the pane is at least 50 columns wide. Headers and meta lines
-  start at the left edge.
+  start at the left edge. Each number column is as wide as the largest number
+  it shows in the whole diff (fixed while scrolling, so code never shifts),
+  and a column with no numbers at all is left out: a new file shows only new
+  numbers, a deleted file only old ones (`Gutter` in
+  `src/ui/render/gutter.rs`; the side-by-side layout uses the same widths).
 - Section titles (`Staged changes`, `Unstaged changes`, `Untracked file`,
   `Merge conflict`) are centered on a border-to-border line.
 - Hunk headers (`@@ -14,6 +14,7 @@ context`) are not shown: the line numbers

@@ -4,6 +4,7 @@
 mod commit_files;
 mod diff;
 mod files;
+mod gutter;
 mod header;
 mod repos;
 mod split;
