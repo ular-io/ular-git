@@ -1,16 +1,16 @@
 //! Pieces of a history row in the file pane: graph cells colored by lane,
-//! and branch / tag badges.
+//! branch / tag badges, and the selected commit's date and author line.
 
 use crate::git::graph::Cell;
-use crate::git::history::{RefKind, RefLabel};
+use crate::git::history::{GraphRow, RefKind, RefLabel};
 use crate::theme::{color_rgb, Theme};
 use crate::ui::components::modal::fade_toward;
 use crate::ui::components::text::truncate_w;
 use crate::ui::files::Mark;
 use crate::ui::history_view::RefLabels;
 use ratatui::{
-    style::{Color, Style},
-    text::Span,
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
 };
 use unicode_width::UnicodeWidthStr;
 
@@ -114,4 +114,51 @@ pub(super) fn graph_spans(
     }
     spans.push(Span::raw(" ".repeat(width.saturating_sub(used) + 1)));
     spans
+}
+
+/// How far the detail line's text moves from the selection text color toward
+/// the selection background, in percent.
+const DETAIL_FADE_PCT: u32 = 35;
+
+/// The selected commit's second line (subject-only rows): the lanes running
+/// on below it, then `YYYY-MM-DD HH:MM  author` in the selection text color
+/// faded toward the selection background, all on the selection bar, `width`
+/// cells wide.
+pub(super) fn detail_line(
+    row: &GraphRow,
+    graph_w: usize,
+    width: usize,
+    sel: Style,
+    th: &Theme,
+) -> Line<'static> {
+    let mut spans = graph_spans(&row.below, graph_w, Mark::Shared, th);
+    for s in &mut spans {
+        s.style = sel;
+    }
+    let used: usize = spans.iter().map(|s| s.content.width()).sum();
+    let when = match row.time.as_str() {
+        "" => row.date.clone(),
+        time => format!("{} {time}", row.date),
+    };
+    let text = truncate_w(
+        &format!("{when}  {}", row.author),
+        width.saturating_sub(used + 1),
+    );
+    let pad = width.saturating_sub(used + text.width());
+    spans.push(Span::styled(text, detail_style(sel, th)));
+    spans.push(Span::styled(" ".repeat(pad), sel));
+    Line::from(spans)
+}
+
+/// `sel` with its text color faded toward its background, not bold.
+fn detail_style(sel: Style, th: &Theme) -> Style {
+    let default_ink = if th.dark { (255, 255, 255) } else { (0, 0, 0) };
+    let rgb = |c: Option<Color>, fallback| match c {
+        None | Some(Color::Reset) => fallback,
+        Some(c) => color_rgb(c),
+    };
+    let ink = rgb(sel.fg, rgb(Some(th.fg), default_ink));
+    let paper = rgb(sel.bg, th.bg_rgb());
+    let (r, g, b) = mix(ink, paper, DETAIL_FADE_PCT);
+    sel.fg(Color::Rgb(r, g, b)).remove_modifier(Modifier::BOLD)
 }

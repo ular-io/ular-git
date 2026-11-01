@@ -288,7 +288,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         "Cycle History Date / Author",
         Some("."),
         ["date", "author", "time", "who", "history", "commit"],
-        Some("History rows: date → date and author → author → subject only")
+        Some("History rows: date → date and author → author → subject (date and author when selected)")
     ),
     cmd!(
         TerminalCommand,

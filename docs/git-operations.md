@@ -35,13 +35,21 @@
   4. the commit history from HEAD with its branch graph, one row per
      commit (no connector rows). Subjects use the file rows' text style; the
      graph lanes are faded. Between the graph and the subject, `muted`,
-     rows show the author date (`%as`, `YYYY-MM-DD`) and / or the author
-     name (`%an`, padded to the page's longest name, at most 16 cells
-     with `…`). `.` on the Files pane (palette Cycle History Date / Author;
-     `CommitMeta` in `src/ui/history_view.rs`, drawn by `meta_spans` in
+     rows show the author date (`%ad` with `--date=format:%Y-%m-%d %H:%M`;
+     rows show `YYYY-MM-DD`) and / or the author name (`%an`, padded to the
+     page's longest name, at most 16 cells with `…`). `.` on the Files pane
+     (palette Cycle History Date / Author; `CommitMeta` in
+     `src/ui/history_view.rs`, drawn by `meta_spans` in
      `src/ui/render/files.rs`) cycles date → date and author → author →
-     neither, saved in `view.json`. The choice holds at any width; the
-     subject is cut instead.
+     subject only, saved in `view.json` (the last is stored as `none`). The
+     choice holds at any width; the subject is cut instead. With subject
+     only, the selected commit takes a second line (`detail_line` in
+     `src/ui/render/history_row.rs`): the lanes running on below it
+     (`graph::Row::below`, plain `│` per lane) and `YYYY-MM-DD HH:MM  author`
+     (full name, cut only at the pane edge) in the selection text color
+     faded 35 % toward the selection background, not bold. Rows below the
+     selection keep their place as the cursor moves; the scrollbar counts
+     the extra line.
      Lanes stay in place and keep their color;
      joints sit on the commit row: `─╮` a merge opens a lane, `─┤` a merge
      joins a lane already open (the same branch merged again, or a lane that

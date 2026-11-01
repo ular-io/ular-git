@@ -64,6 +64,10 @@ ular-git applies them.
 - The history graph is lane color faded once toward the background (`↑` /
   `↓` nodes: full branch color), and history ref labels use their faded
   colors, in every pane state.
+- The selected history commit's second line (subject-only rows) sits on
+  the selection bar; its date and author use the selection text color faded
+  toward the selection background, so it reads as secondary in every theme
+  and pane state.
 - Row content in the repository and file panes is never bold: status codes,
   badges, `↑` / `↓` nodes, ref labels, and the running `push…` / `pull…`
   label use color alone. Bold marks focus only (the focused pane's selection

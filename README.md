@@ -81,7 +81,7 @@ one, a linked worktree (resolved to its repository), or a parent folder
 | `←` `→` / `enter` (group header) | Fold / unfold a group (`enter` toggles) |
 | `c` | Commit (staged only, or all changes including untracked files) |
 | `P`, `p` | Push (asks first), pull (fast-forward only) |
-| `.` (Files pane) | History rows: date → date and author → author → subject only (remembered) |
+| `.` (Files pane) | History rows: date → date and author → author → subject only, with the selected commit's date and author on a second line (remembered) |
 | `.` (Diff pane) | Toggle diff line wrap |
 | `>` (Files pane) | History labels: none → branches → branches and tags → tags (remembered) |
 | `s` (Diff pane) | Side-by-side diff when the diff pane is 120+ columns wide, or always unified (remembered) |

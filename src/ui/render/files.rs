@@ -1,7 +1,7 @@
 //! File pane: changed files (status code + path), then the commit history
 //! with its branch graph (one row per commit) under a `History` divider.
 
-use super::history_row::{graph_spans, ref_spans};
+use super::history_row::{detail_line, graph_spans, ref_spans};
 use super::repos::CHANGED;
 use super::{
     draw_divider, empty_box, empty_line, pane_block, pane_footer, pane_tone, selection_style,
@@ -20,7 +20,7 @@ use crate::ui::{App, Pane};
 use ratatui::{
     layout::Rect,
     style::Style,
-    text::{Line, Span},
+    text::{Line, Span, Text},
     widgets::{List, ListItem},
     Frame,
 };
@@ -188,6 +188,7 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
             // Pad through the right padding cell so the selection bar reaches
             // the border.
             spans.push(Span::raw(" ".repeat((w + 1).saturating_sub(used))));
+            let mut detail = None;
             if item_index == Some(app.file_sel) {
                 selected_row = row;
                 let sel = selection_style(tone, th);
@@ -196,11 +197,21 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                 for s in spans.iter_mut().filter(|s| s.style.bg.is_none()) {
                     s.style = sel;
                 }
+                // Subject-only rows show the selected commit's date and
+                // author on a second line.
+                if let Visual::Graph(_, g) = v {
+                    if app.history.meta.details_on_selection() {
+                        detail = Some(detail_line(g, graph_w, w + 1, sel, th));
+                    }
+                }
             }
-            ListItem::new(Line::from(spans))
+            let mut text = Text::from(Line::from(spans));
+            text.lines.extend(detail);
+            ListItem::new(text)
         })
         .collect();
-    let total = lines.len();
+    // The selected commit's second line is the only one past one per row.
+    let total: usize = lines.iter().map(ListItem::height).sum();
     let mut state = app.file_list.borrow_mut();
     state.select(Some(selected_row));
     f.render_stateful_widget(List::new(lines), list_area, &mut state);

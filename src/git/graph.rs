@@ -16,6 +16,16 @@ pub struct Cell {
     pub color: Option<usize>,
 }
 
+/// A commit's graph row and the lanes that run on below it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Row {
+    /// The commit row: node, joints, and the lanes passing it.
+    pub cells: Vec<Cell>,
+    /// A plain `│` per lane continuing to the next commit, for a line drawn
+    /// between this row and the next (lanes on even columns, as on the row).
+    pub below: Vec<Cell>,
+}
+
 /// Where a joint on a commit row leads.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Joint {
@@ -34,9 +44,9 @@ struct Lane {
 }
 
 /// Lays out `commits` (`(hash, parents)`, newest first, topological order).
-/// Returns one row of cells per commit; lanes sit on even columns, joints run
-/// along odd ones.
-pub fn layout(commits: &[(String, Vec<String>)]) -> Vec<Vec<Cell>> {
+/// Returns one row per commit; lanes sit on even columns, joints run along
+/// odd ones.
+pub fn layout(commits: &[(String, Vec<String>)]) -> Vec<Row> {
     let mut lanes: Vec<Option<Lane>> = Vec::new();
     let mut next_color = 0;
     let mut rows = Vec::with_capacity(commits.len());
@@ -89,7 +99,10 @@ pub fn layout(commits: &[(String, Vec<String>)]) -> Vec<Vec<Cell>> {
             }
         }
         let after: Vec<Option<usize>> = lanes.iter().map(|l| l.as_ref().map(|l| l.color)).collect();
-        rows.push(draw_row(col, color, &joints, &before, &after));
+        rows.push(Row {
+            cells: draw_row(col, color, &joints, &before, &after),
+            below: draw_below(&after),
+        });
         while lanes.last().is_some_and(|l| l.is_none()) {
             lanes.pop();
         }
@@ -107,6 +120,31 @@ fn free_slot(lanes: &mut Vec<Option<Lane>>, from: usize) -> usize {
     }
     lanes.push(None);
     lanes.len() - 1
+}
+
+/// A `│` in its lane color for every lane in `after`, blanks between.
+fn draw_below(after: &[Option<usize>]) -> Vec<Cell> {
+    let blank = Cell {
+        ch: ' ',
+        color: None,
+    };
+    let mut cells = Vec::with_capacity(after.len() * 2);
+    for (i, lane) in after.iter().enumerate() {
+        if i > 0 {
+            cells.push(blank);
+        }
+        cells.push(match lane {
+            Some(c) => Cell {
+                ch: '│',
+                color: Some(*c),
+            },
+            None => blank,
+        });
+    }
+    while cells.last().is_some_and(|c| c.ch == ' ') {
+        cells.pop();
+    }
+    cells
 }
 
 fn draw_row(
@@ -222,9 +260,15 @@ mod tests {
             .collect()
     }
 
-    fn text(rows: &[Vec<Cell>]) -> Vec<String> {
+    fn text(rows: &[Row]) -> Vec<String> {
         rows.iter()
-            .map(|r| r.iter().map(|c| c.ch).collect())
+            .map(|r| r.cells.iter().map(|c| c.ch).collect())
+            .collect()
+    }
+
+    fn below(rows: &[Row]) -> Vec<String> {
+        rows.iter()
+            .map(|r| r.below.iter().map(|c| c.ch).collect())
             .collect()
     }
 
@@ -293,12 +337,12 @@ mod tests {
     fn a_lane_keeps_its_color_and_joints_take_the_lane_color() {
         let spec: &[(&str, &[&str])] = &[("m", &["a", "b"]), ("b", &["a"]), ("a", &[])];
         let rows = layout(&commits(spec));
-        let main = rows[0][0].color;
-        let side = rows[0][2].color;
+        let main = rows[0].cells[0].color;
+        let side = rows[0].cells[2].color;
         assert_ne!(main, side);
-        assert_eq!(rows[1][2].color, side, "the branch keeps its color");
-        assert_eq!(rows[2][2].color, side, "its end joint too");
-        assert_eq!(rows[2][0].color, main);
+        assert_eq!(rows[1].cells[2].color, side, "the branch keeps its color");
+        assert_eq!(rows[2].cells[2].color, side, "its end joint too");
+        assert_eq!(rows[2].cells[0].color, main);
     }
 
     #[test]
@@ -311,6 +355,8 @@ mod tests {
         ];
         let rows = layout(&commits(spec));
         assert_eq!(text(&rows), ["●─┬─╮", "│ │ ●", "│ ● │", "●─┴─╯"]);
+        // Each branch's lane runs on until the root, which has none below.
+        assert_eq!(below(&rows), ["│ │ │", "│ │ │", "│ │ │", ""]);
     }
 
     #[test]
@@ -319,6 +365,7 @@ mod tests {
         let spec: &[(&str, &[&str])] = &[("m", &["x", "y"]), ("y", &["z"])];
         let rows = layout(&commits(spec));
         assert_eq!(text(&rows), ["●─╮", "│ ●"]);
+        assert_eq!(below(&rows), ["│ │", "│ │"], "lanes run on past the page");
     }
 
     #[test]
@@ -335,7 +382,11 @@ mod tests {
         let rows = layout(&commits(spec));
         assert_eq!(text(&rows), ["●─╮", "│ ●", "●─┤", "│ ●", "●─╯"]);
         // The reused cell takes the color of the lane continuing below.
-        assert_eq!(rows[2][2].color, rows[3][2].color);
-        assert_ne!(rows[1][2].color, rows[3][2].color, "a and b differ");
+        assert_eq!(rows[2].cells[2].color, rows[3].cells[2].color);
+        assert_ne!(
+            rows[1].cells[2].color, rows[3].cells[2].color,
+            "a and b differ"
+        );
+        assert_eq!(rows[2].below[2].color, rows[3].cells[2].color);
     }
 }

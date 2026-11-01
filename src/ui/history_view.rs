@@ -39,7 +39,8 @@ impl RefLabels {
 
 /// What history rows show between the graph and the subject (`.` on the
 /// Files pane cycles them in this order), whatever the pane width. Kept in
-/// `view.json` across launches.
+/// `view.json` across launches. `None` (stored as `none`) shows subjects
+/// only and the selected commit's date and author on a second line.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CommitMeta {
@@ -66,6 +67,11 @@ impl CommitMeta {
 
     pub fn author(self) -> bool {
         matches!(self, CommitMeta::DateAndAuthor | CommitMeta::Author)
+    }
+
+    /// The selected commit gets a second line with its date and author.
+    pub fn details_on_selection(self) -> bool {
+        self == CommitMeta::None
     }
 }
 
@@ -176,7 +182,8 @@ impl App {
         self.notify(super::Level::Info, text);
     }
 
-    /// `.` on the Files pane: date → date and author → author → neither.
+    /// `.` on the Files pane: date → date and author → author → subject only
+    /// (date and author on the selected commit's second line).
     pub(crate) fn cycle_commit_meta(&mut self) {
         self.history.meta = self.history.meta.next();
         self.save_view();
@@ -184,7 +191,7 @@ impl App {
             CommitMeta::Date => "History rows: date",
             CommitMeta::DateAndAuthor => "History rows: date and author",
             CommitMeta::Author => "History rows: author",
-            CommitMeta::None => "History rows: subject only",
+            CommitMeta::None => "History rows: subject, date and author when selected",
         };
         self.notify(super::Level::Info, text);
     }

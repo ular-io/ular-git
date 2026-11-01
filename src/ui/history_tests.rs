@@ -365,3 +365,46 @@ fn dot_on_the_files_pane_cycles_the_date_and_author_at_any_width() {
     assert!(row(&app).contains(&format!("● {date} init")));
     assert!(!app.diff.wrap, "`.` on Files never wraps the diff");
 }
+
+#[test]
+fn subject_only_rows_give_the_selected_commit_a_date_and_author_line() {
+    let a = TestRepo::new();
+    a.git(&["switch", "-q", "-c", "feat"]);
+    a.write("f.txt", "f\n");
+    a.git(&["add", "f.txt"]);
+    a.git(&["commit", "-qm", "on feat"]);
+    a.git(&["switch", "-q", "main"]);
+    a.git(&["merge", "-q", "--no-ff", "-m", "merge feat", "feat"]);
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.wait_background(10);
+    app.focus = Pane::Files;
+    app.history.meta = crate::ui::history_view::CommitMeta::None;
+    let rows = screen(&app, 150, 20);
+    let at = rows.iter().position(|r| r.contains("merge feat")).unwrap();
+    // The merge is selected: its lanes run on beside `YYYY-MM-DD HH:MM  t`.
+    let detail = &rows[at + 1];
+    assert!(detail.contains("│ │ "), "{rows:#?}");
+    let after = detail.split("│ │ ").nth(1).unwrap();
+    let when: String = after.chars().take(16).collect();
+    assert!(
+        when.chars().enumerate().all(|(i, c)| match i {
+            4 | 7 => c == '-',
+            10 => c == ' ',
+            13 => c == ':',
+            _ => c.is_ascii_digit(),
+        }),
+        "{detail}"
+    );
+    assert!(after[16..].starts_with("  t "), "{detail}");
+    assert!(rows[at + 2].contains("on feat"), "{rows:#?}");
+    // Moving down moves the second line with the cursor.
+    app.press(&[key(KeyCode::Down)]);
+    let rows = screen(&app, 150, 20);
+    assert!(rows[at + 1].contains("on feat"), "{rows:#?}");
+    assert!(rows[at + 2].contains("  t "), "{rows:#?}");
+    // With dates on every row, no row takes a second line.
+    app.history.meta = crate::ui::history_view::CommitMeta::Date;
+    let rows = screen(&app, 150, 20);
+    assert!(rows[at + 1].contains("on feat"), "{rows:#?}");
+    assert!(!rows[at + 2].contains("  t "), "{rows:#?}");
+}
