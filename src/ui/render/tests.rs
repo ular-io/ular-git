@@ -319,7 +319,7 @@ fn a_dimmed_pane_selection_is_plain_text_on_a_faded_muted_bar() {
         .unwrap();
     let cell = &buf[(x, y)];
     let th = &app.theme;
-    let (r, g, b) = super::files::mix(crate::theme::color_rgb(th.muted), th.bg_rgb(), 40);
+    let (r, g, b) = super::history_row::mix(crate::theme::color_rgb(th.muted), th.bg_rgb(), 40);
     assert_eq!(cell.bg, ratatui::style::Color::Rgb(r, g, b));
     assert_eq!(cell.fg, th.fg);
     assert!(!cell.modifier.contains(ratatui::style::Modifier::BOLD));

@@ -55,7 +55,7 @@
      base. The graph uses at most 12 columns;
   5. `… more` when older commits exist.
 - Ref labels (`RefLabels` in `src/ui/history_view.rs`, drawn by `ref_spans`
-  in `src/ui/render/files.rs`): `>` (Files pane, palette Cycle Branch / Tag
+  in `src/ui/render/history_row.rs`): `>` (Files pane, palette Cycle Branch / Tag
   Labels) cycles none → branches → branches and tags → tags → none. Labels
   are solid badges without icons after the subject (which keeps at least 12
   columns and is cut first), joined into one strip (a `│` in the background color splits two

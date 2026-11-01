@@ -1,7 +1,8 @@
 //! Diff pane: colored, line-numbered diff of the selected file or commit.
 
-use super::files::{mix, WORKTREE_TITLE};
+use super::files::WORKTREE_TITLE;
 use super::gutter::{is_code, Gutter};
+use super::history_row::mix;
 use super::{draw_divider, empty_line, pane_block, pane_tone, split, Divider, Tone};
 use crate::git::diff::{DiffLine, LineKind};
 use crate::theme::{color_rgb, Theme};

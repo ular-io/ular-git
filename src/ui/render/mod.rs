@@ -6,6 +6,7 @@ mod diff;
 mod files;
 mod gutter;
 mod header;
+mod history_row;
 mod repos;
 mod split;
 
@@ -281,7 +282,7 @@ pub(crate) fn selection_style(tone: Tone, th: &Theme) -> Style {
             .bg(th.selection_bg)
             .add_modifier(Modifier::BOLD),
         Tone::Dimmed => {
-            let (r, g, b) = files::mix(
+            let (r, g, b) = history_row::mix(
                 crate::theme::color_rgb(th.muted),
                 th.bg_rgb(),
                 UNFOCUSED_BAR_FADE_PCT,
