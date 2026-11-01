@@ -200,8 +200,10 @@ impl App {
     /// for that tree and HEAD yet (target change, commit, pull, checkout).
     pub(crate) fn ensure_history(&mut self) {
         let Some(target) = self.current_target() else {
+            // A group header: the history goes, the view choices stay.
             self.history = HistoryView {
                 labels: self.history.labels,
+                meta: self.history.meta,
                 count_generation: self.history.count_generation + 1,
                 ..HistoryView::default()
             };

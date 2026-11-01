@@ -408,3 +408,21 @@ fn subject_only_rows_give_the_selected_commit_a_date_and_author_line() {
     assert!(rows[at + 1].contains("on feat"), "{rows:#?}");
     assert!(!rows[at + 2].contains("  t "), "{rows:#?}");
 }
+
+#[test]
+fn a_group_header_keeps_the_history_view_choices() {
+    use crate::ui::history_view::{CommitMeta, RefLabels};
+    let a = TestRepo::new();
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.wait_background(10);
+    app.history.meta = CommitMeta::None;
+    app.history.labels = RefLabels::Tags;
+    // Creating a group selects its header: no repository, no history.
+    app.press(&[ctrl('n')]);
+    app.type_text("work");
+    app.press(&[key(KeyCode::Enter), key(KeyCode::Enter)]);
+    assert!(app.current_target().is_none());
+    assert!(app.history.history.is_none());
+    assert_eq!(app.history.meta, CommitMeta::None, "subject only stays");
+    assert_eq!(app.history.labels, RefLabels::Tags);
+}
