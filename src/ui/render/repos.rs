@@ -1,7 +1,7 @@
 //! Repository pane: group headers, repositories with status badges, and
 //! their linked worktrees indented beneath them.
 
-use super::{body_style, empty_line, pane_block, pane_tone, selection_style, Tone};
+use super::{empty_line, pane_block, pane_tone, selection_style, Tone};
 use crate::store::RepoStore;
 use crate::theme::Theme;
 use crate::ui::components::scrollbar::draw_vscrollbar;
@@ -191,7 +191,6 @@ pub(super) fn draw_repos(f: &mut Frame, app: &App, area: Rect) {
     };
     // Text width; the selection bar adds the right padding cell after it.
     let w = list_area.width.saturating_sub(1) as usize;
-    let dim = |s: Style| body_style(tone, s, th);
     let items: Vec<ListItem> = app
         .rows
         .iter()
@@ -205,8 +204,6 @@ pub(super) fn draw_repos(f: &mut Frame, app: &App, area: Rect) {
                     collapsed,
                     ..
                 } => {
-                    // The band keeps its background when the pane loses
-                    // focus; the text is muted either way.
                     let fill = Style::default().bg(th.group_bg);
                     let arrow = if *collapsed { "▸ " } else { "▾ " };
                     let label = name.clone().unwrap_or_else(|| "Ungrouped".into());
@@ -219,12 +216,10 @@ pub(super) fn draw_repos(f: &mut Frame, app: &App, area: Rect) {
                     // An open group's rows carry their own badges; a folded
                     // group shows only how many changed files it hides.
                     let right = if *collapsed && *changed > 0 {
-                        let style = if tone == Tone::Dimmed {
-                            fill.fg(th.muted)
-                        } else {
-                            fill.fg(th.warning)
-                        };
-                        vec![Span::styled(format!("{CHANGED}{changed}"), style)]
+                        vec![Span::styled(
+                            format!("{CHANGED}{changed}"),
+                            fill.fg(th.warning),
+                        )]
                     } else {
                         Vec::new()
                     };
@@ -234,18 +229,11 @@ pub(super) fn draw_repos(f: &mut Frame, app: &App, area: Rect) {
                     let repo = &app.store.repos[*idx];
                     let tree = app.statuses.get(&repo.path);
                     let indent = if *nested { "   " } else { " " };
-                    let left = vec![Span::styled(
-                        format!("{indent}{}", repo.name()),
-                        dim(Style::default()),
-                    )];
-                    let right = dim_spans(
-                        with_op(
-                            app,
-                            &repo.path,
-                            badges(tree, app.scan.is_scanning(&repo.path), th),
-                        ),
-                        tone,
-                        th,
+                    let left = vec![Span::raw(format!("{indent}{}", repo.name()))];
+                    let right = with_op(
+                        app,
+                        &repo.path,
+                        badges(tree, app.scan.is_scanning(&repo.path), th),
                     );
                     row_line(left, right, w, sel, Style::default())
                 }
@@ -265,16 +253,12 @@ pub(super) fn draw_repos(f: &mut Frame, app: &App, area: Rect) {
                         .unwrap_or_default();
                     let mut left = vec![
                         Span::styled(format!("{indent}{elbow}"), Style::default().fg(th.dim)),
-                        Span::styled(name, dim(Style::default())),
+                        Span::raw(name),
                     ];
                     if let Some(b) = branch {
                         left.push(Span::styled(format!(" {b}"), th.soft_dim()));
                     }
-                    let right = dim_spans(
-                        with_op(app, path, badges(tree, app.scan.is_scanning(path), th)),
-                        tone,
-                        th,
-                    );
+                    let right = with_op(app, path, badges(tree, app.scan.is_scanning(path), th));
                     row_line(left, right, w, sel, Style::default())
                 }
             };
@@ -309,15 +293,4 @@ fn with_op(app: &App, path: &std::path::Path, badges: Vec<Span<'static>>) -> Vec
     ];
     out.extend(badges);
     out
-}
-
-/// A dimmed pane shows its badges soft-dim too.
-fn dim_spans(spans: Vec<Span<'static>>, tone: Tone, th: &Theme) -> Vec<Span<'static>> {
-    if tone != Tone::Dimmed {
-        return spans;
-    }
-    spans
-        .into_iter()
-        .map(|s| Span::styled(s.content, th.soft_dim()))
-        .collect()
 }

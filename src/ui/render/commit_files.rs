@@ -2,9 +2,7 @@
 //! divider, then one row per file (status letter, path, `+N -N`).
 
 use super::files::{pane_title, WORKTREE_TITLE};
-use super::{
-    body_style, draw_divider, empty_line, pane_block, pane_tone, selection_style, Divider, Tone,
-};
+use super::{draw_divider, empty_line, pane_block, pane_tone, selection_style, Divider, Tone};
 use crate::git::commit_files::CommitFile;
 use crate::theme::Theme;
 use crate::ui::commit_files::CommitView;
@@ -40,14 +38,10 @@ pub(super) fn draw_commit_files(f: &mut Frame, app: &App, area: Rect, view: &Com
         ..inner
     };
     let w = list_area.width.saturating_sub(1) as usize;
-    let dim = |s: Style| body_style(tone, s, th);
 
     let mut rows: Vec<Vec<Span>> = vec![vec![
-        Span::styled(format!(" {node} "), dim(Style::default().fg(th.branch))),
-        Span::styled(
-            truncate_w(subject, w.saturating_sub(3)),
-            dim(Style::default()),
-        ),
+        Span::styled(format!(" {node} "), Style::default().fg(th.branch)),
+        Span::styled(truncate_w(subject, w.saturating_sub(3)), Style::default()),
     ]];
     // The divider row stays empty; its line is drawn over it below.
     rows.push(Vec::new());
@@ -68,7 +62,7 @@ pub(super) fn draw_commit_files(f: &mut Frame, app: &App, area: Rect, view: &Com
         empty_line(f, below, &truncate_w(text, inner.width as usize), style);
     }
     for file in view.files.iter().flatten() {
-        rows.push(file_spans(file, w, tone, th));
+        rows.push(file_spans(file, w, th));
     }
 
     // Visual row of the selection: the divider sits between the commit row
@@ -114,8 +108,7 @@ pub(super) fn draw_commit_files(f: &mut Frame, app: &App, area: Rect, view: &Com
 /// ` M src/app.rs        +3 -1`: the status letter in its color, the
 /// folder soft-dim, the counts right-aligned in the diff colors (`Bin` for
 /// a binary file).
-fn file_spans(file: &CommitFile, w: usize, tone: Tone, th: &Theme) -> Vec<Span<'static>> {
-    let dim = |s: Style| body_style(tone, s, th);
+fn file_spans(file: &CommitFile, w: usize, th: &Theme) -> Vec<Span<'static>> {
     let code = match file.status {
         'A' => th.success,
         'D' | 'U' => th.error,
@@ -127,9 +120,7 @@ fn file_spans(file: &CommitFile, w: usize, tone: Tone, th: &Theme) -> Vec<Span<'
         Some((a, d)) => [(a, '+', th.diff_add), (d, '-', th.diff_del)]
             .into_iter()
             .filter(|(n, ..)| *n > 0)
-            .map(|(n, sign, color)| {
-                Span::styled(format!(" {sign}{n}"), dim(Style::default().fg(color)))
-            })
+            .map(|(n, sign, color)| Span::styled(format!(" {sign}{n}"), Style::default().fg(color)))
             .collect(),
         None => vec![Span::styled(" Bin", th.soft_dim())],
     };
@@ -146,10 +137,10 @@ fn file_spans(file: &CommitFile, w: usize, tone: Tone, th: &Theme) -> Vec<Span<'
     let used = 3 + dir.width() + name.width();
     let mut spans = vec![
         Span::raw(" "),
-        Span::styled(file.status.to_string(), dim(Style::default().fg(code))),
+        Span::styled(file.status.to_string(), Style::default().fg(code)),
         Span::raw(" "),
         Span::styled(dir, th.soft_dim()),
-        Span::styled(name, dim(Style::default())),
+        Span::styled(name, Style::default()),
         Span::raw(" ".repeat(w.saturating_sub(used + counts_w))),
     ];
     spans.append(&mut counts);

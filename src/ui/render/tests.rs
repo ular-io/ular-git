@@ -301,7 +301,7 @@ fn the_header_names_the_selected_repository_above_its_branch() {
 }
 
 #[test]
-fn a_dimmed_pane_selection_is_soft_dim_reversed_over_the_inactive_bar() {
+fn a_dimmed_pane_selection_is_plain_text_on_the_inactive_bar() {
     let a = TestRepo::new();
     a.write("a.txt", "changed\n");
     let mut app = scanned_app(store_of(&[&a.root]));
@@ -317,9 +317,9 @@ fn a_dimmed_pane_selection_is_soft_dim_reversed_over_the_inactive_bar() {
         .unwrap();
     let cell = &buf[(x, y)];
     assert_eq!(cell.bg, app.theme.selection_inactive_bg);
-    assert_eq!(cell.fg, app.theme.muted);
+    assert_eq!(cell.fg, app.theme.fg);
     assert!(!cell.modifier.contains(ratatui::style::Modifier::BOLD));
-    assert!(cell.modifier.contains(ratatui::style::Modifier::REVERSED));
+    assert!(!cell.modifier.contains(ratatui::style::Modifier::REVERSED));
 }
 
 #[test]

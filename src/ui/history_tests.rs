@@ -122,7 +122,7 @@ fn commits_to_pull_are_marked_with_a_down_arrow() {
 }
 
 #[test]
-fn the_graph_gets_fainter_not_stronger_when_its_pane_loses_focus() {
+fn the_graph_keeps_its_colors_when_its_pane_loses_focus() {
     let a = TestRepo::new();
     a.write("a.txt", "next\n");
     a.git(&["commit", "-qam", "second"]);
@@ -141,18 +141,10 @@ fn the_graph_gets_fainter_not_stronger_when_its_pane_loses_focus() {
         let x = (0..150).find(|&x| buf[(x, y)].symbol() == "●").unwrap();
         crate::theme::color_rgb(buf[(x, y)].fg)
     };
-    let distance = |(r, g, b): (u8, u8, u8)| {
-        let (br, bg, bb) = app.theme.bg_rgb();
-        (r as i32 - br as i32).abs() + (g as i32 - bg as i32).abs() + (b as i32 - bb as i32).abs()
-    };
     app.focus = Pane::Files;
-    let focused = distance(node_fg(&app));
+    let focused = node_fg(&app);
     app.focus = Pane::Repos;
-    let dimmed = distance(node_fg(&app));
-    assert!(
-        dimmed < focused,
-        "dimmed {dimmed} must be fainter than focused {focused}"
-    );
+    assert_eq!(node_fg(&app), focused, "content is never dimmed");
 }
 
 #[test]

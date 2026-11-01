@@ -353,3 +353,29 @@ fn side_by_side_and_pane_width_changes_keep_the_top_line() {
     app.focus = Pane::Files;
     assert_eq!(line(&app), before, "narrow again");
 }
+
+#[test]
+fn the_diff_keeps_its_colors_when_another_pane_is_focused() {
+    let a = TestRepo::new();
+    a.write("a.txt", "fresh line\n");
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.wait_background(10);
+    let added_fg = |app: &crate::ui::App| {
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(150, 30)).unwrap();
+        terminal.draw(|f| crate::ui::render::draw(f, app)).unwrap();
+        let buf = terminal.backend().buffer().clone();
+        let row = |y: u16| (0..150).map(|x| buf[(x, y)].symbol()).collect::<String>();
+        let y = (0..30).find(|&y| row(y).contains("fresh line")).unwrap();
+        let x = (0..150).find(|&x| buf[(x, y)].symbol() == "f").unwrap();
+        buf[(x, y)].fg
+    };
+    app.focus = Pane::Diff;
+    assert_eq!(added_fg(&app), app.theme.diff_add);
+    app.focus = Pane::Files;
+    assert_eq!(
+        added_fg(&app),
+        app.theme.diff_add,
+        "content is never dimmed"
+    );
+}

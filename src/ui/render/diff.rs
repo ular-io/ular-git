@@ -5,7 +5,6 @@ use super::gutter::{is_code, Gutter};
 use super::{draw_divider, empty_line, pane_block, pane_tone, split, Divider, Tone};
 use crate::git::diff::{DiffLine, LineKind};
 use crate::theme::{color_rgb, Theme};
-use crate::ui::components::modal::fade_toward;
 use crate::ui::components::scrollbar::draw_vscrollbar;
 use crate::ui::components::text::{truncate_w, wrap_path, wrap_w};
 use crate::ui::diff_view::Anchor;
@@ -23,40 +22,27 @@ use unicode_width::UnicodeWidthStr;
 /// How far unchanged (context) lines move from `muted` toward the background.
 const CONTEXT_FADE_PCT: u32 = 25;
 
-fn kind_style(kind: LineKind, tone: Tone, th: &Theme) -> Style {
-    let colored = |c: Color| {
-        if tone == Tone::Dimmed {
-            Style::default().fg(fade_toward(color_rgb(c), th.bg_rgb()))
-        } else {
-            Style::default().fg(c)
-        }
-    };
-    let plain = |s: Style| {
-        if tone == Tone::Dimmed {
-            th.soft_dim()
-        } else {
-            s
-        }
-    };
+/// A line's style. The same whatever the focus: a pane's content is never
+/// dimmed, so a diff read beside another focused pane stays legible.
+fn kind_style(kind: LineKind, th: &Theme) -> Style {
+    let fg = |c: Color| Style::default().fg(c);
     match kind {
         LineKind::Section | LineKind::File | LineKind::Rule => {
-            colored(th.accent).add_modifier(Modifier::BOLD)
+            fg(th.accent).add_modifier(Modifier::BOLD)
         }
-        LineKind::Byline | LineKind::Path => th.soft_dim(),
-        // Drawn per sign by `counts_spans`.
-        LineKind::Counts => plain(Style::default()),
-        LineKind::Subject => plain(Style::default().add_modifier(Modifier::BOLD)),
-        LineKind::Header | LineKind::Stat => plain(Style::default()),
+        LineKind::Byline | LineKind::Path | LineKind::Meta => th.soft_dim(),
+        // Counts are drawn per sign by `counts_spans`.
+        LineKind::Counts | LineKind::Header | LineKind::Stat => Style::default(),
+        LineKind::Subject => Style::default().add_modifier(Modifier::BOLD),
         // Unchanged lines recede so the changes stand out: `muted` a quarter
-        // toward the background, faded further in a dimmed pane.
+        // toward the background.
         LineKind::Context => {
             let (r, g, b) = mix(color_rgb(th.muted), th.bg_rgb(), CONTEXT_FADE_PCT);
-            colored(Color::Rgb(r, g, b))
+            fg(Color::Rgb(r, g, b))
         }
-        LineKind::Meta => th.soft_dim(),
-        LineKind::Gap => Style::default().fg(th.dim),
-        LineKind::Add => colored(th.diff_add),
-        LineKind::Del => colored(th.diff_del),
+        LineKind::Gap => fg(th.dim),
+        LineKind::Add => fg(th.diff_add),
+        LineKind::Del => fg(th.diff_del),
     }
 }
 
@@ -69,7 +55,7 @@ fn is_message(kind: LineKind) -> bool {
 }
 
 /// `+20 -3` with each side in its diff color.
-fn counts_spans(text: &str, tone: Tone, th: &Theme) -> Vec<Span<'static>> {
+fn counts_spans(text: &str, th: &Theme) -> Vec<Span<'static>> {
     let mut spans = Vec::new();
     for (i, part) in text.split(' ').enumerate() {
         if i > 0 {
@@ -80,7 +66,7 @@ fn counts_spans(text: &str, tone: Tone, th: &Theme) -> Vec<Span<'static>> {
         } else {
             LineKind::Add
         };
-        spans.push(Span::styled(part.to_string(), kind_style(kind, tone, th)));
+        spans.push(Span::styled(part.to_string(), kind_style(kind, th)));
     }
     spans
 }
@@ -214,7 +200,6 @@ fn side_spans(
     width: usize,
     old: bool,
     gutter: &Gutter,
-    tone: Tone,
     th: &Theme,
 ) -> Vec<Span<'static>> {
     let Some(seg) = side else {
@@ -229,7 +214,7 @@ fn side_spans(
         seg.text,
         seg.start,
         &line.marks,
-        kind_style(line.kind, tone, th),
+        kind_style(line.kind, th),
     ));
     spans.push(Span::raw(" ".repeat(pad)));
     spans
@@ -426,14 +411,14 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
                 Row::Line(seg) => seg,
                 Row::Pair(l, r) => {
                     let (lw, rw) = split::sides(full_w);
-                    let mut spans = side_spans(doc, l, lw, true, &gutter, tone, th);
+                    let mut spans = side_spans(doc, l, lw, true, &gutter, th);
                     spans.push(Span::styled("│", Style::default().fg(th.dim)));
-                    spans.extend(side_spans(doc, r, rw, false, &gutter, tone, th));
+                    spans.extend(side_spans(doc, r, rw, false, &gutter, th));
                     return Line::from(spans);
                 }
             };
             let line = &doc.lines[i];
-            let style = kind_style(line.kind, tone, th);
+            let style = kind_style(line.kind, th);
             if matches!(
                 line.kind,
                 LineKind::Section | LineKind::File | LineKind::Rule
@@ -456,7 +441,7 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
                 return Line::from(Span::styled(at, style));
             }
             if line.kind == LineKind::Counts {
-                return Line::from(counts_spans(&seg, tone, th));
+                return Line::from(counts_spans(&seg, th));
             }
             let mut spans = Vec::new();
             if has_gutter(line) {

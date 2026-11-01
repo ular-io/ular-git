@@ -3,8 +3,8 @@
 
 use super::repos::CHANGED;
 use super::{
-    body_style, draw_divider, empty_box, empty_line, pane_block, pane_footer, pane_tone,
-    selection_style, Divider, Tone,
+    draw_divider, empty_box, empty_line, pane_block, pane_footer, pane_tone, selection_style,
+    Divider, Tone,
 };
 use crate::git::graph::Cell;
 use crate::git::history::{RefKind, RefLabel};
@@ -110,7 +110,6 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
     // Dates for the whole list or none: only when the subject keeps
     // DATE_SUBJECT_MIN cells after the graph (one space each side) and the date.
     let dated = w.saturating_sub(graph_w + 2 + DATE_W) >= DATE_SUBJECT_MIN;
-    let dim = |s: Style| body_style(tone, s, th);
     let mut selected_row = 0;
     let lines: Vec<ListItem> = visual
         .iter()
@@ -129,12 +128,12 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                 {
                     let item = items[*i];
                     let spans = match item {
-                        FileItem::File(file) => file_spans(file, w, tone, th),
+                        FileItem::File(file) => file_spans(file, w, th),
                         FileItem::Commit(c, mark) => {
-                            let mut spans = graph_spans(graph_of(v), graph_w, mark, tone, th);
+                            let mut spans = graph_spans(graph_of(v), graph_w, mark, th);
                             let date = date_of(v);
                             if dated && !date.is_empty() {
-                                let style = dim(Style::default().fg(th.muted));
+                                let style = Style::default().fg(th.muted);
                                 spans.push(Span::styled(format!("{date} "), style));
                             }
                             let used: usize = spans.iter().map(|s| s.content.width()).sum();
@@ -149,7 +148,7 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                                 th,
                             );
                             let labels_w: usize = labels.iter().map(|s| s.content.width()).sum();
-                            let style = dim(Style::default());
+                            let style = Style::default();
                             let room = if labels.is_empty() { w } else { row_w };
                             let subject = truncate_w(
                                 &c.subject,
@@ -170,14 +169,14 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                                 color: Some(0),
                             }];
                             let cells = if cells.is_empty() { &node[..] } else { cells };
-                            let mut spans = graph_spans(cells, graph_w, Mark::Shared, tone, th);
+                            let mut spans = graph_spans(cells, graph_w, Mark::Shared, th);
                             let used: usize = spans.iter().map(|s| s.content.width()).sum();
-                            let badges = worktree_badges(status, tone, th);
+                            let badges = worktree_badges(status, th);
                             let badges_w: usize = badges.iter().map(|s| s.content.width()).sum();
                             let title =
                                 truncate_w(WORKTREE_TITLE, w.saturating_sub(used + badges_w + 1));
                             let gap = w.saturating_sub(used + title.width() + badges_w);
-                            spans.push(Span::styled(title, dim(Style::default())));
+                            spans.push(Span::styled(title, Style::default()));
                             spans.push(Span::raw(" ".repeat(gap)));
                             spans.extend(badges);
                             spans
@@ -295,15 +294,14 @@ pub(crate) const WORKTREE_TITLE: &str = "Uncommitted Changes";
 /// Right-aligned badges of the working-tree row, as in the repository pane:
 /// `!1` conflicts, `Ⓜ 3` other changes (untracked included), `↓2` commits to
 /// pull (the row exists only while the tree has changes).
-fn worktree_badges(status: &crate::git::RepoStatus, tone: Tone, th: &Theme) -> Vec<Span<'static>> {
-    let dim = |s: Style| body_style(tone, s, th);
+fn worktree_badges(status: &crate::git::RepoStatus, th: &Theme) -> Vec<Span<'static>> {
     let c = status.counts();
     let mut out: Vec<Span<'static>> = Vec::new();
     let mut push = |text: String, style: Style| {
         if !out.is_empty() {
             out.push(Span::raw(" "));
         }
-        out.push(Span::styled(text, dim(style)));
+        out.push(Span::styled(text, style));
     };
     if c.conflicts > 0 {
         push(format!("!{}", c.conflicts), Style::default().fg(th.error));
@@ -404,13 +402,7 @@ pub(super) fn mix((r, g, b): (u8, u8, u8), (tr, tg, tb): (u8, u8, u8), pct: u32)
 /// Graph cells colored by lane (a lane keeps its color) and faded so history
 /// stays in the background. A commit to push is `↑` and one to pull `↓`, in
 /// the branch color.
-fn graph_spans(
-    graph: &[Cell],
-    width: usize,
-    mark: Mark,
-    tone: Tone,
-    th: &Theme,
-) -> Vec<Span<'static>> {
+fn graph_spans(graph: &[Cell], width: usize, mark: Mark, th: &Theme) -> Vec<Span<'static>> {
     let lanes = [
         th.branch,
         th.diff_add,
@@ -430,16 +422,11 @@ fn graph_spans(
         };
         let marked = node && mark != Mark::Shared;
         let color = lanes[cell.color.unwrap_or(0) % lanes.len()];
-        // Each step toward the background is one fade: a focused pane shows
-        // marked nodes at full color and lanes faded once; another pane's
-        // focus fades both one step further, so the graph never gets
-        // stronger when the pane loses focus.
-        let fade = |c: Color| fade_toward(color_rgb(c), th.bg_rgb());
-        let style = match (tone == Tone::Dimmed, marked) {
-            (false, true) => Style::default().fg(th.branch),
-            (false, false) => Style::default().fg(fade(color)),
-            (true, true) => Style::default().fg(fade(th.branch)),
-            (true, false) => Style::default().fg(fade(fade(color))),
+        // Marked nodes in full color, lanes faded once, whatever the focus.
+        let style = if marked {
+            Style::default().fg(th.branch)
+        } else {
+            Style::default().fg(fade_toward(color_rgb(color), th.bg_rgb()))
         };
         spans.push(Span::styled(glyph.to_string(), style));
         used += 1;
@@ -448,8 +435,7 @@ fn graph_spans(
     spans
 }
 
-fn file_spans(file: &FileEntry, w: usize, tone: Tone, th: &Theme) -> Vec<Span<'static>> {
-    let dim = |s: Style| body_style(tone, s, th);
+fn file_spans(file: &FileEntry, w: usize, th: &Theme) -> Vec<Span<'static>> {
     let code: Vec<char> = file.code().chars().collect();
     let (xs, ys) = match file.kind {
         EntryKind::Untracked => {
@@ -476,10 +462,10 @@ fn file_spans(file: &FileEntry, w: usize, tone: Tone, th: &Theme) -> Vec<Span<'s
     };
     vec![
         Span::raw(" "),
-        Span::styled(code[0].to_string(), dim(xs)),
-        Span::styled(code[1].to_string(), dim(ys)),
+        Span::styled(code[0].to_string(), xs),
+        Span::styled(code[1].to_string(), ys),
         Span::raw(" "),
         Span::styled(dir, th.soft_dim()),
-        Span::styled(name, dim(Style::default())),
+        Span::styled(name, Style::default()),
     ]
 }

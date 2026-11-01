@@ -266,28 +266,17 @@ pub(crate) fn draw_divider(f: &mut Frame, area: Rect, d: &Divider, tone: Tone, t
     );
 }
 
-/// Body text style of a pane in `tone`: dimmed panes fade everything.
-pub(crate) fn body_style(tone: Tone, style: Style, th: &Theme) -> Style {
-    if tone == Tone::Dimmed {
-        th.soft_dim()
-    } else {
-        style
-    }
-}
-
-/// Selected-row style, as in s7s: focused → selection colors + bold; another
-/// pane focused → soft-dim reversed over the inactive bar; a dialog owns input
-/// → inactive bar + bold.
+/// Selected-row style: focused → selection colors + bold; another pane
+/// focused → plain text on the inactive bar (pane content is never dimmed,
+/// so focus shows in the frame and this bar); a dialog owns input → inactive
+/// bar + bold.
 pub(crate) fn selection_style(tone: Tone, th: &Theme) -> Style {
     match tone {
         Tone::Focused => Style::default()
             .fg(th.selection_fg)
             .bg(th.selection_bg)
             .add_modifier(Modifier::BOLD),
-        Tone::Dimmed => th
-            .soft_dim()
-            .bg(th.selection_inactive_bg)
-            .add_modifier(Modifier::REVERSED),
+        Tone::Dimmed => Style::default().fg(th.fg).bg(th.selection_inactive_bg),
         Tone::Neutral => Style::default()
             .fg(th.selection_fg)
             .bg(th.selection_inactive_bg)

@@ -54,32 +54,31 @@ ular-git applies them.
 
 - Focused pane: `Thick` border, `accent` + bold title, `←` / `→` on the top
   border only for the directions it can move.
-- Another pane focused: `Plain` border, soft-dim frame, title, and text. The
-  diff keeps its colors faded halfway toward the background so `+` / `-` stay
-  readable.
+- Another pane focused: `Plain` border, soft-dim frame and title. The
+  content is **never dimmed**: text, diff colors, status letters, badges, and
+  the history graph look the same focused or not, because the user moves
+  through repository or file rows while reading the panes beside them. Focus
+  shows only in the frame (border, title, arrows) and the selection bar.
 - A dialog, help, the palette, or the filter line owns input: no pane is
   dimmed.
-- Faded colors fade further when their pane loses focus, never back to
-  `muted`: the history graph is lane color faded once when focused and twice
-  when not (`↑` / `↓` nodes: full branch color, then faded once). `muted` can
-  be stronger than a faded color, so swapping to it would make a dimmed pane
-  look bolder. History ref labels are the exception: they always use the
-  faded colors, focused or not.
+- The history graph is lane color faded once toward the background (`↑` /
+  `↓` nodes: full branch color), and history ref labels use their faded
+  colors, in every pane state.
 - Row content in the repository and file panes is never bold: status codes,
   badges, `↑` / `↓` nodes, ref labels, and the running `push…` / `pull…`
   label use color alone. Bold marks focus only (the focused pane's selection
   bar, title, and border).
 - Selected row: the bar runs from the left padding cell to the cell before the
   right border (where the scrollbar sits). Focused → `selection_bg` +
-  `selection_fg` + bold; dimmed pane → soft-dim reversed over
-  `selection_inactive_bg`; neutral → `selection_inactive_bg` +
+  `selection_fg` + bold; another pane focused → `fg` text over
+  `selection_inactive_bg`, not bold; neutral → `selection_inactive_bg` +
   `selection_fg` + bold. Text keeps one cell of margin on the right.
 
 ## Repository rows
 
 - Group headers are muted (`muted` text, no bold) on `group_bg`, so they label
   the rows below without outweighing them. The `group_bg` band stays when the
-  repository pane loses focus; a folded group's `Ⓜ N` turns muted.
+  repository pane loses focus, and a folded group's `Ⓜ N` keeps `warning`.
 - Badge colors: conflicts `error` bold, changed `warning`, ahead / behind
   `branch`, stashes soft-dim, failed scan `error`, running push / pull
   `accent` bold. A clean tree has no badge.
@@ -90,7 +89,7 @@ ular-git applies them.
 ## Diff colors
 
 `diff_add` added, `diff_del` removed, unchanged (context) lines in `muted`
-moved 25% toward the background (faded further when the pane is dimmed),
+moved 25% toward the background,
 soft-dim meta and the commit byline, bold commit subject, `accent` bold
 section and file titles.
 Title lines run from border to border and join it (`├ ┤` on a plain frame,
