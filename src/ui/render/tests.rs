@@ -246,7 +246,9 @@ fn the_selection_bar_reaches_the_right_border() {
                 if pane == Pane::Repos {
                     app.theme.selection_bg
                 } else {
-                    app.theme.selection_inactive_bg
+                    super::selection_style(super::Tone::Dimmed, &app.theme)
+                        .bg
+                        .unwrap()
                 },
                 "{pane:?} cell {x} of the selected row"
             );
@@ -301,7 +303,7 @@ fn the_header_names_the_selected_repository_above_its_branch() {
 }
 
 #[test]
-fn a_dimmed_pane_selection_is_plain_text_on_the_inactive_bar() {
+fn a_dimmed_pane_selection_is_plain_text_on_a_faded_muted_bar() {
     let a = TestRepo::new();
     a.write("a.txt", "changed\n");
     let mut app = scanned_app(store_of(&[&a.root]));
@@ -316,8 +318,10 @@ fn a_dimmed_pane_selection_is_plain_text_on_the_inactive_bar() {
         .find(|&x| buf[(x, y)].symbol() == "a" && buf[(x + 1, y)].symbol() == ".")
         .unwrap();
     let cell = &buf[(x, y)];
-    assert_eq!(cell.bg, app.theme.selection_inactive_bg);
-    assert_eq!(cell.fg, app.theme.fg);
+    let th = &app.theme;
+    let (r, g, b) = super::files::mix(crate::theme::color_rgb(th.muted), th.bg_rgb(), 40);
+    assert_eq!(cell.bg, ratatui::style::Color::Rgb(r, g, b));
+    assert_eq!(cell.fg, th.fg);
     assert!(!cell.modifier.contains(ratatui::style::Modifier::BOLD));
     assert!(!cell.modifier.contains(ratatui::style::Modifier::REVERSED));
 }

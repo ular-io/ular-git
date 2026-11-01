@@ -266,17 +266,28 @@ pub(crate) fn draw_divider(f: &mut Frame, area: Rect, d: &Divider, tone: Tone, t
     );
 }
 
+/// How far an unfocused pane's selection bar moves from `muted` toward the
+/// background: solid enough to spot, light enough for `fg` text on it.
+const UNFOCUSED_BAR_FADE_PCT: u32 = 40;
+
 /// Selected-row style: focused → selection colors + bold; another pane
-/// focused → plain text on the inactive bar (pane content is never dimmed,
-/// so focus shows in the frame and this bar); a dialog owns input → inactive
-/// bar + bold.
+/// focused → plain text on a faded `muted` bar (pane content is never
+/// dimmed, so focus shows in the frame and this bar; reversing would put
+/// pale text on the bar); a dialog owns input → inactive bar + bold.
 pub(crate) fn selection_style(tone: Tone, th: &Theme) -> Style {
     match tone {
         Tone::Focused => Style::default()
             .fg(th.selection_fg)
             .bg(th.selection_bg)
             .add_modifier(Modifier::BOLD),
-        Tone::Dimmed => Style::default().fg(th.fg).bg(th.selection_inactive_bg),
+        Tone::Dimmed => {
+            let (r, g, b) = files::mix(
+                crate::theme::color_rgb(th.muted),
+                th.bg_rgb(),
+                UNFOCUSED_BAR_FADE_PCT,
+            );
+            Style::default().fg(th.fg).bg(Color::Rgb(r, g, b))
+        }
         Tone::Neutral => Style::default()
             .fg(th.selection_fg)
             .bg(th.selection_inactive_bg)

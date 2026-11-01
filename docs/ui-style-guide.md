@@ -70,8 +70,9 @@ ular-git applies them.
   bar, title, and border).
 - Selected row: the bar runs from the left padding cell to the cell before the
   right border (where the scrollbar sits). Focused → `selection_bg` +
-  `selection_fg` + bold; another pane focused → `fg` text over
-  `selection_inactive_bg`, not bold; neutral → `selection_inactive_bg` +
+  `selection_fg` + bold; another pane focused → `fg` text, not bold, on
+  `muted` moved 40% toward the background (not reversed: reversed text is
+  pale on a mid-tone bar); neutral → `selection_inactive_bg` +
   `selection_fg` + bold. Text keeps one cell of margin on the right.
 
 ## Repository rows
