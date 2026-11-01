@@ -90,6 +90,7 @@ fn unpushed_commits_show_date_and_subject_and_their_hash_titles_the_diff() {
     let mut app = scanned_app(store_of(&[&a.root]));
     // Files focus shows Files + Diff.
     app.focus = Pane::Files;
+    app.history.meta = crate::ui::history_view::CommitMeta::None;
     app.wait_background(10);
     let commit = app
         .current_tree()

@@ -21,6 +21,8 @@ pub struct GraphRow {
     pub commit: Commit,
     /// Author date, `YYYY-MM-DD`.
     pub date: String,
+    /// Author name.
+    pub author: String,
     /// On the upstream but not reachable from HEAD: a pull brings it in.
     pub incoming: bool,
     /// Branches and tags pointing at the commit, in git's order.
@@ -95,7 +97,7 @@ pub fn load(dir: &Path, limit: usize, worktree: bool) -> anyhow::Result<History>
         &n,
         // Full ref names tell a local `feat/x` from a remote `origin/x`.
         "--decorate=full",
-        "--format=%H%x1f%h%x1f%P%x1f%D%x1f%as%x1f%s",
+        "--format=%H%x1f%h%x1f%P%x1f%D%x1f%as%x1f%an%x1f%s",
         "HEAD",
     ];
     if incoming.as_ref().is_some_and(|set| !set.is_empty()) {
@@ -119,39 +121,44 @@ pub fn load(dir: &Path, limit: usize, worktree: bool) -> anyhow::Result<History>
     Ok(history)
 }
 
-/// Parses `hash SEP short SEP parents SEP refs SEP date SEP subject` lines
-/// and lays out the graph, with the working-tree node when `worktree`.
+/// Parses `hash SEP short SEP parents SEP refs SEP date SEP author SEP
+/// subject` lines and lays out the graph, with the working-tree node when
+/// `worktree`.
 pub fn parse(text: &str, limit: usize, worktree: bool) -> History {
-    let mut commits: Vec<(Commit, Vec<String>, Vec<RefLabel>, String)> = Vec::new();
+    // Rows without graph cells yet, and each commit's parents (the shape).
+    let mut rows: Vec<GraphRow> = Vec::new();
+    let mut shape: Vec<(String, Vec<String>)> = Vec::new();
     for line in text.lines() {
         let mut f = line.split(SEP);
-        let (Some(hash), Some(short), Some(parents), Some(refs), Some(date)) =
-            (f.next(), f.next(), f.next(), f.next(), f.next())
+        let (Some(hash), Some(short), Some(parents), Some(refs), Some(date), Some(author)) =
+            (f.next(), f.next(), f.next(), f.next(), f.next(), f.next())
         else {
             continue;
         };
-        commits.push((
-            Commit {
+        let parents = parents.split_whitespace().map(str::to_string).collect();
+        shape.push((hash.to_string(), parents));
+        rows.push(GraphRow {
+            cells: Vec::new(),
+            commit: Commit {
                 hash: hash.to_string(),
                 short: short.to_string(),
                 subject: f.next().unwrap_or("").to_string(),
             },
-            parents.split_whitespace().map(str::to_string).collect(),
-            parse_refs(refs),
-            date.to_string(),
-        ));
+            date: date.to_string(),
+            author: author.to_string(),
+            incoming: false,
+            refs: parse_refs(refs),
+        });
     }
     // The working tree is laid out as a commit (no hash) whose parent is HEAD.
-    let head = commits
+    let head = rows
         .iter()
-        .find(|(_, _, refs, _)| worktree && refs.iter().any(|r| r.head))
-        .map(|(c, ..)| c.hash.clone());
-    let mut shape: Vec<(String, Vec<String>)> = Vec::new();
+        .find(|r| worktree && r.refs.iter().any(|r| r.head))
+        .map(|r| r.commit.hash.clone());
     if let Some(h) = &head {
-        shape.push((String::new(), vec![h.clone()]));
+        shape.insert(0, (String::new(), vec![h.clone()]));
     }
-    shape.extend(commits.iter().map(|(c, p, ..)| (c.hash.clone(), p.clone())));
-    let more = commits.len() >= limit;
+    let more = rows.len() >= limit;
     let mut cells = graph::layout(&shape);
     let mut worktree = if head.is_some() && !cells.is_empty() {
         cells.remove(0)
@@ -161,17 +168,9 @@ pub fn parse(text: &str, limit: usize, worktree: bool) -> History {
     for c in worktree.iter_mut().filter(|c| c.ch == '●') {
         c.ch = '○';
     }
-    let rows = cells
-        .into_iter()
-        .zip(commits)
-        .map(|(cells, (commit, _, refs, date))| GraphRow {
-            cells,
-            commit,
-            date,
-            incoming: false,
-            refs,
-        })
-        .collect();
+    for (row, cells) in rows.iter_mut().zip(cells) {
+        row.cells = cells;
+    }
     History {
         worktree,
         rows,
@@ -250,9 +249,9 @@ mod tests {
 
     #[test]
     fn parses_commits_with_parents_into_graph_rows() {
-        let text = "m\x1fm1\x1fa b\x1fHEAD -> refs/heads/main\x1f2026-11-01\x1fMerge b\n\
-b\x1fb1\x1fa\x1f\x1f2026-10-31\x1fon b\n\
-a\x1fa1\x1f\x1ftag: refs/tags/v1\x1f2026-10-30\x1froot\n";
+        let text = "m\x1fm1\x1fa b\x1fHEAD -> refs/heads/main\x1f2026-11-01\x1fAna\x1fMerge b\n\
+b\x1fb1\x1fa\x1f\x1f2026-10-31\x1fBo\x1fon b\n\
+a\x1fa1\x1f\x1ftag: refs/tags/v1\x1f2026-10-30\x1fAna\x1froot\n";
         let h = parse(text, 100, true);
         let rows: Vec<String> = h
             .rows
@@ -265,6 +264,7 @@ a\x1fa1\x1f\x1ftag: refs/tags/v1\x1f2026-10-30\x1froot\n";
         assert_eq!(wt, "○");
         assert_eq!(h.rows[0].commit.subject, "Merge b");
         assert_eq!(h.rows[2].date, "2026-10-30");
+        assert_eq!(h.rows[1].author, "Bo");
         assert_eq!(h.rows[0].refs[0].name, "main");
         assert!(h.rows[0].refs[0].head);
         assert!(h.rows[1].refs.is_empty());

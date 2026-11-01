@@ -32,12 +32,13 @@ last fetch; ular-git does not fetch on its own.
 
 ## Filter
 
-`/` opens the filter line under the header. Matching is a case-insensitive
+`/` (Repos pane) opens the filter line under the header. Matching is a case-insensitive
 substring of the folder name or branch name (a worktree's branch match keeps
 its repository visible). Folded groups open while filtering; groups without a
 match disappear. When the selected row is filtered out the cursor moves to the
 first match. `enter` keeps the filter, `esc` restores the previous one, `0`
-clears it.
+(Repos pane) clears it. While a filter is applied the header shows `0` in
+place of `/`.
 
 ## Pending only
 

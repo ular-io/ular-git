@@ -195,6 +195,7 @@ impl App {
             app.last_apps = overlays::open_with::load_last_apps();
             let view = history_view::load_view();
             app.history.labels = view.history_labels;
+            app.history.meta = view.history_meta;
             app.diff.split = view.split_diff;
             app.pane_count = view.pane_count.clamp(1, 3);
             app.launch_dir = std::env::current_dir().ok();
@@ -397,6 +398,8 @@ impl App {
 mod commit_files_tests;
 #[cfg(test)]
 mod history_tests;
+#[cfg(test)]
+mod pane_keys_tests;
 #[cfg(test)]
 mod sync_tests;
 #[cfg(test)]

@@ -28,6 +28,7 @@ pub enum CommandId {
     ToggleWrap,
     ToggleSplitDiff,
     CycleRefLabels,
+    CycleCommitMeta,
     TerminalCommand,
     ChangeTheme,
     EditConfig,
@@ -280,6 +281,14 @@ pub const COMMANDS: &[CommandSpec] = &[
         Some(">"),
         ["branch", "tag", "ref", "label", "badge", "decorate", "history"],
         Some("History labels: none → branches → branches and tags → tags")
+    ),
+    cmd!(
+        CycleCommitMeta,
+        "cycle-commit-meta",
+        "Cycle History Date / Author",
+        Some("."),
+        ["date", "author", "time", "who", "history", "commit"],
+        Some("History rows: date → date and author → author → subject only")
     ),
     cmd!(
         TerminalCommand,

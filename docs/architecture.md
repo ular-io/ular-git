@@ -115,7 +115,7 @@ run_loop: poll_background (apply every Patch) ─► tick (timers) ─► draw o
 | `~/.config/ular-git/{quick,terminal}_history.json` | app | Palette / `!` |
 | `~/.config/ular-git/open_with.json` | app | Open With (last app per folder / file / diff list, last tab) |
 | `<tmp>/ular-git-<pid>/` | app | Open With's read-only file versions; removed on exit (other runs' after a day) |
-| `~/.config/ular-git/view.json` | app | History ref labels (`>`), side-by-side diff (`s`) |
+| `~/.config/ular-git/view.json` | app | History ref labels (`>`), history date / author (`.` on Files), side-by-side diff (`s`) |
 | `<OS cache>/ular-git/status.json` | app | `save_status_cache` when the scan queue drains and on exit (versioned; another version is discarded) |
 
 ## Design decisions

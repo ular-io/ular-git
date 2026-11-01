@@ -1,7 +1,8 @@
 //! Key routing. The front-most layer (dialog, palette, help, filter line)
 //! takes every key; only `ctrl+c` passes through to arm quitting. On the
-//! screen the focused pane consumes its own keys and the rest fall through to
-//! the global keys.
+//! screen the focused pane consumes its own keys (each shown in its header
+//! columns), then `c` / `P` / `p` (in every pane header), then the common
+//! keys (`:` `!` `ctrl+u` `?` `q`, plus the pane count `1..3` / `\`).
 
 use super::components::list_nav::{self, ListMove};
 use super::{App, Level, Pane, UiMode};
@@ -73,11 +74,25 @@ impl App {
             Pane::Files => self.on_key_files(&key),
             Pane::Diff => self.on_key_diff(&key),
         };
-        if !consumed {
+        if !consumed && !self.on_key_tree_ops(&key) {
             self.on_key_global(&key);
         }
     }
 
+    /// `c` / `P` / `p` on the selected working tree; every pane header lists
+    /// them.
+    fn on_key_tree_ops(&mut self, key: &KeyEvent) -> bool {
+        match plain(key) {
+            Some('c') => self.open_commit(),
+            Some('P') => self.open_push(),
+            Some('p') => self.start_pull(),
+            _ => return false,
+        }
+        true
+    }
+
+    /// Keys that work in every pane: the header's common column, plus the
+    /// pane count (help only).
     fn on_key_global(&mut self, key: &KeyEvent) {
         if ctrl(key, 'u') {
             self.refresh_all(false);
@@ -91,14 +106,6 @@ impl App {
             ':' => self.open_quick_command(),
             '!' => self.open_quick_terminal(),
             '?' => self.open_help(),
-            '/' => self.open_filter(),
-            '0' => self.clear_filter(),
-            '+' => self.open_add_repo(),
-            'c' => self.open_commit(),
-            'P' => self.open_push(),
-            'p' => self.start_pull(),
-            '>' => self.cycle_ref_labels(),
-            's' => self.toggle_split(),
             '1'..='3' => self.set_pane_count(c as usize - '0' as usize),
             '\\' => self.cycle_pane_count(),
             _ => {}
@@ -152,6 +159,9 @@ impl App {
             KeyCode::Enter => self.open_with_folder(),
             KeyCode::Right | KeyCode::Char('l') => self.move_focus(1),
             KeyCode::Char('.') => self.toggle_pending_only(),
+            KeyCode::Char('/') => self.open_filter(),
+            KeyCode::Char('0') => self.clear_filter(),
+            KeyCode::Char('+') => self.open_add_repo(),
             _ => return false,
         }
         true
@@ -170,7 +180,8 @@ impl App {
             // A commit lists its files; `enter` still opens its whole diff.
             KeyCode::Right | KeyCode::Char('l') if self.open_commit_files() => {}
             KeyCode::Enter | KeyCode::Right | KeyCode::Char('l') => self.move_focus(1),
-            KeyCode::Char('.') => self.toggle_wrap(),
+            KeyCode::Char('.') => self.cycle_commit_meta(),
+            KeyCode::Char('>') => self.cycle_ref_labels(),
             _ => {
                 let Some(mv) = list_nav::list_move(key, true) else {
                     return false;
@@ -200,6 +211,7 @@ impl App {
         match key.code {
             KeyCode::Left | KeyCode::Char('h') => self.move_focus(-1),
             KeyCode::Char('.') => self.toggle_wrap(),
+            KeyCode::Char('s') => self.toggle_split(),
             _ => return false,
         }
         true
@@ -303,7 +315,7 @@ impl App {
 
     /// `0`: clears the text filter and the changed-only view.
     pub(crate) fn clear_filter(&mut self) {
-        if self.filter.value.is_empty() && !self.pending_only {
+        if !self.filter_clearable() {
             return;
         }
         self.filter = super::TextInput::new(String::new());
@@ -323,6 +335,11 @@ impl App {
             "Showing all repositories"
         };
         self.notify(Level::Info, text);
+    }
+
+    /// Whether `0` has a text filter or the changed-only view to clear.
+    pub(crate) fn filter_clearable(&self) -> bool {
+        !self.filter.value.is_empty() || self.pending_only
     }
 
     /// A text filter or the changed-only view narrows the list.

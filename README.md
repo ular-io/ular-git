@@ -72,18 +72,19 @@ one, a linked worktree (resolved to its repository), or a parent folder
 | `\` | Cycle the pane count 3 → 2 → 1 → 3 (2 ↔ 1 when only two panes fit) |
 | `→` (history commit or Uncommitted Changes) | List its files; each shows its own diff, `←` goes back |
 | `enter` (repository, worktree, or file) | Open With: pick an app from `config.toml` and open it there; on a file, `←→` pick a diff, the file before / after, or the working tree's |
-| `/`, `0` | Filter repositories, clear the filter |
+| `/`, `0` (Repos pane) | Filter repositories, clear the filter |
 | `.` (Repos pane) | Show only repositories with uncommitted changes, commits to pull or push, or a stash (toggle) |
-| `+` | Add repository |
+| `+` (Repos pane) | Add repository |
 | `ctrl+n` | New group |
 | `ctrl+e` | Rename a group, or move a repository to a group |
 | `ctrl+d` / `delete` | Remove from the list · delete a group · remove a worktree (by row) |
 | `←` `→` / `enter` (group header) | Fold / unfold a group (`enter` toggles) |
 | `c` | Commit (staged only, or all changes including untracked files) |
 | `P`, `p` | Push (asks first), pull (fast-forward only) |
-| `.` (Files / Diff pane) | Toggle diff line wrap |
-| `>` | History labels: none → branches → branches and tags → tags (remembered) |
-| `s` | Side-by-side diff when the diff pane is 120+ columns wide, or always unified (remembered) |
+| `.` (Files pane) | History rows: date → date and author → author → subject only (remembered) |
+| `.` (Diff pane) | Toggle diff line wrap |
+| `>` (Files pane) | History labels: none → branches → branches and tags → tags (remembered) |
+| `s` (Diff pane) | Side-by-side diff when the diff pane is 120+ columns wide, or always unified (remembered) |
 | `:`, `!` | Quick command palette, shell command in the selected repository |
 | `ctrl+u` | Rescan every repository |
 | `?` | Help for the focused pane |

@@ -88,7 +88,7 @@ impl App {
             OpenWith => self.current_target().is_some(),
             ClearFilter => self.list_filtered(),
             TogglePendingOnly => true,
-            ToggleWrap | ToggleSplitDiff | CycleRefLabels => true,
+            ToggleWrap | ToggleSplitDiff | CycleRefLabels | CycleCommitMeta => true,
             TerminalCommand => self.terminal_target().is_some(),
             AddRepository | NewGroup | FilterRepos | RefreshAll | ChangeTheme | EditConfig
             | OpenHelp | Quit => true,
@@ -298,6 +298,7 @@ impl App {
             RefreshAll => self.refresh_all(false),
             ToggleWrap => self.toggle_wrap(),
             CycleRefLabels => self.cycle_ref_labels(),
+            CycleCommitMeta => self.cycle_commit_meta(),
             ToggleSplitDiff => self.toggle_split(),
             TerminalCommand => self.open_quick_terminal(),
             ChangeTheme => self.open_theme_select(),

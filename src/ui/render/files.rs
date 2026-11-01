@@ -7,15 +7,15 @@ use super::{
     Divider, Tone,
 };
 use crate::git::graph::Cell;
-use crate::git::history::{RefKind, RefLabel};
+use crate::git::history::{GraphRow, RefKind, RefLabel};
 use crate::git::EntryKind;
 use crate::git::FileEntry;
 use crate::theme::{color_rgb, Theme};
 use crate::ui::components::modal::fade_toward;
 use crate::ui::components::scrollbar::draw_vscrollbar;
-use crate::ui::components::text::{truncate_left_w, truncate_w};
+use crate::ui::components::text::{pad_w, truncate_left_w, truncate_w};
 use crate::ui::files::{FileItem, Mark};
-use crate::ui::history_view::RefLabels;
+use crate::ui::history_view::{CommitMeta, RefLabels};
 use crate::ui::{App, Pane};
 use ratatui::{
     layout::Rect,
@@ -78,6 +78,7 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
         next += 1;
     }
     let mut graph_w = 1;
+    let mut author_w = 0;
     match (history, &app.history.error) {
         (Some(h), _) if !h.rows.is_empty() => {
             graph_w = h
@@ -88,8 +89,11 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                 .max()
                 .unwrap_or(1)
                 .min(GRAPH_MAX);
+            author_w = (h.rows.iter().map(|r| r.author.width()).max())
+                .unwrap_or(0)
+                .min(AUTHOR_MAX);
             for row in &h.rows {
-                visual.push(Visual::Graph(next, &row.cells, &row.refs, &row.date));
+                visual.push(Visual::Graph(next, row));
                 next += 1;
             }
             if h.more {
@@ -107,9 +111,6 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
         ..inner
     };
     let w = list_area.width.saturating_sub(1) as usize;
-    // Dates for the whole list or none: only when the subject keeps
-    // DATE_SUBJECT_MIN cells after the graph (one space each side) and the date.
-    let dated = w.saturating_sub(graph_w + 2 + DATE_W) >= DATE_SUBJECT_MIN;
     let mut selected_row = 0;
     let lines: Vec<ListItem> = visual
         .iter()
@@ -131,11 +132,7 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                         FileItem::File(file) => file_spans(file, w, th),
                         FileItem::Commit(c, mark) => {
                             let mut spans = graph_spans(graph_of(v), graph_w, mark, th);
-                            let date = date_of(v);
-                            if dated && !date.is_empty() {
-                                let style = Style::default().fg(th.muted);
-                                spans.push(Span::styled(format!("{date} "), style));
-                            }
+                            spans.extend(meta_spans(v, app.history.meta, author_w, th));
                             let used: usize = spans.iter().map(|s| s.content.width()).sum();
                             // Labels run through the right padding cell to the
                             // border; the subject keeps at least SUBJECT_MIN
@@ -256,9 +253,9 @@ const GRAPH_MAX: usize = 12;
 enum Visual<'a> {
     /// A selectable file or `… more` row (index into the items).
     Item(usize),
-    /// A history commit (item index), its graph cells, and its refs.
-    /// Graph cells, branch and tag labels, and the date of a commit row.
-    Graph(usize, &'a [Cell], &'a [RefLabel], &'a str),
+    /// A history commit (item index) and its row: graph cells, refs, date,
+    /// and author.
+    Graph(usize, &'a GraphRow),
     /// The working-tree row (item index) and its graph cells.
     WorkTree(usize, &'a [Cell]),
     Note(String),
@@ -267,7 +264,8 @@ enum Visual<'a> {
 
 fn graph_of<'a>(v: &Visual<'a>) -> &'a [Cell] {
     match v {
-        Visual::Graph(_, g, ..) | Visual::WorkTree(_, g) => g,
+        Visual::Graph(_, row) => &row.cells,
+        Visual::WorkTree(_, g) => g,
         _ => &[],
     }
 }
@@ -321,27 +319,35 @@ fn worktree_badges(status: &crate::git::RepoStatus, th: &Theme) -> Vec<Span<'sta
 
 fn refs_of<'a>(v: &Visual<'a>) -> &'a [RefLabel] {
     match v {
-        Visual::Graph(_, _, r, _) => r,
+        Visual::Graph(_, row) => &row.refs,
         _ => &[],
     }
 }
 
-fn date_of<'a>(v: &Visual<'a>) -> &'a str {
-    match v {
-        Visual::Graph(.., d) => d,
-        _ => "",
+/// The date and author a history row shows before its subject (as
+/// `app.history.meta` chooses, whatever the width), each followed by a space;
+/// authors pad to `author_w` so the subjects line up.
+fn meta_spans(v: &Visual, meta: CommitMeta, author_w: usize, th: &Theme) -> Vec<Span<'static>> {
+    let Visual::Graph(_, row) = v else {
+        return Vec::new();
+    };
+    let style = Style::default().fg(th.muted);
+    let mut out = Vec::new();
+    if meta.date() {
+        out.push(Span::styled(format!("{} ", row.date), style));
     }
+    if meta.author() && author_w > 0 {
+        let name = pad_w(&truncate_w(&row.author, author_w), author_w);
+        out.push(Span::styled(format!("{name} "), style));
+    }
+    out
 }
 
 /// Longest ref name shown in a label; longer names are cut with `…`.
 const REF_NAME_MAX: usize = 24;
 
-/// Cells of a history row's date (`YYYY-MM-DD` and a space).
-const DATE_W: usize = 11;
-
-/// Subject cells history rows keep after the date; a narrower file pane
-/// leaves the dates out so subjects stay readable.
-pub(crate) const DATE_SUBJECT_MIN: usize = 50;
+/// Widest author name on history rows; longer names are cut with `…`.
+const AUTHOR_MAX: usize = 16;
 
 /// Subject cells kept in front of the labels.
 const SUBJECT_MIN: usize = 12;

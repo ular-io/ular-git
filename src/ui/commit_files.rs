@@ -225,7 +225,6 @@ impl App {
             KeyCode::Enter | KeyCode::Right | KeyCode::Char('l') => {
                 self.focus = super::Pane::Diff;
             }
-            KeyCode::Char('.') => self.toggle_wrap(),
             _ => {
                 let Some(mv) = list_nav::list_move(key, true) else {
                     return false;

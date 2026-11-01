@@ -122,6 +122,13 @@ The theme set is shared with ular-s7s; these roles were renamed for git:
 ## Keys, header, help
 
 - `src/ui/keys.rs` is the single source for the header columns and help.
+- Common keys (`:` `!` `ctrl+u` `?` `q` in the common column, plus the pane
+  count `1` / `2` / `3` / `\` in help only) work in every pane. Every other
+  key works only in a pane whose header lists it: `/` `0` `+` on Repos, `>`
+  on Files (not a commit's file list), `s` on Diff; `c` `P` `p` are listed on
+  all three. `.` differs per pane: Pending Only on Repos, history date /
+  author on Files (not a commit's file list), line wrap on Diff. While a filter is applied, Repos shows `0` Clear Filter in place
+  of `/` (help keeps `/`). The palette runs any command whatever the focus.
   Labels follow the selected row (`ctrl+d` reads `Remove Worktree` on a
   worktree, `Delete Group` on a group); keys that do nothing there are left
   out.

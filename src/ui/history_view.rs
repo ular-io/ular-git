@@ -37,11 +37,45 @@ impl RefLabels {
     }
 }
 
+/// What history rows show between the graph and the subject (`.` on the
+/// Files pane cycles them in this order), whatever the pane width. Kept in
+/// `view.json` across launches.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommitMeta {
+    #[default]
+    Date,
+    DateAndAuthor,
+    Author,
+    None,
+}
+
+impl CommitMeta {
+    pub fn next(self) -> Self {
+        match self {
+            CommitMeta::Date => CommitMeta::DateAndAuthor,
+            CommitMeta::DateAndAuthor => CommitMeta::Author,
+            CommitMeta::Author => CommitMeta::None,
+            CommitMeta::None => CommitMeta::Date,
+        }
+    }
+
+    pub fn date(self) -> bool {
+        matches!(self, CommitMeta::Date | CommitMeta::DateAndAuthor)
+    }
+
+    pub fn author(self) -> bool {
+        matches!(self, CommitMeta::DateAndAuthor | CommitMeta::Author)
+    }
+}
+
 /// View choices remembered across launches (`~/.config/ular-git/view.json`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct SavedView {
     #[serde(default)]
     pub history_labels: RefLabels,
+    #[serde(default)]
+    pub history_meta: CommitMeta,
     /// Side-by-side diffs on wide panes (`s`).
     #[serde(default = "on")]
     pub split_diff: bool,
@@ -62,6 +96,7 @@ impl Default for SavedView {
     fn default() -> Self {
         SavedView {
             history_labels: RefLabels::default(),
+            history_meta: CommitMeta::default(),
             split_diff: true,
             pane_count: 3,
         }
@@ -91,6 +126,7 @@ impl App {
         }
         let view = SavedView {
             history_labels: self.history.labels,
+            history_meta: self.history.meta,
             split_diff: self.diff.split,
             pane_count: self.pane_count,
         };
@@ -104,6 +140,8 @@ impl App {
 pub struct HistoryView {
     /// Branch / tag labels on history rows.
     pub labels: RefLabels,
+    /// Date and author on history rows.
+    pub meta: CommitMeta,
     /// Working tree the history belongs to (loaded or loading).
     pub target: Option<PathBuf>,
     /// HEAD (short oid), ahead/behind counts, and whether the tree had
@@ -134,6 +172,19 @@ impl App {
             RefLabels::Branches => "History labels: branches",
             RefLabels::BranchesAndTags => "History labels: branches and tags",
             RefLabels::Tags => "History labels: tags",
+        };
+        self.notify(super::Level::Info, text);
+    }
+
+    /// `.` on the Files pane: date → date and author → author → neither.
+    pub(crate) fn cycle_commit_meta(&mut self) {
+        self.history.meta = self.history.meta.next();
+        self.save_view();
+        let text = match self.history.meta {
+            CommitMeta::Date => "History rows: date",
+            CommitMeta::DateAndAuthor => "History rows: date and author",
+            CommitMeta::Author => "History rows: author",
+            CommitMeta::None => "History rows: subject only",
         };
         self.notify(super::Level::Info, text);
     }
@@ -269,19 +320,30 @@ mod tests {
             l = l.next();
         }
         assert_eq!(l, RefLabels::None);
+        let mut m = CommitMeta::default();
+        let mut seen = Vec::new();
+        for _ in 0..4 {
+            seen.push(m);
+            m = m.next();
+        }
+        use CommitMeta::*;
+        assert_eq!(seen, [Date, DateAndAuthor, Author, None]);
+        assert_eq!(m, Date);
         let view = SavedView {
             history_labels: RefLabels::BranchesAndTags,
+            history_meta: CommitMeta::Author,
             split_diff: false,
             pane_count: 2,
         };
         let json = serde_json::to_string(&view).unwrap();
         assert_eq!(
             json,
-            r#"{"history_labels":"branches_and_tags","split_diff":false,"pane_count":2}"#
+            r#"{"history_labels":"branches_and_tags","history_meta":"author","split_diff":false,"pane_count":2}"#
         );
         // A file from before split_diff existed keeps side-by-side on.
         let back: SavedView = serde_json::from_str(r#"{"history_labels":"tags"}"#).unwrap();
         assert_eq!(back.history_labels, RefLabels::Tags);
+        assert_eq!(back.history_meta, CommitMeta::Date, "dates until chosen");
         assert!(back.split_diff);
         assert_eq!(back.pane_count, 3, "all panes until a count is chosen");
     }

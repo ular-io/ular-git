@@ -1,5 +1,6 @@
 //! Key hints shown in the header and in help, from one source so the two
-//! never disagree. Labels follow the selected row (`ctrl+d` reads "Remove
+//! never disagree. A key that is not common works only in a pane whose
+//! header lists it. Labels follow the selected row (`ctrl+d` reads "Remove
 //! Worktree" on a worktree and "Delete Group" on a group).
 
 use super::tree::Row;
@@ -44,18 +45,20 @@ impl App {
                     }
                     _ => ("Open With…", "Move to Group", "Remove Repository"),
                 };
-                let mut first = vec![
-                    h("/", "Filter"),
-                    h("+", "Add Repository"),
-                    h("ctrl+n", "New Group"),
-                ];
+                // While filtered, `0` takes the `/` row; help keeps `/`.
+                let filter = if self.filter_clearable() {
+                    h("0", "Clear Filter")
+                } else {
+                    h("/", "Filter")
+                };
+                let mut first = vec![filter, h("+", "Add Repository"), h("ctrl+n", "New Group")];
                 if !edit.is_empty() {
                     first.push(h("ctrl+e", edit));
                 }
                 if !remove.is_empty() {
                     first.push(h("ctrl+d", remove));
                 }
-                // `1..3`, `\`, and `0` stay out (help shows them).
+                // `1..3` and `\` are common keys (help shows them).
                 let changed = if self.pending_only {
                     "Show All"
                 } else {
@@ -77,19 +80,15 @@ impl App {
                     } else {
                         "Open Diff"
                     };
-                    let mut col = vec![h("enter", enter), h("c", "Commit"), h(".", "Wrap Lines")];
-                    // History labels mean nothing among a commit's files.
+                    let mut col = vec![h("enter", enter), h("c", "Commit")];
+                    // History keys mean nothing among a commit's files.
                     if self.commit_view.is_none() {
+                        col.push(h(".", self.next_meta_hint()));
                         col.push(h(">", self.next_labels_hint()));
                     }
                     col
                 },
-                vec![
-                    h("P", "Push"),
-                    h("p", "Pull"),
-                    h("/", "Filter Repos"),
-                    h("+", "Add Repository"),
-                ],
+                vec![h("P", "Push"), h("p", "Pull")],
             ],
             Pane::Diff => [
                 vec![
@@ -104,13 +103,20 @@ impl App {
                         },
                     ),
                 ],
-                vec![
-                    h("P", "Push"),
-                    h("p", "Pull"),
-                    h("/", "Filter Repos"),
-                    h("+", "Add Repository"),
-                ],
+                vec![h("P", "Push"), h("p", "Pull")],
             ],
+        }
+    }
+
+    /// What `.` on the Files pane turns the history rows' date and author
+    /// into next.
+    fn next_meta_hint(&self) -> &'static str {
+        use super::history_view::CommitMeta;
+        match self.history.meta {
+            CommitMeta::Date => "Add Author",
+            CommitMeta::DateAndAuthor => "Author Only",
+            CommitMeta::Author => "Hide Author",
+            CommitMeta::None => "Show Date",
         }
     }
 
@@ -128,15 +134,21 @@ impl App {
     /// Movement keys of the focused pane, left out of the header for space.
     pub fn pane_help_only(&self) -> Vec<Hint> {
         match self.focus {
-            Pane::Repos => vec![
-                h("↑↓ / j k", "Move"),
-                h("pgup / pgdn", "Move a page"),
-                h("home / g", "First row"),
-                h("end / G", "Last row"),
-                h("← / h", "Fold group"),
-                h("→ / l", "Unfold group / Files pane"),
-                h("delete", "Same as ctrl+d"),
-            ],
+            Pane::Repos => {
+                let mut keys = vec![
+                    h("↑↓ / j k", "Move"),
+                    h("pgup / pgdn", "Move a page"),
+                    h("home / g", "First row"),
+                    h("end / G", "Last row"),
+                    h("← / h", "Fold group"),
+                    h("→ / l", "Unfold group / Files pane"),
+                    h("delete", "Same as ctrl+d"),
+                ];
+                if self.filter_clearable() {
+                    keys.push(h("/", "Edit the filter"));
+                }
+                keys
+            }
             Pane::Files if self.commit_view.is_some() => vec![
                 h("↑↓ / j k", "Select file (diff follows)"),
                 h(
@@ -183,17 +195,9 @@ pub fn dialog() -> Vec<Hint> {
     ]
 }
 
-/// Keys available everywhere on the screen.
+/// Common keys: they work whichever pane has focus.
 pub fn anywhere() -> Vec<Hint> {
     vec![
-        h("/", "Filter repositories"),
-        h("0", "Clear the filter and the changed-only view"),
-        h("+", "Add repository"),
-        h("c", "Commit the selected repository"),
-        h("P", "Push (asks first)"),
-        h("p", "Pull, fast-forward only"),
-        h(">", "History labels: none → branches → + tags → tags"),
-        h("s", "Side-by-side diff on wide panes / unified"),
         h("1 / 2 / 3", "Show 1, 2, or 3 panes (as the width allows)"),
         h("\\", "Next pane count: 3 → 2 → 1 → 3"),
         h(":", "Quick command (every command)"),

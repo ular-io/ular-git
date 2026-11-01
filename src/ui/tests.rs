@@ -330,13 +330,13 @@ fn dot_on_the_repo_pane_toggles_the_pending_only_view() {
     assert!(shows(&rows, "Repos[pending: 1/2]"), "{rows:#?}");
     assert!(shows(&rows, "<.>     Show All"));
 
-    // `.` elsewhere still toggles line wrap; `0` clears the view.
-    app.press(&[key(KeyCode::Right), ch('.')]);
+    // `.` on the diff toggles line wrap; `0` on the repos clears the view.
+    app.press(&[key(KeyCode::Right), key(KeyCode::Right), ch('.')]);
     assert!(app.pending_only && app.diff.wrap);
-    app.press(&[ch('0')]);
+    app.press(&[key(KeyCode::Left), key(KeyCode::Left), ch('0')]);
     assert!(!app.pending_only);
     assert_eq!(app.rows.len(), 2);
-    app.press(&[key(KeyCode::Left), ch('.'), ch('.')]);
+    app.press(&[ch('.'), ch('.')]);
     assert!(!app.pending_only, "a second . shows every repository");
 }
 

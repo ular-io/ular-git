@@ -201,6 +201,7 @@ fn ref_labels_keep_their_badge_colors_on_the_selected_row() {
     a.git(&["tag", "v1.0"]);
     let mut app = scanned_app(store_of(&[&a.root]));
     app.wait_background(10);
+    app.focus = Pane::Files;
     app.press(&[ch('>'), ch('>')]);
     // The cursor is on `init`, the only commit.
     let bgs = |app: &crate::ui::App| {
@@ -242,6 +243,7 @@ fn a_clean_tree_starts_with_the_newest_commit_and_no_divider() {
     let mut app = scanned_app(store_of(&[&a.root]));
     app.wait_background(10);
     app.focus = Pane::Files;
+    app.history.meta = crate::ui::history_view::CommitMeta::None;
     let rows = screen(&app, 150, 20);
     assert!(!shows(&rows, " History "), "{rows:#?}");
     assert!(!shows(&rows, "○"), "no working-tree row: {rows:#?}");
@@ -291,6 +293,7 @@ fn only_same_colored_labels_get_a_line_between_them() {
     a.git(&["tag", "v1.1"]);
     let mut app = scanned_app(store_of(&[&a.root]));
     app.wait_background(10);
+    app.focus = Pane::Files;
     app.press(&[ch('>'), ch('>')]);
     app.focus = Pane::Files;
     let row = screen(&app, 150, 20)
@@ -312,6 +315,7 @@ fn history_subjects_use_the_file_rows_text_style() {
     let mut app = scanned_app(store_of(&[&a.root]));
     app.wait_background(10);
     app.focus = Pane::Files;
+    app.history.meta = crate::ui::history_view::CommitMeta::None;
     // The `init` subject: not selected (the cursor is on `second`).
     let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(150, 20)).unwrap();
     terminal.draw(|f| crate::ui::render::draw(f, &app)).unwrap();
@@ -326,25 +330,38 @@ fn history_subjects_use_the_file_rows_text_style() {
 }
 
 #[test]
-fn a_wide_file_pane_dates_each_commit_before_its_subject() {
+fn dot_on_the_files_pane_cycles_the_date_and_author_at_any_width() {
     let a = TestRepo::new();
-    let date = a.git(&["log", "-1", "--format=%as"]).trim().to_string();
-    assert_eq!(date.len(), 10, "YYYY-MM-DD: {date}");
+    let log = |f: &str| {
+        a.git(&["log", "-1", &format!("--format={f}")])
+            .trim()
+            .to_string()
+    };
+    let (date, author) = (log("%as"), log("%an"));
     let mut app = scanned_app(store_of(&[&a.root]));
     app.wait_background(10);
     app.focus = Pane::Files;
-    // Dates only when the subject keeps 50 cells after them: a 67-column
-    // file pane with this one-lane graph. (The diff pane on the same row
-    // shows the commit's date in its header, so match the date + subject.)
-    let dated = format!("● {date} init");
-    let mut shows_date = |count: usize, w: u16| {
-        app.pane_count = count;
-        let rows = screen(&app, w, 20);
-        assert!(rows[6].contains("init"), "{}", rows[6]);
-        rows[6].contains(&dated)
-    };
-    assert!(!shows_date(1, 66) && shows_date(1, 67), "one pane");
-    assert!(!shows_date(2, 160), "two panes: Files is 64");
-    assert!(!shows_date(3, 200), "three panes: Files is 32 % = 64");
-    assert!(shows_date(3, 210), "three panes: Files is 67");
+    app.pane_count = 1;
+    // A narrow pane still shows what is chosen; the subject is cut instead.
+    // (The diff pane is hidden, so its byline cannot match.)
+    let row = |app: &crate::ui::App| screen(app, 40, 20)[6].clone();
+    assert!(
+        row(&app).contains(&format!("● {date} init")),
+        "{}",
+        row(&app)
+    );
+    app.press(&[ch('.')]);
+    let both = format!("● {date} {author} init");
+    assert!(row(&app).contains(&both), "{}", row(&app));
+    app.press(&[ch('.')]);
+    assert!(
+        row(&app).contains(&format!("● {author} init")),
+        "{}",
+        row(&app)
+    );
+    app.press(&[ch('.')]);
+    assert!(row(&app).contains("● init"), "{}", row(&app));
+    app.press(&[ch('.')]);
+    assert!(row(&app).contains(&format!("● {date} init")));
+    assert!(!app.diff.wrap, "`.` on Files never wraps the diff");
 }

@@ -34,11 +34,14 @@
      the pane title reads `Uncommitted Changes +N -N`;
   4. the commit history from HEAD with its branch graph, one row per
      commit (no connector rows). Subjects use the file rows' text style; the
-     graph lanes are faded. When the subject still keeps 50 cells after
-     the graph and the date (`DATE_SUBJECT_MIN` in
-     `src/ui/render/files.rs`; a 67-column file pane with a one-lane
-     graph), every row shows the author date (`%as`, `YYYY-MM-DD`, `muted`)
-     between the graph and the subject; a narrower pane shows no dates.
+     graph lanes are faded. Between the graph and the subject, `muted`,
+     rows show the author date (`%as`, `YYYY-MM-DD`) and / or the author
+     name (`%an`, padded to the page's longest name, at most 16 cells
+     with `…`). `.` on the Files pane (palette Cycle History Date / Author;
+     `CommitMeta` in `src/ui/history_view.rs`, drawn by `meta_spans` in
+     `src/ui/render/files.rs`) cycles date → date and author → author →
+     neither, saved in `view.json`. The choice holds at any width; the
+     subject is cut instead.
      Lanes stay in place and keep their color;
      joints sit on the commit row: `─╮` a merge opens a lane, `─┤` a merge
      joins a lane already open (the same branch merged again, or a lane that
@@ -52,7 +55,7 @@
      base. The graph uses at most 12 columns;
   5. `… more` when older commits exist.
 - Ref labels (`RefLabels` in `src/ui/history_view.rs`, drawn by `ref_spans`
-  in `src/ui/render/files.rs`): `>` (any pane, palette Cycle Branch / Tag
+  in `src/ui/render/files.rs`): `>` (Files pane, palette Cycle Branch / Tag
   Labels) cycles none → branches → branches and tags → tags → none. Labels
   are solid badges without icons after the subject (which keeps at least 12
   columns and is cut first), joined into one strip (a `│` in the background color splits two
@@ -212,7 +215,8 @@ line count.
   color, in the unified and the side-by-side layouts, across wrapped pieces.
   Pairs less than half alike, equal lines, lines over 1000 bytes, and lines
   over 300 words are left unmarked.
-- `.` toggles line wrapping (default: lines cut at the pane edge). Wrapped
+- `.` on the Diff pane toggles line wrapping (default: lines cut at the
+  pane edge). Wrapped
   continuation lines keep a blank gutter.
 - The line on top stays on top when the layout changes: `.`, `s`, or a new
   diff pane width (`1` / `2` / `3`, focus moving across panes, a terminal
@@ -228,7 +232,7 @@ line count.
   lines pairs row by row with the run of added lines right after it, the
   shorter side padded. Every other line (path, counts, section and file
   titles, gaps, commit byline, message, stat) keeps the full width. With `.`
-  each side wraps on its own and the row takes the taller side. `s` (any
+  each side wraps on its own and the row takes the taller side. `s` (Diff
   pane, palette Toggle Side-by-Side Diff) switches between side by side and
   always unified, keeps the top line, and is saved in `view.json`
   (`split_diff`, default on).
