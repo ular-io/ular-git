@@ -84,12 +84,6 @@ impl Gutter {
         let lead = if old { "" } else { " " };
         format!("{lead}{}", self.side_text(old, n, blank))
     }
-
-    /// The hunk gap marker, right-aligned in the first shown column.
-    pub(super) fn gap(&self) -> String {
-        let w = if self.old > 0 { self.old } else { self.new };
-        format!("{:>w$}", "⋯", w = w.max(1))
-    }
 }
 
 #[cfg(test)]
@@ -119,7 +113,6 @@ mod tests {
         assert_eq!(g.text(&edited[1], false), "10     ");
         assert_eq!(g.text(&edited[2], false), "   120 ");
         assert_eq!(g.text(&edited[2], true), "       ");
-        assert_eq!(g.gap(), " ⋯");
         assert_eq!(g.split_text(true, Some(9), false), " 9 ");
         assert_eq!(g.split_text(false, Some(9), false), "   9 ");
         assert_eq!(g.split_side(false), 5);
@@ -129,7 +122,6 @@ mod tests {
         let g = Gutter::of(&new_file);
         assert_eq!((g.side(true), g.side(false)), (0, 3));
         assert_eq!(g.text(&new_file[0], false), " 1 ");
-        assert_eq!(g.gap(), " ⋯");
 
         // Numbers past four digits keep the code aligned.
         let long = [line(Context, Some(12345), Some(12346))];

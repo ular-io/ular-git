@@ -151,8 +151,7 @@ fn file_spans(file: &CommitFile, w: usize, th: &Theme) -> Vec<Span<'static>> {
 /// commit's hash (`Uncommitted Changes`) and counts on row 0.
 pub(super) fn diff_title(app: &App, view: &CommitView) -> String {
     if let Some(file) = view.selected() {
-        let name = file.path.rsplit('/').next().unwrap_or(&file.path);
-        return format!(" {} ", truncate_w(name, 48));
+        return super::diff::file_title(app, &file.path);
     }
     let stats = app
         .diff

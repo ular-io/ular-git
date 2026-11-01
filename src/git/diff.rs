@@ -25,11 +25,6 @@ pub enum DiffSource {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LineKind {
-    /// A file diff's path in the repository (`old → new` for a rename), the
-    /// first line; the pane title names only the file.
-    Path,
-    /// A file diff's line counts (`+20 -3`), right below its path.
-    Counts,
     /// Section title inserted by ular-git (`Staged changes`).
     Section,
     /// Date, author name, and email of a shown commit (one line).
@@ -150,7 +145,6 @@ pub fn load(dir: &Path, source: &DiffSource, opts: &LoadOpts) -> anyhow::Result<
             }
             push_parsed(&mut doc, &raw, false);
             doc.truncated = cut;
-            push_path_head(&mut doc, &f.path, f.orig_path.as_deref());
         }
         DiffSource::WorkTreeFile(f) => {
             let mut args = vec!["diff"];
@@ -176,7 +170,6 @@ pub fn load(dir: &Path, source: &DiffSource, opts: &LoadOpts) -> anyhow::Result<
             }
             push_parsed(&mut doc, &raw, false);
             doc.truncated = cut;
-            push_path_head(&mut doc, &f.path, f.orig_path.as_deref());
         }
         DiffSource::File(f) => {
             let mut sections: Vec<(&str, Vec<&str>)> = Vec::new();
@@ -227,7 +220,6 @@ pub fn load(dir: &Path, source: &DiffSource, opts: &LoadOpts) -> anyhow::Result<
                 push_parsed(&mut doc, &raw, false);
                 doc.truncated |= cut;
             }
-            push_path_head(&mut doc, &f.path, f.orig_path.as_deref());
         }
     }
     super::inline::mark(&mut doc.lines);
@@ -273,21 +265,6 @@ fn worktree_doc(dir: &Path, opts: &LoadOpts) -> anyhow::Result<DiffDoc> {
     }
     (doc.added, doc.removed) = (added, removed);
     Ok(doc)
-}
-
-/// A single-file diff starts with the file's path (`old → new` for a
-/// rename) and its line counts.
-fn push_path_head(doc: &mut DiffDoc, path: &str, orig: Option<&str>) {
-    let path = match orig {
-        Some(orig) => format!("{orig} → {path}"),
-        None => path.to_string(),
-    };
-    let mut head = vec![line_of(LineKind::Path, &path)];
-    let counts = counts_label(doc.added, doc.removed);
-    if !counts.is_empty() {
-        head.push(line_of(LineKind::Counts, &counts));
-    }
-    doc.lines.splice(0..0, head);
 }
 
 /// One blank line above and below every rule and title (section, file, the

@@ -94,7 +94,7 @@ pub(super) fn push_parsed(doc: &mut DiffDoc, raw: &[String], show: bool) {
             if after_hunk {
                 doc.lines.push(DiffLine {
                     kind: LineKind::Gap,
-                    text: "⋯".to_string(),
+                    text: String::new(),
                     old: None,
                     new: None,
                     marks: Vec::new(),

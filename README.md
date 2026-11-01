@@ -10,7 +10,7 @@ changed, and what the diff is.
 ┃ A  src/new.rs              ┃│   10   10      let c = load();         │
 ┃ ?? notes.txt               ┃│        11 +    c.check()?;             │
 ┃  ↑ fix: retry on timeout   ┃│   11   12      start(c)                │
-┃                            ┃│    ⋯                                   │
+┃                            ┃│           - - - - - - - - - - - - - - -│
 ┃                            ┃│   40   41  fn stop() {                 │
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛└────────────────────────────────────────┘
 ```

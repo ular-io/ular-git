@@ -56,19 +56,14 @@ fn file_diff_has_sections_and_line_numbers() {
         .map(|l| (l.text.as_str(), l.new))
         .collect();
     assert_eq!(added, [("+2", Some(2)), ("+3", Some(3))]);
-    // The path, then the counts of both sections, lead the diff.
-    let head: Vec<(LineKind, &str)> = doc.lines[..2]
-        .iter()
-        .map(|l| (l.kind, l.text.as_str()))
-        .collect();
-    assert_eq!(
-        head,
-        [(LineKind::Path, "a.txt"), (LineKind::Counts, "+2 -2")]
-    );
+    // The first section leads the diff (the title names the file); the
+    // counts cover both sections.
+    assert_eq!(doc.lines[0].kind, LineKind::Section);
+    assert_eq!((doc.added, doc.removed), (2, 2));
 }
 
 #[test]
-fn a_staged_rename_names_both_paths_and_a_new_file_counts_only_additions() {
+fn a_staged_rename_and_a_new_file_count_their_lines() {
     let repo = TestRepo::new();
     repo.write("docs/old.md", "one\ntwo\n");
     repo.git(&["add", "."]);
@@ -83,17 +78,17 @@ fn a_staged_rename_names_both_paths_and_a_new_file_counts_only_additions() {
         &diff::LoadOpts::lines(1000),
     )
     .unwrap();
-    assert_eq!(doc.lines[0].text, "docs/old.md → docs/new.md");
-    // A pure rename changes no line: no counts line, a blank, the section.
-    assert_eq!(doc.lines[1].text, "");
-    assert_eq!(doc.lines[2].kind, LineKind::Section);
+    // A pure rename changes no line; the section leads the diff.
+    assert_eq!(doc.lines[0].kind, LineKind::Section);
+    assert_eq!((doc.added, doc.removed), (0, 0));
     let doc = diff::load(
         &repo.root,
         &DiffSource::File(file("n.txt")),
         &diff::LoadOpts::lines(1000),
     )
     .unwrap();
-    assert_eq!(doc.lines[1].text, "+2");
+    assert_eq!((doc.added, doc.removed), (2, 0));
+    assert_eq!(diff::counts_label(2, 0), "+2");
     assert_eq!(diff::counts_label(0, 3), "-3");
 }
 

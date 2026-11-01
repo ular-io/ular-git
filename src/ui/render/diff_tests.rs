@@ -52,7 +52,7 @@ fn only_code_lines_carry_the_line_number_gutter() {
 }
 
 #[test]
-fn a_file_diff_starts_with_its_wrapped_path_and_counts() {
+fn a_file_diff_is_titled_by_its_name_and_counts_and_starts_with_its_changes() {
     let a = TestRepo::new();
     let path = "src/main/java/kr/example/service/inspection/InspectionService.java";
     a.write(path, "one\n");
@@ -60,21 +60,10 @@ fn a_file_diff_starts_with_its_wrapped_path_and_counts() {
     app.focus = Pane::Diff;
     app.wait_background(10);
     let rows = screen(&app, 60, 20);
-    assert!(shows(&rows, "━ InspectionService.java ━"), "{rows:#?}");
-    // The first body row; broken after a `/`, the file name whole below.
-    assert!(
-        rows[6].contains("┃ src/main/java/kr/example/service/inspection/  "),
-        "{rows:#?}"
-    );
-    assert!(rows[7].contains("┃ InspectionService.java  "), "{rows:#?}");
-    assert!(rows[8].contains("┃ +1  "), "{rows:#?}");
-    // One blank row above the section title.
-    assert_eq!(
-        rows[9].trim_matches(|c| c == '┃' || c == ' '),
-        "",
-        "{rows:#?}"
-    );
-    assert!(rows[10].contains(" Untracked file "), "{rows:#?}");
+    assert!(shows(&rows, "━ InspectionService.java +1 ━"), "{rows:#?}");
+    // No path or counts lines: the section title is the first body row.
+    assert!(rows[6].contains(" Untracked file "), "{rows:#?}");
+    assert!(!shows(&rows, "src/main/java"), "{rows:#?}");
 }
 
 #[test]
@@ -220,9 +209,17 @@ fn a_gap_line_separates_hunks() {
     app.focus = Pane::Files;
     app.wait_background(10);
     let rows = screen(&app, 160, 40);
-    let gaps: Vec<&String> = rows.iter().filter(|r| r.contains("│  ⋯")).collect();
+    // A cut line where the code starts, the number columns left blank.
+    let gaps: Vec<&String> = rows
+        .iter()
+        .filter(|r| r.contains("│       - - - "))
+        .collect();
     assert_eq!(gaps.len(), 1, "one gap between the two hunks: {rows:#?}");
-    assert!(!shows(&rows, "@@"));
+    assert!(
+        gaps[0].trim_end().ends_with("- │"),
+        "to the right edge: {gaps:#?}"
+    );
+    assert!(!shows(&rows, "⋯") && !shows(&rows, "@@"));
 }
 
 #[test]

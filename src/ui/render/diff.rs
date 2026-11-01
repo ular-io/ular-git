@@ -4,10 +4,10 @@ use super::files::WORKTREE_TITLE;
 use super::gutter::{is_code, Gutter};
 use super::history_row::mix;
 use super::{draw_divider, empty_line, pane_block, pane_tone, split, Divider, Tone};
-use crate::git::diff::{DiffLine, LineKind};
+use crate::git::diff::{counts_label, DiffLine, LineKind};
 use crate::theme::{color_rgb, Theme};
 use crate::ui::components::scrollbar::draw_vscrollbar;
-use crate::ui::components::text::{truncate_w, wrap_path, wrap_w};
+use crate::ui::components::text::{truncate_w, wrap_w};
 use crate::ui::diff_view::Anchor;
 use crate::ui::files::FileItem;
 use crate::ui::{App, Pane};
@@ -31,9 +31,8 @@ fn kind_style(kind: LineKind, th: &Theme) -> Style {
         LineKind::Section | LineKind::File | LineKind::Rule => {
             fg(th.accent).add_modifier(Modifier::BOLD)
         }
-        LineKind::Byline | LineKind::Path | LineKind::Meta => th.soft_dim(),
-        // Counts are drawn per sign by `counts_spans`.
-        LineKind::Counts | LineKind::Header | LineKind::Stat => Style::default(),
+        LineKind::Byline | LineKind::Meta => th.soft_dim(),
+        LineKind::Header | LineKind::Stat => Style::default(),
         LineKind::Subject => Style::default().add_modifier(Modifier::BOLD),
         // Unchanged lines recede so the changes stand out: `muted` a quarter
         // toward the background.
@@ -53,23 +52,6 @@ fn is_message(kind: LineKind) -> bool {
         kind,
         LineKind::Byline | LineKind::Subject | LineKind::Header
     )
-}
-
-/// `+20 -3` with each side in its diff color.
-fn counts_spans(text: &str, th: &Theme) -> Vec<Span<'static>> {
-    let mut spans = Vec::new();
-    for (i, part) in text.split(' ').enumerate() {
-        if i > 0 {
-            spans.push(Span::raw(" "));
-        }
-        let kind = if part.starts_with('-') {
-            LineKind::Del
-        } else {
-            LineKind::Add
-        };
-        spans.push(Span::styled(part.to_string(), kind_style(kind, th)));
-    }
-    spans
 }
 
 /// One visual row: a segment of a line across the pane, or the two sides of
@@ -221,6 +203,29 @@ fn side_spans(
     spans
 }
 
+/// A single-file diff's title: the file name and, once loaded, its line
+/// counts (`a.rs +20 -3`; a zero side left out). The full path is the file
+/// row's in the file pane.
+pub(super) fn file_title(app: &App, path: &str) -> String {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    let counts = app
+        .diff
+        .doc
+        .as_ref()
+        .map(|d| counts_label(d.added, d.removed))
+        .filter(|c| !c.is_empty())
+        .map(|c| format!(" {c}"))
+        .unwrap_or_default();
+    format!(" {}{counts} ", truncate_w(name, 48))
+}
+
+/// The gap between two hunks: `- - -` across `width`.
+fn cut_line(width: usize) -> String {
+    "- ".repeat(width.div_ceil(2))[..width]
+        .trim_end()
+        .to_string()
+}
+
 fn title(app: &App) -> String {
     if let Some(view) = &app.commit_view {
         return super::commit_files::diff_title(app, view);
@@ -230,11 +235,7 @@ fn title(app: &App) -> String {
         return " Diff ".into();
     };
     match item {
-        // The full path and the counts are the first lines of the diff.
-        FileItem::File(f) => {
-            let name = f.path.rsplit('/').next().unwrap_or(&f.path);
-            format!(" {} ", truncate_w(name, 48))
-        }
+        FileItem::File(f) => file_title(app, &f.path),
         FileItem::Commit(c, _) => {
             let stats = app
                 .diff
@@ -291,8 +292,7 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
     };
 
     // Visual rows: (line index, segment, first segment of its line). A
-    // commit message and a file path always wrap (a path at `/`); other
-    // lines wrap only with `.`. When nothing wraps, only the visible window
+    // commit message always wraps; other lines wrap only with `.`. When nothing wraps, only the visible window
     // is materialized.
     let wraps = |line: &DiffLine| {
         !matches!(
@@ -300,17 +300,11 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
             LineKind::Section | LineKind::File | LineKind::Rule | LineKind::Gap
         ) && (app.diff.wrap || is_message(line.kind))
     };
-    let any_wrap = app.diff.wrap
-        || doc
-            .lines
-            .iter()
-            .any(|l| is_message(l.kind) || l.kind == LineKind::Path);
+    let any_wrap = app.diff.wrap || doc.lines.iter().any(|l| is_message(l.kind));
     let split_on = numbered && app.diff.split && full_w >= split::SPLIT_MIN_W;
     // One wrapped or cut line: its segments within `width`.
     let segments = |line: &DiffLine, width: usize| -> Vec<String> {
-        if line.kind == LineKind::Path {
-            wrap_path(&line.text, width)
-        } else if wraps(line) {
+        if wraps(line) {
             wrap_w(&line.text, width)
         } else if matches!(
             line.kind,
@@ -436,13 +430,18 @@ pub(super) fn draw_diff(f: &mut Frame, app: &App, area: Rect) {
                 });
                 return Line::default();
             }
-            // The gap marker sits in the first number column of the gutter.
+            // The gap is a cut line from where the code starts (after the
+            // left side's numbers when side by side) to the right edge.
             if line.kind == LineKind::Gap {
-                let at = if numbered { gutter.gap() } else { "⋯".into() };
-                return Line::from(Span::styled(at, style));
-            }
-            if line.kind == LineKind::Counts {
-                return Line::from(counts_spans(&seg, th));
+                let lead = match (numbered, split_on) {
+                    (false, _) => 0,
+                    (true, true) => gutter.split_side(true),
+                    (true, false) => gutter.width(),
+                };
+                return Line::from(vec![
+                    Span::raw(" ".repeat(lead)),
+                    Span::styled(cut_line(full_w.saturating_sub(lead)), style),
+                ]);
             }
             let mut spans = Vec::new();
             if has_gutter(line) {

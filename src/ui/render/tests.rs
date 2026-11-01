@@ -79,7 +79,10 @@ fn full_screen_shows_header_two_panes_and_one_footer_row() {
         shows(&rows, "─ repo ─"),
         "the file pane is titled by the repository"
     );
-    assert!(!shows(&rows, "─ a.txt ─"), "Repos focus hides the diff");
+    assert!(
+        !shows(&rows, "─ a.txt +1 -3 ─"),
+        "Repos focus hides the diff"
+    );
     app.focus = Pane::Files;
     let rows = screen(&app, 150, 30);
     assert!(
@@ -87,8 +90,8 @@ fn full_screen_shows_header_two_panes_and_one_footer_row() {
         "Files focus hides the repositories"
     );
     assert!(
-        shows(&rows, "─ a.txt ─"),
-        "the diff is titled by the file name"
+        shows(&rows, "─ a.txt +1 -3 ─"),
+        "the diff is titled by the file name and its counts"
     );
     assert!(shows(&rows, "<ctrl+u> Refresh All"));
     assert!(

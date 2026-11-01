@@ -100,8 +100,8 @@ section and file titles.
 Title lines run from border to border and join it (`├ ┤` on a plain frame,
 `┠ ┨` on the focused thick frame, in the border's style). Every label is
 centered: `├─── Unstaged changes ───┤`, `├─── src/app.rs ───┤`,
-`├─── 1 file changed, … ───┤`. Hunk headers are replaced by a `dim` `⋯` gap
-line between hunks (in the first number column when the gutter is shown).
+`├─── 1 file changed, … ───┤`. Hunk headers are replaced by a `dim` cut line
+(`- - -`) between hunks, from where the code starts to the right edge.
 The line-number gutter (`dim`) is on code lines only; its columns are sized
 to the diff's largest numbers, and a column with no numbers is left out.
 

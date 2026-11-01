@@ -134,8 +134,8 @@ brought in against its first parent, a root commit its added files).
 - The cursor starts on the commit row, which shows the whole commit as
   before (for a merge git's combined diff, not the first-parent one). A
   file shows its diff alone (`DiffSource::CommitFile`: `git show --format=
-  -M --diff-merges=first-parent <hash> -- [old] <path>`, then the path and
-  counts head like a changed file); the diff title is the file name.
+  -M --diff-merges=first-parent <hash> -- [old] <path>`); the diff title is
+  the file name and its counts, like a changed file's.
 - `→` / `l` move to Diff; `←` there comes back to the commit view. `enter`
   on a file opens Open With with the commit's tabs (Diff, Parent, the
   commit, Working Tree; see architecture.md §Runtime); on the commit row it
@@ -183,12 +183,13 @@ line count.
 | Conflict | The combined diff |
 | Unpushed commit | Title: the full hash. Body: one muted byline `<yyyy-mm-dd HH:MM>  <author> <<email>>` (the committer is not shown), the message right below it without its blank lines (first line bold), a rule, the stat, and the patch |
 
-- Title for files: the file name only. The body starts with the full path in
-  the repository (`old → new` for a rename), muted and always wrapped after a
-  `/`, then the line counts (`+20 -3`, each in its diff color, a zero side
-  left out; no line when nothing changed, as for a pure rename or a binary
-  file). No rule separates them from the first section title. Commit titles
-  keep the hash and `+N -N`.
+- Title for a single file (a changed file, one file of a commit or of the
+  uncommitted changes): the file name and its line counts once loaded
+  (`a.rs +20 -3`, a zero side left out, none when no line changed, as for a
+  pure rename or a binary file; `file_title` in `src/ui/render/diff.rs`).
+  The body starts with the diff itself (the first section title, or the
+  first code line); the full path and a rename's `old → new` are on the
+  file's row in the file pane. Commit titles keep the hash and `+N -N`.
 - git's per-file header is condensed. `diff --git`, `index`, `---`, and `+++`
   lines are dropped. In a commit, each file starts with a full-width title
   line with the path centered (`├──── <path> ────┤`, `old → new` for a
@@ -210,7 +211,9 @@ line count.
   `Merge conflict`) are centered on a border-to-border line.
 - Hunk headers (`@@ -14,6 +14,7 @@ context`) are not shown: the line numbers
   say where a hunk starts, and git's context guess is often wrong outside code.
-  Between two hunks of the same file a muted `⋯` line marks the skipped lines.
+  Between two hunks of the same file a `dim` cut line (`- - -`) marks the
+  skipped lines: it starts where the code starts (the number columns left
+  blank; the left side's when side by side) and runs to the right edge.
 - Every rule and title (section, file, the stat rule) has one blank line
   above and below it (`space_dividers` in `src/git/diff.rs`, for file,
   commit, and working-tree diffs): none above the first line, none doubled,
@@ -238,7 +241,7 @@ line count.
   show, old lines go left (old numbers) and new lines right (new numbers),
   split by a muted `│`. A context line shows on both sides; a run of removed
   lines pairs row by row with the run of added lines right after it, the
-  shorter side padded. Every other line (path, counts, section and file
+  shorter side padded. Every other line (section and file
   titles, gaps, commit byline, message, stat) keeps the full width. With `.`
   each side wraps on its own and the row takes the taller side. `s` (Diff
   pane, palette Toggle Side-by-Side Diff) switches between side by side and
