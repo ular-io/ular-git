@@ -1,6 +1,6 @@
 //! Diff pane: colored, line-numbered diff of the selected file or commit.
 
-use super::files::WORKTREE_TITLE;
+use super::files::{mix, WORKTREE_TITLE};
 use super::gutter::{is_code, Gutter};
 use super::{draw_divider, empty_line, pane_block, pane_tone, split, Divider, Tone};
 use crate::git::diff::{DiffLine, LineKind};
@@ -19,6 +19,9 @@ use ratatui::{
     Frame,
 };
 use unicode_width::UnicodeWidthStr;
+
+/// How far unchanged (context) lines move from `muted` toward the background.
+const CONTEXT_FADE_PCT: u32 = 25;
 
 fn kind_style(kind: LineKind, tone: Tone, th: &Theme) -> Style {
     let colored = |c: Color| {
@@ -43,7 +46,13 @@ fn kind_style(kind: LineKind, tone: Tone, th: &Theme) -> Style {
         // Drawn per sign by `counts_spans`.
         LineKind::Counts => plain(Style::default()),
         LineKind::Subject => plain(Style::default().add_modifier(Modifier::BOLD)),
-        LineKind::Header | LineKind::Stat | LineKind::Context => plain(Style::default()),
+        LineKind::Header | LineKind::Stat => plain(Style::default()),
+        // Unchanged lines recede so the changes stand out: `muted` a quarter
+        // toward the background, faded further in a dimmed pane.
+        LineKind::Context => {
+            let (r, g, b) = mix(color_rgb(th.muted), th.bg_rgb(), CONTEXT_FADE_PCT);
+            colored(Color::Rgb(r, g, b))
+        }
         LineKind::Meta => th.soft_dim(),
         LineKind::Gap => Style::default().fg(th.dim),
         LineKind::Add => colored(th.diff_add),

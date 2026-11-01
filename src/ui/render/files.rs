@@ -396,7 +396,7 @@ fn ref_spans(refs: &[RefLabel], labels: RefLabels, room: usize, th: &Theme) -> V
 }
 
 /// `a` moved `pct` percent toward `b`.
-fn mix((r, g, b): (u8, u8, u8), (tr, tg, tb): (u8, u8, u8), pct: u32) -> (u8, u8, u8) {
+pub(super) fn mix((r, g, b): (u8, u8, u8), (tr, tg, tb): (u8, u8, u8), pct: u32) -> (u8, u8, u8) {
     let m = |c: u8, t: u8| ((u32::from(c) * (100 - pct) + u32::from(t) * pct) / 100) as u8;
     (m(r, tr), m(g, tg), m(b, tb))
 }
