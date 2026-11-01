@@ -55,7 +55,7 @@ impl App {
                 if !remove.is_empty() {
                     first.push(h("ctrl+d", remove));
                 }
-                // `1..3` and `0` stay out (footer and help show them).
+                // `1..3`, `\`, and `0` stay out (help shows them).
                 let changed = if self.pending_only {
                     "Show All"
                 } else {
@@ -195,7 +195,7 @@ pub fn anywhere() -> Vec<Hint> {
         h(">", "History labels: none → branches → + tags → tags"),
         h("s", "Side-by-side diff on wide panes / unified"),
         h("1 / 2 / 3", "Show 1, 2, or 3 panes (as the width allows)"),
-        h("\\", "Next pane count: 1 → 2 → 3 → 1"),
+        h("\\", "Next pane count: 3 → 2 → 1 → 3"),
         h(":", "Quick command (every command)"),
         h("!", "Run a shell command in the repository"),
         h("ctrl+u", "Rescan every repository"),

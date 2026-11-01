@@ -96,8 +96,9 @@ fn full_screen_shows_header_two_panes_and_one_footer_row() {
         "logo shown when wide"
     );
     assert!(
-        rows[29].contains(" Repos   Files ") && !rows[29].contains("<1>"),
-        "footer falls back to pane names, without number keys"
+        rows[29].trim().is_empty(),
+        "no result, no footer text: {}",
+        rows[29]
     );
     // Exactly one row below the pane bottoms.
     let bottom = rows
@@ -330,7 +331,7 @@ fn the_file_pane_grows_to_eighty_columns() {
             .map(|(_, r)| r.width)
             .unwrap()
     };
-    assert_eq!(width(200, Pane::Repos), 56, "28 % of 200");
+    assert_eq!(width(200, Pane::Repos), 64, "32 % of 200");
     assert_eq!(width(300, Pane::Repos), 80, "capped at 80");
     assert_eq!(width(150, Pane::Files), 60, "40 % beside the diff");
 }

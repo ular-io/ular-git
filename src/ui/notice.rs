@@ -1,5 +1,4 @@
-//! Footer result line with an expiry. After it expires the footer goes back
-//! to the pane shortcuts.
+//! Footer result line with an expiry. After it expires the footer is empty.
 
 use super::App;
 use std::time::{Duration, Instant};

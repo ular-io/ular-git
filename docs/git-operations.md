@@ -34,7 +34,12 @@
      the pane title reads `Uncommitted Changes +N -N`;
   4. the commit history from HEAD with its branch graph, one row per
      commit (no connector rows). Subjects use the file rows' text style; the
-     graph lanes are faded. Lanes stay in place and keep their color;
+     graph lanes are faded. When the subject still keeps 50 cells after
+     the graph and the date (`DATE_SUBJECT_MIN` in
+     `src/ui/render/files.rs`; a 67-column file pane with a one-lane
+     graph), every row shows the author date (`%as`, `YYYY-MM-DD`, `muted`)
+     between the graph and the subject; a narrower pane shows no dates.
+     Lanes stay in place and keep their color;
      joints sit on the commit row: `─╮` a merge opens a lane, `─┤` a merge
      joins a lane already open (the same branch merged again, or a lane that
      ends on this row and is reused at once by the merge's new lane), `─╯` a lane

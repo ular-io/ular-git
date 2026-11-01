@@ -80,10 +80,10 @@ fn backslash_cycles_the_counts_the_width_can_show() {
         app.pane_count
     };
     assert_eq!(app.pane_count, 3);
-    assert_eq!(cycle(&mut app, 170), 1, "3 wraps to 1");
     assert_eq!(cycle(&mut app, 170), 2);
-    assert_eq!(cycle(&mut app, 170), 3);
-    // Two panes wide, 3 shows as 2: the next is 1, then back to 2.
+    assert_eq!(cycle(&mut app, 170), 1);
+    assert_eq!(cycle(&mut app, 170), 3, "1 wraps to 3");
+    // Two panes wide, 3 shows as 2: the next is 1, then 2 again.
     assert_eq!(cycle(&mut app, 100), 1);
     assert_eq!(cycle(&mut app, 100), 2);
     assert_eq!(cycle(&mut app, 100), 1);

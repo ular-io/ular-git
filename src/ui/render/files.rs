@@ -89,7 +89,7 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                 .unwrap_or(1)
                 .min(GRAPH_MAX);
             for row in &h.rows {
-                visual.push(Visual::Graph(next, &row.cells, &row.refs));
+                visual.push(Visual::Graph(next, &row.cells, &row.refs, &row.date));
                 next += 1;
             }
             if h.more {
@@ -107,6 +107,9 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
         ..inner
     };
     let w = list_area.width.saturating_sub(1) as usize;
+    // Dates for the whole list or none: only when the subject keeps
+    // DATE_SUBJECT_MIN cells after the graph (one space each side) and the date.
+    let dated = w.saturating_sub(graph_w + 2 + DATE_W) >= DATE_SUBJECT_MIN;
     let dim = |s: Style| body_style(tone, s, th);
     let mut selected_row = 0;
     let lines: Vec<ListItem> = visual
@@ -129,6 +132,11 @@ pub(super) fn draw_files(f: &mut Frame, app: &App, area: Rect) {
                         FileItem::File(file) => file_spans(file, w, tone, th),
                         FileItem::Commit(c, mark) => {
                             let mut spans = graph_spans(graph_of(v), graph_w, mark, tone, th);
+                            let date = date_of(v);
+                            if dated && !date.is_empty() {
+                                let style = dim(Style::default().fg(th.muted));
+                                spans.push(Span::styled(format!("{date} "), style));
+                            }
                             let used: usize = spans.iter().map(|s| s.content.width()).sum();
                             // Labels run through the right padding cell to the
                             // border; the subject keeps at least SUBJECT_MIN
@@ -250,7 +258,8 @@ enum Visual<'a> {
     /// A selectable file or `… more` row (index into the items).
     Item(usize),
     /// A history commit (item index), its graph cells, and its refs.
-    Graph(usize, &'a [Cell], &'a [RefLabel]),
+    /// Graph cells, branch and tag labels, and the date of a commit row.
+    Graph(usize, &'a [Cell], &'a [RefLabel], &'a str),
     /// The working-tree row (item index) and its graph cells.
     WorkTree(usize, &'a [Cell]),
     Note(String),
@@ -259,7 +268,7 @@ enum Visual<'a> {
 
 fn graph_of<'a>(v: &Visual<'a>) -> &'a [Cell] {
     match v {
-        Visual::Graph(_, g, _) | Visual::WorkTree(_, g) => g,
+        Visual::Graph(_, g, ..) | Visual::WorkTree(_, g) => g,
         _ => &[],
     }
 }
@@ -314,13 +323,27 @@ fn worktree_badges(status: &crate::git::RepoStatus, tone: Tone, th: &Theme) -> V
 
 fn refs_of<'a>(v: &Visual<'a>) -> &'a [RefLabel] {
     match v {
-        Visual::Graph(_, _, r) => r,
+        Visual::Graph(_, _, r, _) => r,
         _ => &[],
+    }
+}
+
+fn date_of<'a>(v: &Visual<'a>) -> &'a str {
+    match v {
+        Visual::Graph(.., d) => d,
+        _ => "",
     }
 }
 
 /// Longest ref name shown in a label; longer names are cut with `…`.
 const REF_NAME_MAX: usize = 24;
+
+/// Cells of a history row's date (`YYYY-MM-DD` and a space).
+const DATE_W: usize = 11;
+
+/// Subject cells history rows keep after the date; a narrower file pane
+/// leaves the dates out so subjects stay readable.
+pub(crate) const DATE_SUBJECT_MIN: usize = 50;
 
 /// Subject cells kept in front of the labels.
 const SUBJECT_MIN: usize = 12;

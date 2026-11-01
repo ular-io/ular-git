@@ -18,7 +18,7 @@ ular-git applies them.
 | Header (5 rows, no border) | Context column (Repos totals; the selected Repo — `repo › worktree` for a worktree — with its Branch and Path; Filter while one is applied), the focused pane's two shortcut columns, the common column (`:` `!` `ctrl+u` `?` `q`), the logo (`UlarGit` in figlet `small`, 29 × 4; shown from about 162 columns with Repos focus, 160 with Files focus) |
 | Filter line (3 rows, only while typing `/`) | The repository filter input |
 | Panes | Repos · Files · Diff |
-| Footer (1 row) | The latest result with a text tag (`[INFO]` `[OK]` `[WARN]` `[ERROR]`) for 6 s, then the pane names `Repos Files Diff` with the focused one on the selection bar. Never action hints |
+| Footer (1 row) | The latest result with a text tag (`[INFO]` `[OK]` `[WARN]` `[ERROR]`) for 6 s, then nothing. Never action hints or pane names |
 
 ## Width
 
@@ -27,10 +27,10 @@ ular-git applies them.
   count: 3 from 160 columns, 2 from 64, 1 below. A key the width cannot
   show does nothing, so below 64 columns none applies. `\` moves to the
   next count the width can show, starting from the count shown now
-  (1 → 2 → 3 → 1, or 1 ↔ 2).
+  (3 → 2 → 1 → 3, or 2 ↔ 1).
 - 1: the focused pane alone. 2: the focused pane and the one to its right;
   Diff has none, so Diff focus shows Files + Diff. 3: all three (Repos
-  22 % 30–44, Files 28 % 40–80, Diff the rest).
+  22 % 30–44, Files 32 % 40–80, Diff the rest).
 - The count stays while the focus moves; moving left or right always
   reveals the pane the focus moves to.
 - Repos 42 % (28–44) beside Files; Files 40 % (30–80) beside Diff.

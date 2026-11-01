@@ -131,7 +131,7 @@ pub(crate) fn pane_layout(
     let widths: Vec<Constraint> = match panes {
         [_, _, _] => vec![
             Constraint::Length(repos(22, 30, 44)),
-            Constraint::Length(pct(28, 40, 80)),
+            Constraint::Length(pct(32, 40, 80)),
             Constraint::Min(0),
         ],
         [Pane::Repos, _] => vec![Constraint::Length(repos(42, 28, 44)), Constraint::Min(0)],
@@ -404,45 +404,25 @@ fn draw_filter_line(f: &mut Frame, app: &App, area: Rect) {
     f.set_cursor_position((inner.x + prompt.len() as u16 + cursor_x, inner.y));
 }
 
-/// Footer: the latest result while it lasts, then the pane names with the
-/// focused pane highlighted.
+/// Footer: the latest result while it lasts, then nothing.
 fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
     let th = &app.theme;
-    let line = match &app.notice {
-        Some(n) => {
-            let color = match n.level {
-                Level::Info => th.accent,
-                Level::Ok => th.success,
-                Level::Warn => th.warning,
-                Level::Error => th.error,
-            };
-            Line::from(vec![
-                Span::styled(
-                    format!("{} ", n.level.tag()),
-                    Style::default().fg(color).add_modifier(Modifier::BOLD),
-                ),
-                Span::raw(super::components::text::sanitize_single_line(&n.text)),
-            ])
-        }
-        None => {
-            let mut spans = Vec::new();
-            for (i, pane) in Pane::ALL.iter().enumerate() {
-                let style = if *pane == app.focus {
-                    Style::default()
-                        .fg(th.selection_fg)
-                        .bg(th.selection_bg)
-                        .add_modifier(Modifier::BOLD)
-                } else {
-                    th.soft_dim()
-                };
-                if i > 0 {
-                    spans.push(Span::raw(" "));
-                }
-                spans.push(Span::styled(format!(" {} ", pane.title()), style));
-            }
-            Line::from(spans)
-        }
+    let Some(n) = &app.notice else {
+        return;
     };
+    let color = match n.level {
+        Level::Info => th.accent,
+        Level::Ok => th.success,
+        Level::Warn => th.warning,
+        Level::Error => th.error,
+    };
+    let line = Line::from(vec![
+        Span::styled(
+            format!("{} ", n.level.tag()),
+            Style::default().fg(color).add_modifier(Modifier::BOLD),
+        ),
+        Span::raw(super::components::text::sanitize_single_line(&n.text)),
+    ]);
     f.render_widget(Paragraph::new(line), area.inner(Margin::new(1, 0)));
 }
 

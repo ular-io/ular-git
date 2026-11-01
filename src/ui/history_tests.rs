@@ -135,7 +135,9 @@ fn the_graph_gets_fainter_not_stronger_when_its_pane_loses_focus() {
         terminal.draw(|f| crate::ui::render::draw(f, app)).unwrap();
         let buf = terminal.backend().buffer().clone();
         let row = |y: u16| (0..150).map(|x| buf[(x, y)].symbol()).collect::<String>();
-        let y = (0..20).find(|&y| row(y).contains("● init")).unwrap();
+        let y = (0..20)
+            .find(|&y| row(y).contains("●") && row(y).contains(" init"))
+            .unwrap();
         let x = (0..150).find(|&x| buf[(x, y)].symbol() == "●").unwrap();
         crate::theme::color_rgb(buf[(x, y)].fg)
     };
@@ -329,4 +331,28 @@ fn history_subjects_use_the_file_rows_text_style() {
     assert_ne!(buf[(x, y)].fg, app.theme.muted);
     // The same text color as a changed file's name in a focused pane.
     assert_eq!(buf[(x, y)].fg, app.theme.fg);
+}
+
+#[test]
+fn a_wide_file_pane_dates_each_commit_before_its_subject() {
+    let a = TestRepo::new();
+    let date = a.git(&["log", "-1", "--format=%as"]).trim().to_string();
+    assert_eq!(date.len(), 10, "YYYY-MM-DD: {date}");
+    let mut app = scanned_app(store_of(&[&a.root]));
+    app.wait_background(10);
+    app.focus = Pane::Files;
+    // Dates only when the subject keeps 50 cells after them: a 67-column
+    // file pane with this one-lane graph. (The diff pane on the same row
+    // shows the commit's date in its header, so match the date + subject.)
+    let dated = format!("● {date} init");
+    let mut shows_date = |count: usize, w: u16| {
+        app.pane_count = count;
+        let rows = screen(&app, w, 20);
+        assert!(rows[6].contains("init"), "{}", rows[6]);
+        rows[6].contains(&dated)
+    };
+    assert!(!shows_date(1, 66) && shows_date(1, 67), "one pane");
+    assert!(!shows_date(2, 160), "two panes: Files is 64");
+    assert!(!shows_date(3, 200), "three panes: Files is 32 % = 64");
+    assert!(shows_date(3, 210), "three panes: Files is 67");
 }

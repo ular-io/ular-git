@@ -217,10 +217,14 @@ impl App {
     }
 
     /// `\`: the next pane count the width can show, from the one shown now
-    /// (1 → 2 → 3 → 1; 1 ↔ 2 below 160 columns).
+    /// (3 → 2 → 1 → 3; 2 ↔ 1 below 160 columns).
     pub(crate) fn cycle_pane_count(&mut self) {
         let fits = super::render::visible_panes(self.panes_w.get());
-        self.set_pane_count(self.pane_count.min(fits) % fits + 1);
+        let next = match self.pane_count.min(fits) {
+            0 | 1 => fits,
+            shown => shown - 1,
+        };
+        self.set_pane_count(next);
     }
 
     /// `s`: side-by-side diffs on wide panes, or always unified.

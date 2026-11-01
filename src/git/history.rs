@@ -19,6 +19,8 @@ pub struct GraphRow {
     /// Graph cells for this commit's row.
     pub cells: Vec<Cell>,
     pub commit: Commit,
+    /// Author date, `YYYY-MM-DD`.
+    pub date: String,
     /// On the upstream but not reachable from HEAD: a pull brings it in.
     pub incoming: bool,
     /// Branches and tags pointing at the commit, in git's order.
@@ -93,7 +95,7 @@ pub fn load(dir: &Path, limit: usize, worktree: bool) -> anyhow::Result<History>
         &n,
         // Full ref names tell a local `feat/x` from a remote `origin/x`.
         "--decorate=full",
-        "--format=%H%x1f%h%x1f%P%x1f%D%x1f%s",
+        "--format=%H%x1f%h%x1f%P%x1f%D%x1f%as%x1f%s",
         "HEAD",
     ];
     if incoming.as_ref().is_some_and(|set| !set.is_empty()) {
@@ -117,14 +119,14 @@ pub fn load(dir: &Path, limit: usize, worktree: bool) -> anyhow::Result<History>
     Ok(history)
 }
 
-/// Parses `hash SEP short SEP parents SEP refs SEP subject` lines and lays
-/// out the graph, with the working-tree node when `worktree`.
+/// Parses `hash SEP short SEP parents SEP refs SEP date SEP subject` lines
+/// and lays out the graph, with the working-tree node when `worktree`.
 pub fn parse(text: &str, limit: usize, worktree: bool) -> History {
-    let mut commits: Vec<(Commit, Vec<String>, Vec<RefLabel>)> = Vec::new();
+    let mut commits: Vec<(Commit, Vec<String>, Vec<RefLabel>, String)> = Vec::new();
     for line in text.lines() {
         let mut f = line.split(SEP);
-        let (Some(hash), Some(short), Some(parents), Some(refs)) =
-            (f.next(), f.next(), f.next(), f.next())
+        let (Some(hash), Some(short), Some(parents), Some(refs), Some(date)) =
+            (f.next(), f.next(), f.next(), f.next(), f.next())
         else {
             continue;
         };
@@ -136,18 +138,19 @@ pub fn parse(text: &str, limit: usize, worktree: bool) -> History {
             },
             parents.split_whitespace().map(str::to_string).collect(),
             parse_refs(refs),
+            date.to_string(),
         ));
     }
     // The working tree is laid out as a commit (no hash) whose parent is HEAD.
     let head = commits
         .iter()
-        .find(|(_, _, refs)| worktree && refs.iter().any(|r| r.head))
-        .map(|(c, _, _)| c.hash.clone());
+        .find(|(_, _, refs, _)| worktree && refs.iter().any(|r| r.head))
+        .map(|(c, ..)| c.hash.clone());
     let mut shape: Vec<(String, Vec<String>)> = Vec::new();
     if let Some(h) = &head {
         shape.push((String::new(), vec![h.clone()]));
     }
-    shape.extend(commits.iter().map(|(c, p, _)| (c.hash.clone(), p.clone())));
+    shape.extend(commits.iter().map(|(c, p, ..)| (c.hash.clone(), p.clone())));
     let more = commits.len() >= limit;
     let mut cells = graph::layout(&shape);
     let mut worktree = if head.is_some() && !cells.is_empty() {
@@ -161,9 +164,10 @@ pub fn parse(text: &str, limit: usize, worktree: bool) -> History {
     let rows = cells
         .into_iter()
         .zip(commits)
-        .map(|(cells, (commit, _, refs))| GraphRow {
+        .map(|(cells, (commit, _, refs, date))| GraphRow {
             cells,
             commit,
+            date,
             incoming: false,
             refs,
         })
@@ -246,9 +250,9 @@ mod tests {
 
     #[test]
     fn parses_commits_with_parents_into_graph_rows() {
-        let text = "m\x1fm1\x1fa b\x1fHEAD -> refs/heads/main\x1fMerge b\n\
-b\x1fb1\x1fa\x1f\x1fon b\n\
-a\x1fa1\x1f\x1ftag: refs/tags/v1\x1froot\n";
+        let text = "m\x1fm1\x1fa b\x1fHEAD -> refs/heads/main\x1f2026-11-01\x1fMerge b\n\
+b\x1fb1\x1fa\x1f\x1f2026-10-31\x1fon b\n\
+a\x1fa1\x1f\x1ftag: refs/tags/v1\x1f2026-10-30\x1froot\n";
         let h = parse(text, 100, true);
         let rows: Vec<String> = h
             .rows
@@ -260,6 +264,7 @@ a\x1fa1\x1f\x1ftag: refs/tags/v1\x1froot\n";
         let wt: String = h.worktree.iter().map(|c| c.ch).collect();
         assert_eq!(wt, "○");
         assert_eq!(h.rows[0].commit.subject, "Merge b");
+        assert_eq!(h.rows[2].date, "2026-10-30");
         assert_eq!(h.rows[0].refs[0].name, "main");
         assert!(h.rows[0].refs[0].head);
         assert!(h.rows[1].refs.is_empty());
