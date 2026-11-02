@@ -77,6 +77,7 @@ impl App {
             RemoveWorktree => matches!(row, Some(Row::Worktree { .. })),
             RenameGroup | DeleteGroup => named_group,
             MoveGroupUp | MoveGroupDown => named_group && self.store.groups.len() > 1,
+            MoveRepoUp | MoveRepoDown => matches!(row, Some(Row::Repo { .. })),
             MoveToGroup => matches!(row, Some(Row::Repo { .. } | Row::Worktree { .. })),
             FoldAllGroups | UnfoldAllGroups => !self.store.groups.is_empty(),
             Commit => dirty,
@@ -279,8 +280,8 @@ impl App {
             RemoveRepository | RemoveWorktree | DeleteGroup => self.open_remove_row(),
             NewGroup => self.open_new_group(),
             RenameGroup | MoveToGroup => self.open_edit_row(),
-            MoveGroupUp => self.move_current_group(-1),
-            MoveGroupDown => self.move_current_group(1),
+            MoveGroupUp | MoveRepoUp => self.move_row(-1),
+            MoveGroupDown | MoveRepoDown => self.move_row(1),
             FoldAllGroups => self.fold_all_groups(true),
             UnfoldAllGroups => self.fold_all_groups(false),
             Commit => self.open_commit(),
@@ -305,18 +306,6 @@ impl App {
             EditConfig => self.request_edit_config(),
             OpenHelp => self.open_help(),
             Quit => self.should_quit = true,
-        }
-    }
-
-    fn move_current_group(&mut self, delta: isize) {
-        if let Some(Row::Group {
-            name: Some(name), ..
-        }) = self.current_row().cloned()
-        {
-            if self.store.move_group(&name, delta) {
-                self.save_store();
-                self.rebuild_rows();
-            }
         }
     }
 

@@ -137,7 +137,7 @@ The theme set is shared with ular-s7s; these roles were renamed for git:
   worktree, `Delete Group` on a group); keys that do nothing there are left
   out.
 - At most five rows per header column. Movement keys (`↑↓`, `pgup` / `pgdn`,
-  `g` / `G`, arrows) are left to help.
+  `g` / `G`, arrows) and the Repos reorder keys (`alt+↑↓`) are left to help.
 - Help is a centered box: the focused pane's keys, then Anywhere and Dialogs;
   two columns when wide, one when narrow, scrolling with a scrollbar when it
   does not fit. It takes every key; `esc`, `?`, or `q` closes it.

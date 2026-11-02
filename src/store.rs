@@ -3,7 +3,9 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-const STORE_VERSION: u32 = 1;
+/// 2: `repos` order is the display order inside each group (version 1 and
+/// earlier showed repositories by folder name; loading one sorts it once).
+const STORE_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Group {
@@ -37,6 +39,7 @@ pub struct RepoStore {
     /// Display order of the groups.
     #[serde(default)]
     pub groups: Vec<Group>,
+    /// Display order of the repositories inside each group.
     #[serde(default)]
     pub repos: Vec<RepoEntry>,
     #[serde(default)]
@@ -62,6 +65,10 @@ impl RepoStore {
             Ok(data) => {
                 let mut store: RepoStore = serde_json::from_str(&data)
                     .map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
+                if store.version < 2 {
+                    // Keep the by-name order those versions showed.
+                    store.repos.sort_by_cached_key(|r| r.name().to_lowercase());
+                }
                 store.normalize();
                 Ok(store)
             }
@@ -153,22 +160,55 @@ impl RepoStore {
         Ok(())
     }
 
-    /// Deletes a group; its repositories move to "Ungrouped". Returns how many moved.
+    /// Deletes a group; its repositories move to the end of "Ungrouped" in
+    /// their order. Returns how many moved.
     pub fn delete_group(&mut self, name: &str) -> usize {
         self.groups.retain(|g| g.name != name);
-        let mut moved = 0;
-        for repo in &mut self.repos {
-            if repo.group.as_deref() == Some(name) {
-                repo.group = None;
-                moved += 1;
-            }
+        let (mut moved, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.repos)
+            .into_iter()
+            .partition(|r| r.group.as_deref() == Some(name));
+        for repo in &mut moved {
+            repo.group = None;
         }
-        moved
+        let count = moved.len();
+        self.repos = kept;
+        self.repos.extend(moved);
+        count
     }
 
+    /// Files a repository under `group`, at the end of it. Nothing changes
+    /// when it is already there.
     pub fn set_group(&mut self, path: &Path, group: Option<String>) {
-        if let Some(repo) = self.repos.iter_mut().find(|r| r.path == path) {
-            repo.group = group;
+        let Some(i) = self.repos.iter().position(|r| r.path == path) else {
+            return;
+        };
+        if self.repos[i].group == group {
+            return;
+        }
+        let mut repo = self.repos.remove(i);
+        repo.group = group;
+        self.repos.push(repo);
+    }
+
+    /// Moves a repository one place up (`-1`) or down (`1`) among the
+    /// repositories of its group.
+    pub fn move_repo(&mut self, path: &Path, delta: isize) -> bool {
+        let Some(i) = self.repos.iter().position(|r| r.path == path) else {
+            return false;
+        };
+        let group = self.repos[i].group.clone();
+        let same = |r: &RepoEntry| r.group == group;
+        let j = if delta < 0 {
+            self.repos[..i].iter().rposition(same)
+        } else {
+            self.repos[i + 1..].iter().position(same).map(|k| i + 1 + k)
+        };
+        match j {
+            Some(j) => {
+                self.repos.swap(i, j);
+                true
+            }
+            None => false,
         }
     }
 
@@ -265,5 +305,51 @@ mod tests {
         assert!(!s.move_group("a", -1));
         assert!(s.move_group("a", 1));
         assert_eq!(s.groups[0].name, "b");
+    }
+
+    fn order(s: &RepoStore) -> Vec<String> {
+        s.repos.iter().map(|r| r.name()).collect()
+    }
+
+    #[test]
+    fn repositories_move_within_their_group() {
+        let mut s = RepoStore::default();
+        s.add_group("g").unwrap();
+        s.add_repo("/a".into(), None);
+        s.add_repo("/x".into(), Some("g".into()));
+        s.add_repo("/b".into(), None);
+        assert!(!s.move_repo(Path::new("/a"), -1));
+        assert!(!s.move_repo(Path::new("/x"), 1));
+        assert!(s.move_repo(Path::new("/b"), -1));
+        assert_eq!(order(&s), ["b", "x", "a"]);
+        assert!(!s.move_repo(Path::new("/a"), 1));
+    }
+
+    #[test]
+    fn regrouped_repositories_go_to_the_end_of_their_group() {
+        let mut s = RepoStore::default();
+        s.add_group("g").unwrap();
+        s.add_repo("/x".into(), Some("g".into()));
+        s.add_repo("/a".into(), None);
+        s.add_repo("/b".into(), None);
+        s.set_group(Path::new("/x"), Some("g".into()));
+        assert_eq!(order(&s), ["x", "a", "b"]);
+        s.set_group(Path::new("/a"), Some("g".into()));
+        assert_eq!(order(&s), ["x", "b", "a"]);
+        assert_eq!(s.delete_group("g"), 2);
+        assert_eq!(order(&s), ["b", "x", "a"]);
+    }
+
+    #[test]
+    fn version_1_stores_load_in_name_order() {
+        let json = r#"{"version":1,"repos":[{"path":"/z/Beta"},{"path":"/a/alpha"}]}"#;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("repos.json");
+        std::fs::write(&path, json).unwrap();
+        let mut s = RepoStore::load(&path).unwrap();
+        assert_eq!(order(&s), ["alpha", "Beta"]);
+        assert!(s.move_repo(Path::new("/z/Beta"), -1));
+        s.save(&path).unwrap();
+        assert_eq!(order(&RepoStore::load(&path).unwrap()), ["Beta", "alpha"]);
     }
 }

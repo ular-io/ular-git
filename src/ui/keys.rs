@@ -142,6 +142,7 @@ impl App {
                     h("end / G", "Last row"),
                     h("← / h", "Fold group"),
                     h("→ / l", "Unfold group / Files pane"),
+                    h("alt+↑↓", "Move the group / repository"),
                     h("delete", "Same as ctrl+d"),
                 ];
                 if self.filter_clearable() {

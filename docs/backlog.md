@@ -16,7 +16,6 @@
 - Fetch all repositories on demand, with the same no-prompt rules as push /
   pull.
 - Stage / unstage individual files from the file pane.
-- Show the repository order of the user's choice instead of by name.
 
 ## Verification debt
 

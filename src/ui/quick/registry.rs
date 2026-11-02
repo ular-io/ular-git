@@ -13,6 +13,8 @@ pub enum CommandId {
     MoveToGroup,
     MoveGroupUp,
     MoveGroupDown,
+    MoveRepoUp,
+    MoveRepoDown,
     FoldAllGroups,
     UnfoldAllGroups,
     RemoveWorktree,
@@ -138,7 +140,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         MoveGroupUp,
         "move-group-up",
         "Move Group Up",
-        None,
+        Some("alt+↑"),
         ["order", "reorder", "sort"],
         None
     ),
@@ -146,9 +148,25 @@ pub const COMMANDS: &[CommandSpec] = &[
         MoveGroupDown,
         "move-group-down",
         "Move Group Down",
-        None,
+        Some("alt+↓"),
         ["order", "reorder", "sort"],
         None
+    ),
+    cmd!(
+        MoveRepoUp,
+        "move-repo-up",
+        "Move Repository Up",
+        Some("alt+↑"),
+        ["order", "reorder", "sort"],
+        Some("Move the selected repository one place up within its group")
+    ),
+    cmd!(
+        MoveRepoDown,
+        "move-repo-down",
+        "Move Repository Down",
+        Some("alt+↓"),
+        ["order", "reorder", "sort"],
+        Some("Move the selected repository one place down within its group")
     ),
     cmd!(
         FoldAllGroups,

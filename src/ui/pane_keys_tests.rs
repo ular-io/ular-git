@@ -112,3 +112,40 @@ fn common_keys_never_repeat_a_pane_key() {
     app.press(&[key(KeyCode::Char('c'))]);
     assert_eq!(app.mode, UiMode::Commit);
 }
+
+#[test]
+fn alt_arrows_reorder_groups_and_repositories_but_not_while_filtered() {
+    use crate::store::RepoStore;
+    use crossterm::event::{KeyEvent, KeyModifiers};
+    let alt = |code| KeyEvent::new(code, KeyModifiers::ALT);
+    let mut store = RepoStore::default();
+    for g in ["g1", "g2"] {
+        store.add_group(g).unwrap();
+    }
+    for (p, g) in [("/x/a", None), ("/x/b", None), ("/x/c", Some("g1"))] {
+        store.add_repo(p.into(), g.map(Into::into));
+    }
+    let mut app = super::App::with_store(crate::config::Config::default(), store, None);
+    app.rebuild_rows();
+    let order = |app: &super::App| -> Vec<String> {
+        let groups = app.store.groups.iter().map(|g| g.name.clone());
+        groups
+            .chain(app.store.repos.iter().map(|r| r.name()))
+            .collect()
+    };
+    // `b` up past `a`; the cursor stays on `b`.
+    app.press(&[key(KeyCode::Down), alt(KeyCode::Up)]);
+    assert_eq!(order(&app), ["g1", "g2", "b", "a", "c"]);
+    assert_eq!(app.current_target().as_deref(), Some("/x/b".as_ref()));
+    // `a` is last of the ungrouped ones: it does not cross into `g1`.
+    app.press(&[key(KeyCode::Down), alt(KeyCode::Down)]);
+    assert_eq!(order(&app), ["g1", "g2", "b", "a", "c"]);
+    // The `g1` header moves below `g2`.
+    app.press(&[key(KeyCode::Down), alt(KeyCode::Down)]);
+    assert_eq!(order(&app), ["g2", "g1", "b", "a", "c"]);
+    // Nothing moves while a filter hides `a`.
+    app.press(&[ch('/')]);
+    app.type_text("b");
+    app.press(&[key(KeyCode::Enter), alt(KeyCode::Down)]);
+    assert_eq!(order(&app), ["g2", "g1", "b", "a", "c"]);
+}

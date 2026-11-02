@@ -150,6 +150,14 @@ impl App {
             self.open_remove_row();
             return true;
         }
+        if key.modifiers.contains(KeyModifiers::ALT) {
+            match key.code {
+                KeyCode::Up => self.move_row(-1),
+                KeyCode::Down => self.move_row(1),
+                _ => return false,
+            }
+            return true;
+        }
         let is_group = matches!(self.current_row(), Some(Row::Group { .. }));
         match key.code {
             KeyCode::Enter if is_group => self.toggle_group(),
@@ -293,6 +301,38 @@ impl App {
         self.store.toggle_collapsed(name.as_deref());
         self.save_store();
         self.rebuild_rows();
+    }
+
+    /// `alt+↑` / `alt+↓`: moves the group under the cursor among the groups,
+    /// or the repository among the repositories of its group. Worktrees
+    /// follow git's order. Not while a filter hides rows, where one place up
+    /// may be a row that is not shown.
+    pub(crate) fn move_row(&mut self, delta: isize) {
+        let row = self.current_row().cloned();
+        if !matches!(
+            row,
+            Some(Row::Group { name: Some(_), .. } | Row::Repo { .. })
+        ) {
+            return;
+        }
+        if self.list_filtered() {
+            self.notify(
+                Level::Info,
+                "The order stays fixed while a filter is applied",
+            );
+            return;
+        }
+        let moved = match row {
+            Some(Row::Group {
+                name: Some(name), ..
+            }) => self.store.move_group(&name, delta),
+            Some(Row::Repo { path, .. }) => self.store.move_repo(&path, delta),
+            _ => false,
+        };
+        if moved {
+            self.save_store();
+            self.rebuild_rows();
+        }
     }
 
     /// Visible rows of the repository list (recorded at render time).

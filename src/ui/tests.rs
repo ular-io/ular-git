@@ -66,12 +66,12 @@ fn the_file_cursor_stays_on_its_file_across_a_rescan() {
 fn filter_selects_the_first_match_and_esc_restores() {
     let a = TestRepo::new();
     let b = TestRepo::new();
-    let mut store = store_of(&[&a.root]);
     let b_path = b.root.parent().unwrap().join("other");
     std::fs::rename(&b.root, &b_path).unwrap();
-    store.add_repo(b_path.clone(), None);
+    let mut store = store_of(&[&b_path]);
+    store.add_repo(a.root.clone(), None);
     let mut app = scanned_app(store);
-    // Rows sort by folder name: "other" before "repo".
+    // Rows follow the store order: "other" before "repo".
     assert_eq!(app.current_target().as_deref(), Some(b_path.as_path()));
     app.press(&[ch('/')]);
     app.type_text("rep");

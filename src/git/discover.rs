@@ -15,6 +15,9 @@ const SKIP_DIRS: &[&str] = &["node_modules", "target", "build", "dist", "vendor"
 ///    resolves to the repository that owns it);
 /// 2. otherwise repositories found below `path` (up to [`MAX_DEPTH`]);
 /// 3. otherwise the repository `path` sits inside.
+///
+/// Several roots come back by folder name (case-insensitive), the order they
+/// are appended to the repository list in.
 pub fn repos_for(path: &Path) -> anyhow::Result<Vec<PathBuf>> {
     if !path.is_dir() {
         anyhow::bail!("not a folder: {}", path.display());
@@ -28,6 +31,11 @@ pub fn repos_for(path: &Path) -> anyhow::Result<Vec<PathBuf>> {
         let mut roots: Vec<PathBuf> = found.iter().filter_map(|p| main_repo(p).ok()).collect();
         roots.sort();
         roots.dedup();
+        roots.sort_by_cached_key(|p| {
+            p.file_name()
+                .map(|n| n.to_string_lossy().to_lowercase())
+                .unwrap_or_default()
+        });
         return Ok(roots);
     }
     main_repo(path)

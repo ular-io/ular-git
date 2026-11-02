@@ -367,7 +367,7 @@ fn the_repository_pane_fits_its_longest_name_within_its_range() {
     };
     // Indent 1, the name, and 11 cells of badges, padding, and borders.
     let name25 = "a".repeat(25);
-    let mid = store_with(&["short", &name25], None);
+    let mid = store_with(&[&name25, "short"], None);
     assert_eq!(fit(&mid), 37);
     assert_eq!(repos_w(200, &mid), 37, "below the 44 cap");
     assert_eq!(repos_w(160, &mid), 35, "still 22 % at most");

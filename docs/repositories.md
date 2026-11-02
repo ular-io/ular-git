@@ -12,7 +12,8 @@
 - Repositories without a group come first, flat, unindented, with no header.
 - Then each group header (`▾` / `▸ name`, muted text on the group band) with its
   repositories indented beneath it. Empty groups stay visible (not while
-  filtering). Repositories sort by folder name inside each block.
+  filtering). Inside each block repositories keep their order in
+  `repos.json` (see Order below).
 - An open group header shows nothing on the right; its rows carry their own
   badges. A folded group shows `Ⓜ N`, the changed files of its repositories and
   their worktrees, and nothing when there are none. No repository count.
@@ -78,14 +79,38 @@ repository row, below first, never to a group header (`App::place_cursor`).
   (Ungrouped, each group, then `[NEW GROUP]`, which creates a group and moves
   the repository into it).
 - `ctrl+d` on a group: Delete Group after a confirmation. Its repositories
-  become ungrouped and move to the top of the list.
+  become ungrouped, at the end of the ungrouped block (the top of the list).
 - On a group header (it has no files) `←` / `h` folds it, `→` / `l` unfolds
   it (each does nothing when the group already is), and `enter` toggles; the
   Repos pane shows no `→` arrow there. `space` does nothing. Not while a
   filter is applied. Fold state persists in `repos.json`.
 - `enter` on a repository or worktree row opens Open With (see
   [architecture.md](./architecture.md) §Runtime); `→` / `l` move to Files.
-- Palette only: Move Group Up / Down, Fold / Unfold All Groups.
+- Palette only: Fold / Unfold All Groups.
+
+## Order
+
+- Groups show in `repos.json` `groups` order; repositories in `repos` order,
+  inside their group (`build_rows` keeps the store order).
+- `alt+↑` / `alt+↓` (Option on macOS; help only, the header has no room):
+  on a group header moves the group one place among the groups
+  (`RepoStore::move_group`); on a repository row moves it one place among
+  the repositories of its group (`RepoStore::move_repo`). It stops at the
+  first and last place and never crosses into another group (`ctrl+e` Move
+  to Group does that). Nothing on a worktree row (git orders worktrees). The
+  ungrouped block always comes first. Entry point: `App::move_row`.
+- While a text filter or Pending Only is applied it does nothing and the
+  footer says the order stays fixed: a hidden row could be the one passed.
+- Palette: Move Group Up / Down, Move Repository Up / Down (same action).
+  A terminal that does not send Option+arrow as a modified arrow never
+  delivers the key; the palette commands still work.
+- A new repository goes to the end of its group; a folder that yields
+  several adds them by folder name (`discover::repos_for` order). Move to
+  Group puts the repository at the end of the target group (nothing changes
+  when it is already there).
+- `repos.json` version 2 holds this order. A version 1 (or older) file was
+  shown by folder name, so loading one sorts `repos` by folder name once; it
+  is written as version 2 on the next change.
 
 ## Adding and removing repositories
 
@@ -139,7 +164,8 @@ repository row, below first, never to a group header (`App::place_cursor`).
 - Graph layout: `git/graph.rs` unit tests pin a four-branch history, a branch
   merged twice, octopus merges, lane colors, and page cuts.
 
-- Unit tests: `ui/tree.rs` (row shapes), `store.rs`, `cache.rs`,
+- Unit tests: `ui/tree.rs` (row shapes), `store.rs` (order, version 1
+  migration), `ui/pane_keys_tests.rs` (`alt+↑↓`), `cache.rs`,
   `git/status.rs`, `git/worktree.rs`.
 - Real git: `git/tests.rs` (scan, worktrees, discovery), `ui/tests.rs`
   (filter, groups, add / remove, worktree removal).

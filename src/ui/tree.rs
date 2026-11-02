@@ -107,7 +107,7 @@ pub fn build_rows(
     };
     let filtering = !needle.is_empty() || pending_only;
 
-    // Repositories (with their visible worktrees) per group, name-sorted;
+    // Repositories (with their visible worktrees) per group, in store order;
     // ungrouped first.
     let mut by_group: Vec<(Option<String>, Vec<usize>)> = vec![(None, Vec::new())];
     by_group.extend(
@@ -116,9 +116,7 @@ pub fn build_rows(
             .iter()
             .map(|g| (Some(g.name.clone()), Vec::new())),
     );
-    let mut order: Vec<usize> = (0..store.repos.len()).collect();
-    order.sort_by_cached_key(|&i| store.repos[i].name().to_lowercase());
-    for i in order {
+    for i in 0..store.repos.len() {
         let group = store.repos[i].group.clone();
         if let Some(slot) = by_group.iter_mut().find(|(g, _)| *g == group) {
             slot.1.push(i);
@@ -225,8 +223,8 @@ mod tests {
     fn store() -> RepoStore {
         let mut s = RepoStore::default();
         s.add_group("work").unwrap();
-        s.add_repo("/x/zeta".into(), Some("work".into()));
         s.add_repo("/x/alpha".into(), Some("work".into()));
+        s.add_repo("/x/zeta".into(), Some("work".into()));
         s.add_repo("/x/loose".into(), None);
         s
     }
@@ -257,7 +255,7 @@ mod tests {
     }
 
     #[test]
-    fn groups_sort_repositories_and_nest_worktrees() {
+    fn groups_list_repositories_and_nest_worktrees() {
         let s = store();
         let rows = build_rows(&s, &with_worktree("/x/alpha-wt", "feat"), "", false, None);
         assert_eq!(
@@ -278,12 +276,12 @@ mod tests {
     }
 
     #[test]
-    fn flat_without_groups_and_no_ungrouped_header() {
+    fn flat_without_groups_and_no_ungrouped_header_in_store_order() {
         let mut s = RepoStore::default();
         s.add_repo("/b".into(), None);
         s.add_repo("/a".into(), None);
         let rows = build_rows(&s, &HashMap::new(), "", false, None);
-        assert_eq!(names(&s, &rows), ["a", "b"]);
+        assert_eq!(names(&s, &rows), ["b", "a"]);
         assert!(matches!(rows[0], Row::Repo { nested: false, .. }));
     }
 
