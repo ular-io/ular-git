@@ -37,6 +37,7 @@ pub struct GroupNameDialog {
     pub input: TextInput,
     pub focus: NameFocus,
     pub error: Option<String>,
+    pub pending: bool,
     /// Repository moved into the new group once it is created (opened from
     /// the picker's `[NEW GROUP]` row).
     pub assign: Option<PathBuf>,
@@ -66,6 +67,7 @@ impl App {
             input,
             focus: NameFocus::Input,
             error: None,
+            pending: false,
             assign,
         });
         self.mode = UiMode::GroupName;
@@ -102,6 +104,9 @@ impl App {
             self.mode = UiMode::Normal;
             return;
         };
+        if d.pending {
+            return;
+        }
         use NameFocus::*;
         match (key.code, d.focus) {
             (KeyCode::Esc, _) => self.close_group_name(),
@@ -133,7 +138,7 @@ impl App {
 
     pub(crate) fn paste_group_name(&mut self, text: &str) {
         if let Some(d) = self.group_name.as_mut() {
-            if d.focus == NameFocus::Input {
+            if d.focus == NameFocus::Input && !d.pending {
                 d.input.insert_paste(text);
             }
         }
@@ -141,7 +146,14 @@ impl App {
 
     fn close_group_name(&mut self) {
         self.group_name = None;
-        self.mode = UiMode::Normal;
+        if self.mode == UiMode::GroupName {
+            self.mode = UiMode::Normal;
+        }
+        if let Some(message) = self.message.as_mut() {
+            if message.return_mode == UiMode::GroupName {
+                message.return_mode = UiMode::Normal;
+            }
+        }
     }
 
     fn submit_group_name(&mut self) {
@@ -149,33 +161,56 @@ impl App {
             return;
         };
         let name = d.input.value.trim().to_string();
-        let result = match &d.purpose {
-            NamePurpose::New => self.store.add_group(&name),
-            NamePurpose::Rename(old) => self.store.rename_group(old, &name),
-        };
-        if let Err(err) = result {
+        if let Err(err) = self.store.check_group_name(
+            &name,
+            match &d.purpose {
+                NamePurpose::New => None,
+                NamePurpose::Rename(old) => Some(old),
+            },
+        ) {
             d.error = Some(err);
             d.focus = NameFocus::Input;
             return;
         }
-        let (purpose, assign) = (d.purpose.clone(), d.assign.take());
-        self.close_group_name();
-        if let Some(repo) = assign.as_ref() {
-            self.store.set_group(repo, Some(name.clone()));
-        }
-        self.save_store();
-        self.rebuild_rows();
-        let key = match assign {
-            Some(repo) => RowKey::Repo(repo),
-            None => RowKey::Group(Some(name.clone())),
-        };
-        self.select_row_key(Some(&key));
-        match purpose {
-            NamePurpose::New => self.notify(Level::Ok, format!("Created group {name}")),
-            NamePurpose::Rename(old) => {
-                self.notify(Level::Ok, format!("Renamed group {old} to {name}"))
-            }
-        }
+        let (purpose, assign) = (d.purpose.clone(), d.assign.clone());
+        d.pending = true;
+        self.change_store_with_error(
+            move |store| {
+                if let Some(repo) = &assign {
+                    store.require_repo(repo)?;
+                }
+                match &purpose {
+                    NamePurpose::New => store.add_group(&name),
+                    NamePurpose::Rename(old) => store.rename_group(old, &name),
+                }
+                .map_err(anyhow::Error::msg)?;
+                if let Some(repo) = &assign {
+                    store.set_group(repo, Some(name.clone()));
+                }
+                Ok((purpose, assign, name))
+            },
+            |app, (purpose, assign, name)| {
+                app.close_group_name();
+                let key = match assign {
+                    Some(repo) => RowKey::Repo(repo),
+                    None => RowKey::Group(Some(name.clone())),
+                };
+                app.select_row_key(Some(&key));
+                match purpose {
+                    NamePurpose::New => app.notify(Level::Ok, format!("Created group {name}")),
+                    NamePurpose::Rename(old) => {
+                        app.notify(Level::Ok, format!("Renamed group {old} to {name}"))
+                    }
+                }
+            },
+            |app, error| {
+                if let Some(dialog) = app.group_name.as_mut() {
+                    dialog.pending = false;
+                    dialog.error = Some(error);
+                    dialog.focus = NameFocus::Input;
+                }
+            },
+        );
     }
 
     pub(crate) fn on_key_group_pick(&mut self, key: KeyEvent) {
@@ -201,12 +236,19 @@ impl App {
                 match d.options.get(d.cursor).cloned() {
                     None => self.open_group_name(NamePurpose::New, String::new(), Some(d.repo)),
                     Some(group) => {
-                        self.store.set_group(&d.repo, group.clone());
-                        self.save_store();
-                        self.rebuild_rows();
-                        self.select_row_key(Some(&RowKey::Repo(d.repo.clone())));
-                        let to = group.unwrap_or_else(|| "Ungrouped".into());
-                        self.notify(Level::Ok, format!("Moved to {to}"));
+                        self.change_store(
+                            move |store| {
+                                store.require_repo(&d.repo)?;
+                                store.require_group(group.as_deref())?;
+                                store.set_group(&d.repo, group.clone());
+                                Ok((d.repo, group))
+                            },
+                            |app, (repo, group)| {
+                                app.select_row_key(Some(&RowKey::Repo(repo)));
+                                let to = group.unwrap_or_else(|| "Ungrouped".into());
+                                app.notify(Level::Ok, format!("Moved to {to}"));
+                            },
+                        );
                     }
                 }
             }

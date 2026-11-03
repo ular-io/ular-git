@@ -232,24 +232,32 @@ impl App {
                 self.run_remote(target, crate::ui::sync::RemoteOp::Push, new);
             }
             ConfirmAction::RemoveRepo(path) => {
-                if self.store.remove_repo(&path) {
-                    self.statuses.remove(&path);
-                    self.save_store();
-                    self.rebuild_rows();
-                    let name = crate::config::collapse_home(&path);
-                    self.notify(Level::Ok, format!("Removed {name} from the list"));
-                }
+                self.change_store(
+                    move |store| {
+                        store.require_repo(&path)?;
+                        store.remove_repo(&path);
+                        Ok(path)
+                    },
+                    |app, path| {
+                        let name = crate::config::collapse_home(&path);
+                        app.notify(Level::Ok, format!("Removed {name} from the list"));
+                    },
+                );
             }
             ConfirmAction::DeleteGroup(name) => {
-                if self.store.group_exists(&name) {
-                    let moved = self.store.delete_group(&name);
-                    self.save_store();
-                    self.rebuild_rows();
-                    self.notify(
-                        Level::Ok,
-                        format!("Deleted group {name} ({moved} repositories ungrouped)"),
-                    );
-                }
+                self.change_store(
+                    move |store| {
+                        store.require_group(Some(&name))?;
+                        let moved = store.delete_group(&name);
+                        Ok((name, moved))
+                    },
+                    |app, (name, moved)| {
+                        app.notify(
+                            Level::Ok,
+                            format!("Deleted group {name} ({moved} repositories ungrouped)"),
+                        );
+                    },
+                );
             }
             ConfirmAction::RemoveWorktree { repo, path, force } => {
                 self.notify(Level::Info, "Removing worktree…");

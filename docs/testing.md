@@ -22,6 +22,7 @@ stage.
 | Diff loading or classification | `git/diff.rs` unit tests, `git/tests.rs` | Look at a commit, an untracked file, and a staged + unstaged file |
 | Commit, worktree removal | `git/tests.rs`, `ui/tests.rs` | Scratch repository only |
 | Push / pull | `git/tests.rs`, `ui/tests.rs` (local bare remote) | Scratch repository with a bare remote only — never a real repository |
+| Shared repository list | `store/shared/tests.rs`, `ui/store_sync_tests.rs`, `runtime/tests.rs` | Two simultaneous sandbox instances: create, rename, move, fold; CLI add; external atomic replacement; immediate quit after a list edit and during Add discovery; absent first-run list; rapid Enter/left/right; peer fold while inspecting a diff; stale group-name dialog |
 | Repository rows, groups, filter | `ui/tree.rs`, `ui/tests.rs` | Real terminal |
 | Layout, header, panes, dialogs, help | `ui/render/tests.rs` | Real terminal at 160 / 100 / 56 columns |
 | Keys | `ui/tests.rs` | Help shows only keys that work in the pane |

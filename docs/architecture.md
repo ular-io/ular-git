@@ -25,7 +25,7 @@
 | `git/ops.rs` | Commit, worktree remove / prune |
 | `git/remote.rs` | Push, pull `--ff-only`, default remote; network env and timeout |
 | `git/discover.rs` | Folder → repository roots |
-| `store.rs` | `repos.json`: groups and repositories |
+| `store.rs`, `store/shared.rs` | `repos.json`: groups, repositories, cooperative transactions, native directory notifications |
 | `cache.rs` | Status cache file |
 | `config.rs` | `config.toml` (including the Open With app lists), app paths, atomic writes |
 | `launch.rs` | Detached start of Open With GUI apps |
@@ -33,6 +33,7 @@
 | `theme/` | Theme roles, 40 built-in palettes, custom themes, selection |
 | `ui/mod.rs` | `App`, `UiMode` (who gets keys), `Pane` (focus), row rebuild and cursor placement |
 | `ui/background.rs` | Scan pool, one-off threads, `Patch` channel |
+| `ui/store_sync.rs` | Serialized background list transactions and watcher reloads; preserve UI selection |
 | `ui/scan.rs` | Scan scheduling, focus rescan, auto rescan, cache load / save |
 | `ui/tree.rs` | Repository pane rows (pure) |
 | `ui/files.rs`, `ui/diff_view.rs`, `ui/history_view.rs` | File-pane items (files, history commits, `… more`) and selection; latest-wins diff and history loaders |
@@ -108,7 +109,8 @@ run_loop: poll_background (apply every Patch) ─► tick (timers) ─► draw o
 
 | File | Owner | Writer |
 | --- | --- | --- |
-| `~/.config/ular-git/repos.json` | app | `App::save_store` after each list / group change. A malformed file is never overwritten; that session does not save |
+| `~/.config/ular-git/repos.json` | app | `RepoStore::update` under `repos.lock`, called by UI background transactions and `--add`; malformed files are not overwritten and recover after repair or deletion before any successful load |
+| `~/.config/ular-git/repos.lock` | app | Stable OS lock file; never replaced or removed by the app |
 | `~/.config/ular-git/config.toml` | user | Seeded once by `ensure_config_template`; never rewritten by the app |
 | `~/.config/ular-git/theme.json` | app | Theme dialog |
 | `~/.config/ular-git/themes/*.toml` | user | — |
@@ -128,9 +130,14 @@ run_loop: poll_background (apply every Patch) ─► tick (timers) ─► draw o
   161 ms worst; a full scan takes 4.2 s sequentially and 1.4 s with 8 in
   parallel. Reading on the UI thread would freeze the screen, so scans run on a
   pool and the last result is cached for an instant launch.
-- **No file watching.** Many repositories × large trees would need many
-  watches, and `.git` internals churn. Periodic rescans, the focus rescan, and
-  terminal focus events keep data fresh without that cost.
+- **No repository file watching.** Many repositories × large trees would need
+  many watches, and `.git` internals churn. Git state uses periodic and focus
+  rescans. The small shared list uses one native configuration-directory watch
+  per instance instead of periodic metadata polling. Watching the parent keeps
+  atomic replacements observable. Cooperative transactions replay each user
+  operation under a stable separate lock; snapshot merging and timestamp-only
+  checks cannot prevent concurrent lost updates. See [repositories.md](./repositories.md)
+  §Shared list and simultaneous instances.
 - **Prompts are impossible by construction** for background git: stdin is
   null, `GIT_TERMINAL_PROMPT=0`, SSH runs with `BatchMode=yes`.
 

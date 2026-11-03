@@ -5,7 +5,8 @@
 > repositories, worktree rows, scanning, or the status cache.
 > Entry points: `src/ui/tree.rs`, `src/ui/scan.rs`, `src/store.rs`,
 > `src/cache.rs`, `src/git/{status,worktree,discover}.rs`,
-> `src/ui/overlays/{add_repo,group}.rs`
+> `src/ui/overlays/{add_repo,group}.rs`, `src/ui/store_sync.rs`,
+> `src/store/shared.rs`
 
 ## Rows
 
@@ -129,6 +130,62 @@ repository row, below first, never to a group header (`App::place_cursor`).
   Only the list changes; nothing on disk is touched.
 - CLI: `ular-git --add <dir>` applies the same resolution, saves, and exits.
 
+## Shared list and simultaneous instances
+
+- Every list mutation runs off the input thread, in request order within an
+  instance (`ui/store_sync.rs::change_store`). The writer holds an exclusive
+  OS lock on the separate `repos.lock` file, loads the latest `repos.json`,
+  applies only the requested operation, and saves via atomic replacement
+  (`store/shared.rs::RepoStore::update`). `--add` uses the same transaction.
+  Quitting waits for accepted list requests, including Add Repository discovery,
+  to finish, displays a saving notice, and ignores further input. Reloads do not
+  delay quitting. Lock acquisition times out after 5 s instead of blocking exit
+  indefinitely. During quit, all queued requests share the remaining 5 s lock
+  wait budget; requests fail without another wait once that budget expires.
+- All instances share group names, membership, order, and fold state. Selection,
+  pane focus, filter text, and Pending Only remain local. A later operation on
+  the same item applies to the latest state; operations targeting a deleted
+  repository or a deleted/renamed group fail instead of recreating it. Enter
+  toggles the latest stored fold state, while left/right always queue the
+  explicit desired state, so fast repeated keys retain their order. Creating
+  a group and assigning its repository is one transaction.
+- A native, non-recursive watcher watches the canonical configuration directory,
+  not the replaced file (`store/shared.rs::StoreWatcher`). No periodic file
+  metadata/content polling is used. Notifications are coalesced over a 150 ms
+  window and processed by the event loop (idle wake-up is at most 1 s, plus
+  backend notification latency). Only an actual list change rebuilds rows;
+  newly listed repositories are scanned without rescanning unchanged entries.
+- `ctrl+u` and palette Refresh All reload the list and rescan Git state.
+  Terminal focus also reloads the list, even inside the existing 5 s Git scan
+  throttle. The periodic Git scan does not reload the list.
+- Reloads preserve selection by path and keep filters and dialog input. If a
+  selected repository is inside a group folded by a peer (or moved into an
+  already folded group), keep that row and a selected worktree's parent visible
+  locally without changing shared fold state. Its diff remains open; navigating
+  away removes the temporary rows. Explicit Fold All Groups in this instance
+  selects the owning header and hides the inspected row; Fold/Unfold All are
+  disabled while either filter is active. If the repository is removed from the list,
+  the existing nearest-repository rule applies
+  and its file/diff view is reset. Running Git writes are not cancelled;
+  scan results for removed entries are discarded.
+- Missing, malformed, or unreadable files keep the current view and report an
+  error. A list already loaded from disk is not recreated after deletion by a
+  subsequent UI edit. Repairing it allows subsequent reloads and writes,
+  including after an initial malformed-file error. An initially absent list
+  may be created by the first edit and refreshes quietly while still absent;
+  `--add` may also create a missing list. If the initial file was invalid and
+  never successfully loaded, removing it permits a fresh list without restart.
+  Errors include the file path. The initial reload always runs after watcher
+  registration to close the initial load/watch gap.
+- The group-name dialog stays open during its save, ignores repeated input,
+  closes on success, and retains its text with an inline error on failure.
+  A background error alert appearing during the save remains visible; dismissing
+  it returns to Normal after a successful group save.
+- Watch failures are reported; Refresh All and focus reloads remain available.
+  Locks protect cooperating versions of ular-git, not arbitrary editors or old
+  executables. Restart all instances after upgrading. Native notifications may
+  be unavailable on network filesystems; explicit refresh remains necessary.
+
 ## Scanning
 
 - One scan of a working tree (`git::scan`) runs `git status --porcelain=v2
@@ -164,6 +221,12 @@ repository row, below first, never to a group header (`App::place_cursor`).
 - Graph layout: `git/graph.rs` unit tests pin a four-branch history, a branch
   merged twice, octopus merges, lane colors, and page cuts.
 
+- Shared list: `store/shared/tests.rs` (competing processes, invalid/missing
+  files, native notifications across replacements), `ui/store_sync_tests.rs`
+  (two instances, queued operations, stale dialogs, selection/filter preservation,
+  recovery, fast fold keys, first-run reloads, peer folds, real dialog conflicts,
+  quit during discovery, non-blocking lock wait), `runtime/tests.rs` (input
+  suppression while quitting).
 - Unit tests: `ui/tree.rs` (row shapes), `store.rs` (order, version 1
   migration), `ui/pane_keys_tests.rs` (`alt+↑↓`), `cache.rs`,
   `git/status.rs`, `git/worktree.rs`.

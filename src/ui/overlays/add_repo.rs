@@ -165,9 +165,13 @@ impl App {
         self.close_add_repo();
         let shown = crate::config::collapse_home(&path);
         self.notify(Level::Info, format!("Looking for repositories in {shown}…"));
+        self.store_sync.discoveries += 1;
         self.bg.spawn(move || {
             let result = discover::repos_for(&path).map_err(|e| e.to_string());
-            Box::new(move |app: &mut App| app.apply_added(result, group))
+            Box::new(move |app: &mut App| {
+                app.store_sync.discoveries -= 1;
+                app.apply_added(result, group);
+            })
         });
     }
 
@@ -179,37 +183,37 @@ impl App {
                 return;
             }
         };
-        // The group may have been deleted while the search ran.
-        let group = group.filter(|g| self.store.group_exists(g));
-        let mut added = Vec::new();
-        for root in &roots {
-            if self.store.add_repo(root.clone(), group.clone()) {
-                added.push(root.clone());
-            }
-        }
-        let skipped = roots.len() - added.len();
-        if added.is_empty() {
-            let text = match roots.as_slice() {
-                [one] => format!("{} is already listed", crate::config::collapse_home(one)),
-                _ => format!("All {} repositories are already listed", roots.len()),
-            };
-            self.notify(Level::Warn, text);
-            return;
-        }
-        self.save_store();
-        self.rebuild_rows();
-        self.select_row_key(Some(&RowKey::Repo(added[0].clone())));
-        for path in &added {
-            self.request_scan(path.clone(), false);
-        }
-        let mut text = match added.as_slice() {
-            [one] => format!("Added {}", crate::config::collapse_home(one)),
-            _ => format!("Added {} repositories", added.len()),
-        };
-        if skipped > 0 {
-            text.push_str(&format!(" ({skipped} already listed)"));
-        }
-        self.notify(Level::Ok, text);
+        self.change_store(
+            move |store| {
+                store.require_group(group.as_deref())?;
+                let added: Vec<_> = roots
+                    .iter()
+                    .filter(|root| store.add_repo((*root).clone(), group.clone()))
+                    .cloned()
+                    .collect();
+                Ok((roots, added))
+            },
+            |app, (roots, added)| {
+                let skipped = roots.len() - added.len();
+                if added.is_empty() {
+                    let text = match roots.as_slice() {
+                        [one] => format!("{} is already listed", crate::config::collapse_home(one)),
+                        _ => format!("All {} repositories are already listed", roots.len()),
+                    };
+                    app.notify(Level::Warn, text);
+                    return;
+                }
+                app.select_row_key(Some(&RowKey::Repo(added[0].clone())));
+                let mut text = match added.as_slice() {
+                    [one] => format!("Added {}", crate::config::collapse_home(one)),
+                    _ => format!("Added {} repositories", added.len()),
+                };
+                if skipped > 0 {
+                    text.push_str(&format!(" ({skipped} already listed)"));
+                }
+                app.notify(Level::Ok, text);
+            },
+        );
     }
 }
 

@@ -28,6 +28,8 @@ use std::{
 type Tui = Terminal<CrosstermBackend<Stdout>>;
 
 mod terminal;
+#[cfg(test)]
+mod tests;
 
 use terminal::*;
 
@@ -71,13 +73,13 @@ pub fn run() -> Result<()> {
 /// `ular-git --add <dir>`: registers repositories without opening a dialog.
 fn add_from_cli(dir: &std::path::Path) -> Result<()> {
     let path = crate::config::repos_path();
-    let mut store = crate::store::RepoStore::load(&path)?;
     let roots = crate::git::discover::repos_for(&std::fs::canonicalize(dir)?)?;
-    let added = roots
-        .into_iter()
-        .filter(|r| store.add_repo(r.clone(), None))
-        .count();
-    store.save(&path)?;
+    let (_, added) = crate::store::RepoStore::update(&path, true, |store| {
+        Ok(roots
+            .into_iter()
+            .filter(|r| store.add_repo(r.clone(), None))
+            .count())
+    })?;
     println!("ular-git: added {added} repositories");
     Ok(())
 }
@@ -87,6 +89,9 @@ fn add_from_cli(dir: &std::path::Path) -> Result<()> {
 fn run_loop(session: &mut TerminalSession, app: &mut App) -> Result<()> {
     loop {
         app.poll_background();
+        if app.should_quit && !app.store_pending() {
+            return Ok(());
+        }
         app.tick(Instant::now());
         session.terminal_mut().draw(|f| ui::render::draw(f, app))?;
         loop {
@@ -117,13 +122,16 @@ fn run_loop(session: &mut TerminalSession, app: &mut App) -> Result<()> {
         if let Some(req) = app.terminal_request.take() {
             handover(session, app, req)?;
         }
-        if app.should_quit {
+        if app.should_quit && !app.store_pending() {
             return Ok(());
         }
     }
 }
 
 fn dispatch(app: &mut App, ev: Event) {
+    if app.should_quit {
+        return;
+    }
     match ev {
         Event::Key(key) if key.kind == KeyEventKind::Press => app.on_key(key),
         // One paste is one text insertion, never synthetic keys: a pasted
@@ -131,6 +139,10 @@ fn dispatch(app: &mut App, ev: Event) {
         Event::Paste(text) => app.on_paste(&text),
         Event::FocusGained => app.refresh_all(true),
         _ => {}
+    }
+    if app.should_quit && app.store_pending() {
+        app.prepare_store_quit();
+        app.notify(ui::Level::Info, "Saving repository list…");
     }
 }
 

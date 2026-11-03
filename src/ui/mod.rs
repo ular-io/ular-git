@@ -18,6 +18,7 @@ pub mod overlays;
 pub mod quick;
 pub mod render;
 pub mod scan;
+mod store_sync;
 pub mod sync;
 pub mod tree;
 
@@ -98,8 +99,9 @@ pub struct TerminalRequest {
 pub struct App {
     pub cfg: Config,
     pub store: RepoStore,
-    /// `None` disables saving (unit tests, or a malformed file kept untouched).
+    /// `None` uses an in-memory list for isolated unit tests.
     pub(crate) store_path: Option<PathBuf>,
+    pub(crate) store_sync: store_sync::StoreSync,
     /// Scan results per working tree path (repositories and linked worktrees).
     pub statuses: HashMap<PathBuf, TreeState>,
     pub(crate) scan: ScanState,
@@ -172,22 +174,31 @@ impl App {
     /// Builds the app from the persisted store and status cache (both skipped
     /// in unit tests) and starts the scan workers.
     pub fn new(cfg: Config) -> Self {
-        let (store, store_path, load_error) = if cfg!(test) {
-            (RepoStore::default(), None, None)
+        let (store, store_path, load_error, initially_loaded) = if cfg!(test) {
+            (RepoStore::default(), None, None, false)
         } else {
             let path = crate::config::repos_path();
-            match RepoStore::load(&path) {
-                Ok(store) => (store, Some(path), None),
+            match RepoStore::read_existing(&path) {
+                Ok(store) => (store, Some(path), None, true),
+                Err(err)
+                    if err
+                        .downcast_ref::<std::io::Error>()
+                        .is_some_and(|err| err.kind() == std::io::ErrorKind::NotFound) =>
+                {
+                    (RepoStore::default(), Some(path), None, false)
+                }
                 Err(err) => (
                     RepoStore::default(),
-                    None,
+                    Some(path),
                     Some(format!(
-                        "Repository list unreadable, changes are not saved: {err}"
+                        "Repository list unreadable, changes are not saved until repaired: {err:#}"
                     )),
+                    false,
                 ),
             }
         };
         let mut app = App::with_store(cfg, store, store_path);
+        app.store_sync.set_initially_loaded(initially_loaded);
         if !cfg!(test) {
             app.load_status_cache();
             app.quick_history = quick::load_history();
@@ -213,6 +224,7 @@ impl App {
         App {
             cfg,
             store,
+            store_sync: store_sync::StoreSync::new(store_path.as_deref()),
             store_path,
             statuses: HashMap::new(),
             scan: ScanState::new(),
@@ -367,16 +379,6 @@ impl App {
         }
     }
 
-    /// Persists the repository list; a failure is reported, never fatal.
-    pub(crate) fn save_store(&mut self) {
-        let Some(path) = self.store_path.clone() else {
-            return;
-        };
-        if let Err(err) = self.store.save(&path) {
-            self.notify(Level::Error, format!("Cannot save repository list: {err}"));
-        }
-    }
-
     /// Press twice to quit.
     pub(crate) fn arm_quit(&mut self) {
         if self.quit_armed {
@@ -400,6 +402,8 @@ mod commit_files_tests;
 mod history_tests;
 #[cfg(test)]
 mod pane_keys_tests;
+#[cfg(test)]
+mod store_sync_tests;
 #[cfg(test)]
 mod sync_tests;
 #[cfg(test)]

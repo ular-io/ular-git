@@ -79,7 +79,9 @@ impl App {
             MoveGroupUp | MoveGroupDown => named_group && self.store.groups.len() > 1,
             MoveRepoUp | MoveRepoDown => matches!(row, Some(Row::Repo { .. })),
             MoveToGroup => matches!(row, Some(Row::Repo { .. } | Row::Worktree { .. })),
-            FoldAllGroups | UnfoldAllGroups => !self.store.groups.is_empty(),
+            FoldAllGroups | UnfoldAllGroups => {
+                !self.store.groups.is_empty() && !self.list_filtered()
+            }
             Commit => dirty,
             DiscardFile => self
                 .selected_file()
@@ -310,11 +312,22 @@ impl App {
     }
 
     fn fold_all_groups(&mut self, fold: bool) {
-        for g in &mut self.store.groups {
-            g.collapsed = fold;
-        }
-        self.save_store();
-        self.rebuild_rows();
+        self.change_store(
+            move |store| {
+                for g in &mut store.groups {
+                    g.collapsed = fold;
+                }
+                Ok(())
+            },
+            move |app, ()| {
+                if fold {
+                    if let Some(group) = app.current_group() {
+                        app.select_row_key(Some(&crate::ui::tree::RowKey::Group(Some(group))));
+                        app.rebuild_rows();
+                    }
+                }
+            },
+        );
     }
 
     /// Opens config.toml in the editor through the terminal handover, seeding

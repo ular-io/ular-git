@@ -274,7 +274,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         "Refresh All",
         Some("ctrl+u"),
         ["rescan", "reload", "update", "status"],
-        Some("Rescan every repository")
+        Some("Reload list and rescan repositories")
     ),
     cmd!(
         ToggleWrap,

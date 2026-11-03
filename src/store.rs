@@ -1,7 +1,11 @@
 //! The repository list and groups (`~/.config/ular-git/repos.json`, app-owned).
 
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+
+mod shared;
+pub use shared::StoreWatcher;
 
 /// 2: `repos` order is the display order inside each group (version 1 and
 /// earlier showed repositories by folder name; loading one sorts it once).
@@ -58,6 +62,18 @@ impl Default for RepoStore {
 }
 
 impl RepoStore {
+    /// Reload an existing list; a missing file must not empty a running UI.
+    pub fn read_existing(path: &Path) -> anyhow::Result<Self> {
+        let data = std::fs::read_to_string(path).with_context(|| path.display().to_string())?;
+        let mut store: Self =
+            serde_json::from_str(&data).with_context(|| path.display().to_string())?;
+        if store.version < 2 {
+            store.repos.sort_by_cached_key(|r| r.name().to_lowercase());
+        }
+        store.normalize();
+        Ok(store)
+    }
+
     /// Missing file → empty store. A malformed file is an error so the caller
     /// can refuse to overwrite it.
     pub fn load(path: &Path) -> anyhow::Result<Self> {

@@ -208,7 +208,18 @@ pub fn build_rows(
             changed,
             collapsed,
         });
-        if !collapsed {
+        if collapsed {
+            // A peer can fold this group while this instance is inspecting a
+            // child. Keep that path (and a worktree's parent) visible locally.
+            let owner = body.iter().find_map(|row| match row {
+                Row::Repo { idx, path, .. } if keep == Some(path.as_path()) => Some(*idx),
+                Row::Worktree { repo, path, .. } if keep == Some(path.as_path()) => Some(*repo),
+                _ => None,
+            });
+            rows.extend(body.into_iter().filter(|row| {
+                row.target() == keep || matches!(row, Row::Repo { idx, .. } if Some(*idx) == owner)
+            }));
+        } else {
             rows.extend(body);
         }
     }

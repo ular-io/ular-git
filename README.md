@@ -62,6 +62,13 @@ ular-git                # start the TUI
 one, a linked worktree (resolved to its repository), or a parent folder
 (every repository up to three levels below it is added).
 
+Multiple instances share the repository list and groups automatically, including
+order and fold state. `ctrl+u` reloads the list and rescans Git state. Selection
+and filters stay local to each instance. A peer folding a group keeps the
+repository or worktree being inspected visible locally until you move away.
+Restart every running instance after
+upgrading so all writers use the same locking protocol.
+
 ### Shortcuts
 
 | Key | Action |
@@ -86,7 +93,7 @@ one, a linked worktree (resolved to its repository), or a parent folder
 | `>` (Files pane) | History labels: none → branches → branches and tags → tags (remembered) |
 | `s` (Diff pane) | Side-by-side diff when the diff pane is 120+ columns wide, or always unified (remembered) |
 | `:`, `!` | Quick command palette, shell command in the selected repository |
-| `ctrl+u` | Rescan every repository |
+| `ctrl+u` | Reload the repository list and rescan every repository |
 | `?` | Help for the focused pane |
 | `q` / `ctrl+c` (twice) | Quit |
 

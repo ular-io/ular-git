@@ -270,37 +270,31 @@ impl App {
             return;
         }
         let before = self.current_target();
+        let was_in_folded_group = self
+            .current_group()
+            .is_some_and(|name| self.store.is_collapsed(Some(&name)))
+            && before.is_some();
         self.repo_sel = index.min(self.rows.len().saturating_sub(1));
         if self.current_target() != before {
             self.on_target_changed();
         }
+        if was_in_folded_group {
+            self.rebuild_rows();
+        }
     }
 
     pub(crate) fn toggle_group(&mut self) {
-        if let Some(Row::Group { collapsed, .. }) = self.current_row() {
-            self.fold_group(!collapsed);
+        if let Some(Row::Group { name, .. }) = self.current_row().cloned() {
+            self.change_group_fold(name, None);
         }
     }
 
-    /// Folds (`true`) or unfolds the group under the cursor; nothing when it
-    /// already is.
+    /// Explicit fold directions replay even when a preceding request has not
+    /// reached the screen yet; toggles instead resolve against latest state.
     pub(crate) fn fold_group(&mut self, fold: bool) {
-        let Some(Row::Group {
-            name, collapsed, ..
-        }) = self.current_row().cloned()
-        else {
-            return;
-        };
-        if collapsed == fold {
-            return;
+        if let Some(Row::Group { name, .. }) = self.current_row().cloned() {
+            self.change_group_fold(name, Some(fold));
         }
-        if self.list_filtered() {
-            self.notify(Level::Info, "Groups stay open while a filter is applied");
-            return;
-        }
-        self.store.toggle_collapsed(name.as_deref());
-        self.save_store();
-        self.rebuild_rows();
     }
 
     /// `alt+↑` / `alt+↓`: moves the group under the cursor among the groups,
@@ -322,17 +316,25 @@ impl App {
             );
             return;
         }
-        let moved = match row {
-            Some(Row::Group {
-                name: Some(name), ..
-            }) => self.store.move_group(&name, delta),
-            Some(Row::Repo { path, .. }) => self.store.move_repo(&path, delta),
-            _ => false,
-        };
-        if moved {
-            self.save_store();
-            self.rebuild_rows();
-        }
+        self.change_store(
+            move |store| {
+                match row {
+                    Some(Row::Group {
+                        name: Some(name), ..
+                    }) => {
+                        store.require_group(Some(&name))?;
+                        store.move_group(&name, delta);
+                    }
+                    Some(Row::Repo { path, .. }) => {
+                        store.require_repo(&path)?;
+                        store.move_repo(&path, delta);
+                    }
+                    _ => {}
+                }
+                Ok(())
+            },
+            |_, ()| {},
+        );
     }
 
     /// Visible rows of the repository list (recorded at render time).

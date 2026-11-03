@@ -171,7 +171,7 @@ impl App {
 
     /// Periodic work driven by the loop: focus rescans and the auto rescan.
     pub fn tick(&mut self, now: Instant) -> bool {
-        let mut changed = self.expire_notice(now);
+        let mut changed = self.expire_notice(now) | self.poll_store(now);
         if self.scan.focus_due.is_some_and(|due| due <= now) {
             self.scan.focus_due = None;
             if let Some(target) = self.current_target() {
@@ -209,6 +209,7 @@ impl App {
         [
             self.notice.as_ref().map(|n| n.until),
             self.scan.focus_due,
+            self.store_deadline(),
             auto,
         ]
         .into_iter()
@@ -228,8 +229,9 @@ impl App {
         self.refresh_files();
     }
 
-    /// `ctrl+u` / terminal focus: rescan everything.
+    /// `ctrl+u` / terminal focus: reload the shared list and rescan Git state.
     pub fn refresh_all(&mut self, from_focus: bool) {
+        self.reload_store();
         if from_focus
             && self
                 .scan

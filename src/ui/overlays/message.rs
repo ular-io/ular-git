@@ -34,7 +34,7 @@ pub struct MessageDialog {
     pub lines: Vec<String>,
     pub kind: MessageKind,
     /// Prior UI mode to restore upon dismissing the dialog.
-    return_mode: UiMode,
+    pub(crate) return_mode: UiMode,
 }
 
 // ---- Input ----

@@ -203,7 +203,7 @@ pub fn anywhere() -> Vec<Hint> {
         h("\\", "Next pane count: 3 → 2 → 1 → 3"),
         h(":", "Quick command (every command)"),
         h("!", "Run a shell command in the repository"),
-        h("ctrl+u", "Rescan every repository"),
+        h("ctrl+u", "Reload list and rescan repositories"),
         h("?", "Open / close help"),
         h("q / ctrl+c", "Quit (press twice)"),
     ]
