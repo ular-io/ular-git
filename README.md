@@ -35,9 +35,21 @@ changed, and what the diff is.
 
 ## Build / Installation
 
-Homebrew distribution (`ular-io/tap`) starts with the first release. Until
-then, build from source (the Rust toolchain is pinned in
-`rust-toolchain.toml`):
+### Homebrew (macOS)
+
+```bash
+brew tap ular-io/tap
+brew install ular-git
+```
+
+Prebuilt binaries are available for Apple Silicon and Intel Macs. To upgrade,
+run `brew update && brew upgrade ular-git`.
+If Homebrew reports an untrusted tap, run
+`brew trust --formula ular-io/tap/ular-git` and retry installation.
+
+### From source
+
+The Rust toolchain is pinned in `rust-toolchain.toml`:
 
 ```bash
 git clone https://github.com/ular-io/ular-git.git

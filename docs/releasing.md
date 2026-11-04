@@ -1,6 +1,6 @@
 # Releasing and Distribution Guide
 
-> Status: Current operational procedure (no release published yet)
+> Status: Current operational procedure
 > Read when: Preparing or publishing a release.
 > Entry point: `scripts/release.sh`
 
@@ -57,6 +57,8 @@ class UlarGit < Formula
   version "0.1.0"
   license "MIT"
 
+  depends_on :macos
+
   if Hardware::CPU.arm?
     url "https://github.com/ular-io/ular-git/releases/download/v0.1.0/ular-git-mac-arm64.tar.gz"
     sha256 "<ARM64_SHA256_HASH>"
@@ -77,7 +79,7 @@ class UlarGit < Formula
   end
 
   test do
-    system "#{bin}/ular-git", "--version"
+    assert_match version.to_s, shell_output("#{bin}/ular-git --version")
   end
 end
 ```
@@ -96,17 +98,22 @@ Validate, commit (English only, tap repository rule), and push:
 
 ```bash
 ruby -c Formula/ular-git.rb
+brew style ular-io/tap/ular-git
 git add Formula/ular-git.rb
 git commit -m "chore: release ular-git v0.1.0"
 git push origin main
 ```
+
+If Homebrew refuses to load the formula from an untrusted tap, run
+`brew trust --formula ular-io/tap/ular-git` and retry.
 
 Users then install or upgrade with:
 
 ```bash
 brew tap ular-io/tap
 brew install ular-git      # or: brew upgrade ular-git
+brew test ular-io/tap/ular-git
 ```
 
-After the first release, replace the "build from source" note at the top of
-the README installation section with these commands.
+Keep the README installation section aligned with the supported architectures
+and installation commands.
