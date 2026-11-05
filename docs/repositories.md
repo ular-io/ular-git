@@ -227,7 +227,7 @@ repository row, below first, never to a group header (`App::place_cursor`).
   recovery, fast fold keys, first-run reloads, peer folds, real dialog conflicts,
   quit during discovery, non-blocking lock wait), `runtime/tests.rs` (input
   suppression while quitting).
-- Unit tests: `ui/tree.rs` (row shapes), `store.rs` (order, version 1
+- Unit tests: `ui/tree_tests.rs` (row shapes), `store.rs` (order, version 1
   migration), `ui/pane_keys_tests.rs` (`alt+↑↓`), `cache.rs`,
   `git/status.rs`, `git/worktree.rs`.
 - Real git: `git/tests.rs` (scan, worktrees, discovery), `ui/tests.rs`
