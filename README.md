@@ -57,12 +57,6 @@ cd ular-git
 cargo install --path .     # installs the `ular-git` executable
 ```
 
-A short alias is handy:
-
-```bash
-alias ugit='ular-git'
-```
-
 ## Usage
 
 ```bash

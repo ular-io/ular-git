@@ -71,13 +71,6 @@ class UlarGit < Formula
     bin.install "ular-git"
   end
 
-  def caveats
-    <<~EOS
-      Homebrew core has an unrelated `ugit`. For a short name, add an alias:
-        alias ugit='ular-git'
-    EOS
-  end
-
   test do
     assert_match version.to_s, shell_output("#{bin}/ular-git --version")
   end

@@ -6,8 +6,7 @@ diffs. It reads git through the `git` CLI. Its only writes are commit, push,
 `pull --ff-only`, discarding one file's changes, and `git worktree remove`.
 Open With (`enter`) starts user-configured external apps in a working tree;
 those apps may change it, and ular-git rescans on return. The executable is
-`ular-git` (users commonly alias it to `ugit`; Homebrew core already has an unrelated
-`ugit`, so the short name is never installed as a binary).
+`ular-git`.
 
 ## Routing: read before you change
 
