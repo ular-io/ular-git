@@ -83,7 +83,8 @@ ular-git applies them.
 
 - Group headers are muted (`muted` text, no bold) on `group_bg`, so they label
   the rows below without outweighing them. The `group_bg` band stays when the
-  repository pane loses focus, and a folded group's `Ⓜ N` keeps `warning`.
+  repository pane loses focus, and a folded group's totals keep the row badge
+  colors (`Ⓜ N` `warning`, `↑N` / `↓N` `branch`).
 - Badge colors: conflicts `error` bold, changed `warning`, ahead / behind
   `branch`, stashes soft-dim, failed scan `error`, running push / pull
   `accent` bold. A clean tree has no badge.

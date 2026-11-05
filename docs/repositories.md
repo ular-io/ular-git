@@ -16,8 +16,9 @@
   filtering). Inside each block repositories keep their order in
   `repos.json` (see Order below).
 - An open group header shows nothing on the right; its rows carry their own
-  badges. A folded group shows `Ⓜ N`, the changed files of its repositories and
-  their worktrees, and nothing when there are none. No repository count.
+  badges. A folded group shows the totals of its repositories and their
+  worktrees: `Ⓜ N` changed files, `↑N` commits to push, `↓N` commits to pull
+  (as of the last fetch), each only when not zero. No repository count.
 - Each repository's linked worktrees follow it, indented with `├` / `└`,
   showing the folder name and branch. The main worktree is the repository row
   itself.

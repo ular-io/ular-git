@@ -106,7 +106,7 @@ fn empty_named_groups_stay_visible() {
 }
 
 #[test]
-fn group_change_count_sums_files_of_repositories_and_worktrees() {
+fn group_counts_sum_files_and_commits_of_repositories_and_worktrees() {
     let s = store();
     let file = |p: &str| crate::git::FileEntry {
         path: p.into(),
@@ -122,17 +122,23 @@ fn group_change_count_sums_files_of_repositories_and_worktrees() {
         .as_mut()
         .unwrap()
         .files = vec![file("a"), file("b")];
-    let wt = RepoStatus {
+    let mut wt = RepoStatus {
         files: vec![file("c")],
         ..RepoStatus::default()
     };
+    (wt.branch.ahead, wt.branch.behind) = (2, 1);
     st.insert(PathBuf::from("/x/alpha-wt"), TreeState::loaded(wt, 0));
+    let mut zeta = RepoStatus::default();
+    zeta.branch.ahead = 1;
+    st.insert(PathBuf::from("/x/zeta"), TreeState::loaded(zeta, 0));
     let rows = build_rows(&s, &st, "", false, None);
     assert!(
         matches!(
             rows[1],
             Row::Group {
                 changed: 3,
+                ahead: 3,
+                behind: 1,
                 total: 2,
                 ..
             }

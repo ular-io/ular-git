@@ -18,6 +18,10 @@ pub enum Row {
         /// Changed files across its repositories and their worktrees (shown
         /// only while the group is folded, when those rows are hidden).
         changed: usize,
+        /// Commits to push / pull across the same trees, as of the last
+        /// fetch. Each worktree has its own branch, so nothing counts twice.
+        ahead: u32,
+        behind: u32,
         collapsed: bool,
     },
     /// `idx` indexes `RepoStore::repos` as of the build; `path` is the
@@ -129,6 +133,8 @@ pub fn build_rows(
         let mut body = Vec::new();
         let mut shown = 0;
         let mut changed = 0;
+        let mut ahead = 0;
+        let mut behind = 0;
         for idx in repos {
             let repo = &store.repos[idx];
             let status = statuses.get(&repo.path).and_then(|t| t.status.as_ref());
@@ -150,19 +156,17 @@ pub fn build_rows(
                 continue;
             }
             shown += 1;
-            let tree_changes = |p: &Path| {
-                statuses
-                    .get(p)
-                    .and_then(|t| t.status.as_ref())
-                    .map_or(0, |s| s.counts().changed)
-            };
-            changed += tree_changes(&repo.path);
-            if let Some(s) = status {
-                changed += s
-                    .worktrees
+            let trees = std::iter::once(repo.path.as_path()).chain(
+                status
+                    .map(|s| s.worktrees.as_slice())
+                    .unwrap_or_default()
                     .iter()
-                    .map(|w| tree_changes(&w.path))
-                    .sum::<usize>();
+                    .map(|w| w.path.as_path()),
+            );
+            for s in trees.filter_map(|p| statuses.get(p).and_then(|t| t.status.as_ref())) {
+                changed += s.counts().changed;
+                ahead += s.branch.ahead;
+                behind += s.branch.behind;
             }
             body.push(Row::Repo {
                 idx,
@@ -206,6 +210,8 @@ pub fn build_rows(
             name: group,
             total: shown,
             changed,
+            ahead,
+            behind,
             collapsed,
         });
         if collapsed {

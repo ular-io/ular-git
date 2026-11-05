@@ -201,6 +201,8 @@ pub(super) fn draw_repos(f: &mut Frame, app: &App, area: Rect) {
                 Row::Group {
                     name,
                     changed,
+                    ahead,
+                    behind,
                     collapsed,
                     ..
                 } => {
@@ -214,12 +216,9 @@ pub(super) fn draw_repos(f: &mut Frame, app: &App, area: Rect) {
                         Span::styled(label, fill.fg(th.muted)),
                     ];
                     // An open group's rows carry their own badges; a folded
-                    // group shows only how many changed files it hides.
-                    let right = if *collapsed && *changed > 0 {
-                        vec![Span::styled(
-                            format!("{CHANGED}{changed}"),
-                            fill.fg(th.warning),
-                        )]
+                    // group shows the changed files and commits it hides.
+                    let right = if *collapsed {
+                        group_badges(*changed, *ahead, *behind, fill, th)
                     } else {
                         Vec::new()
                     };
@@ -279,6 +278,29 @@ pub(super) fn draw_repos(f: &mut Frame, app: &App, area: Rect) {
         view,
         th,
     );
+}
+
+/// Folded group totals, in row badge order and colors: `Ⓜ 5 ↑3 ↓2`.
+fn group_badges(
+    changed: usize,
+    ahead: u32,
+    behind: u32,
+    fill: Style,
+    th: &Theme,
+) -> Vec<Span<'static>> {
+    let parts = [
+        (changed, CHANGED, th.warning),
+        (ahead as usize, "↑", th.branch),
+        (behind as usize, "↓", th.branch),
+    ];
+    let mut out = Vec::new();
+    for (n, mark, color) in parts.into_iter().filter(|(n, ..)| *n > 0) {
+        if !out.is_empty() {
+            out.push(Span::styled(" ", fill));
+        }
+        out.push(Span::styled(format!("{mark}{n}"), fill.fg(color)));
+    }
+    out
 }
 
 /// A running push / pull leads the badges (`push…`).

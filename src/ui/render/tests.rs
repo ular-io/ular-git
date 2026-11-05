@@ -209,6 +209,9 @@ fn group_headers_show_changes_only_while_folded() {
     store.add_group("work").unwrap();
     store.set_group(&a.root, Some("work".into()));
     let mut app = scanned_app(store);
+    let tree = app.statuses.get_mut(&a.root).unwrap();
+    let branch = &mut tree.status.as_mut().unwrap().branch;
+    (branch.ahead, branch.behind) = (3, 1);
     let header = |app: &crate::ui::App| {
         screen(app, 160, 20)
             .into_iter()
@@ -216,11 +219,11 @@ fn group_headers_show_changes_only_while_folded() {
             .unwrap()
     };
     let open = header(&app);
-    assert!(!open.contains('Ⓜ'), "{open}");
+    assert!(!open.contains('Ⓜ') && !open.contains("↑3"), "{open}");
     assert!(!open.contains(" 1 "), "no repository count: {open}");
     app.press(&[key(KeyCode::Home), key(KeyCode::Left)]);
     let folded = header(&app);
-    assert!(folded.contains("Ⓜ 2"), "{folded}");
+    assert!(folded.contains("Ⓜ 2 ↑3 ↓1"), "{folded}");
 }
 
 #[test]
