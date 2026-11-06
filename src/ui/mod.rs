@@ -8,6 +8,7 @@ pub mod background;
 pub mod commit_files;
 pub mod components;
 pub mod diff_view;
+mod fetch;
 pub mod file_versions;
 mod files;
 pub mod history_view;
@@ -107,6 +108,8 @@ pub struct App {
     pub(crate) scan: ScanState,
     /// Push / pull running per working tree.
     pub(crate) remote_ops: HashMap<PathBuf, sync::RemoteOp>,
+    /// Fetches queued and running per repository.
+    pub(crate) fetch: fetch::FetchState,
     pub(crate) bg: Background,
 
     pub mode: UiMode,
@@ -229,6 +232,7 @@ impl App {
             statuses: HashMap::new(),
             scan: ScanState::new(),
             remote_ops: HashMap::new(),
+            fetch: Default::default(),
             bg: Background::new(workers),
             mode: UiMode::Normal,
             focus: Pane::Repos,
@@ -398,6 +402,8 @@ impl App {
 
 #[cfg(test)]
 mod commit_files_tests;
+#[cfg(test)]
+mod fetch_tests;
 #[cfg(test)]
 mod history_tests;
 #[cfg(test)]

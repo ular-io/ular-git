@@ -149,3 +149,31 @@ fn alt_arrows_reorder_groups_and_repositories_but_not_while_filtered() {
     app.press(&[key(KeyCode::Enter), alt(KeyCode::Down)]);
     assert_eq!(order(&app), ["g2", "g1", "b", "a", "c"]);
 }
+
+#[test]
+fn fetch_takes_the_enter_row_on_repos_and_is_listed_in_every_pane() {
+    let a = TestRepo::new();
+    let mut store = store_of(&[&a.root]);
+    store.add_group("g").unwrap();
+    let mut app = scanned_app(store);
+    let fetch = |app: &super::App| {
+        let [_, b] = app.pane_hints();
+        b.into_iter().find(|(k, _)| *k == "ctrl+f").map(|(_, l)| l)
+    };
+    let help_enter = |app: &super::App| {
+        app.pane_help_only()
+            .into_iter()
+            .find(|(k, _)| *k == "enter")
+            .map(|(_, l)| l)
+    };
+    assert!(!header_keys(&app).contains(&"enter"));
+    assert_eq!(fetch(&app).as_deref(), Some("Fetch"));
+    assert_eq!(help_enter(&app).as_deref(), Some("Open With…"));
+    app.press(&[key(KeyCode::Down)]);
+    assert_eq!(fetch(&app).as_deref(), Some("Fetch Group"));
+    assert_eq!(help_enter(&app).as_deref(), Some("Fold Group"));
+    for pane in [Pane::Files, Pane::Diff] {
+        app.focus = pane;
+        assert!(header_keys(&app).contains(&"ctrl+f"), "{pane:?}");
+    }
+}

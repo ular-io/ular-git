@@ -88,6 +88,7 @@ impl App {
                 .is_some_and(|f| f.kind != crate::git::EntryKind::Conflict),
             Push => branch.is_some_and(|b| b.upstream.is_none() || b.ahead > 0),
             Pull => branch.is_some_and(|b| b.upstream.is_some()),
+            Fetch => row.is_some(),
             OpenWith => self.current_target().is_some(),
             ClearFilter => self.list_filtered(),
             TogglePendingOnly => true,
@@ -290,6 +291,7 @@ impl App {
             DiscardFile => self.open_discard_file(),
             Push => self.open_push(),
             Pull => self.start_pull(),
+            Fetch => self.start_fetch(),
             OpenWith => {
                 if self.focus == Pane::Repos || !self.open_with_file() {
                     self.open_with_folder();
@@ -298,7 +300,7 @@ impl App {
             FilterRepos => self.open_filter(),
             ClearFilter => self.clear_filter(),
             TogglePendingOnly => self.toggle_pending_only(),
-            RefreshAll => self.refresh_all(false),
+            RefreshAll => self.refresh_and_fetch(),
             ToggleWrap => self.toggle_wrap(),
             CycleRefLabels => self.cycle_ref_labels(),
             CycleCommitMeta => self.cycle_commit_meta(),

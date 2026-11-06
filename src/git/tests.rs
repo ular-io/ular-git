@@ -349,6 +349,12 @@ fn an_unborn_branch_has_an_empty_history() {
 
 /// `repo` with an `origin` that has `n` commits `repo` lacks (fetched).
 fn behind_origin(repo: &TestRepo, n: usize) {
+    commits_on_origin(repo, n);
+    repo.git(&["fetch", "-q"]);
+}
+
+/// `repo` with an `origin` that has `n` commits `repo` has not fetched.
+fn commits_on_origin(repo: &TestRepo, n: usize) {
     with_remote(repo);
     let parent = repo.root.parent().unwrap();
     let other = parent.join("other");
@@ -368,7 +374,18 @@ fn behind_origin(repo: &TestRepo, n: usize) {
         super::test_repo::git(&other, &["commit", "-qm", &format!("upstream {i}")]);
     }
     super::test_repo::git(&other, &["push", "-q"]);
-    repo.git(&["fetch", "-q"]);
+}
+
+#[test]
+fn fetch_counts_changed_refs_and_skips_a_repository_without_remote() {
+    let repo = TestRepo::new();
+    assert_eq!(remote::fetch(&repo.root).unwrap(), None);
+    commits_on_origin(&repo, 2);
+    let behind = || super::scan(&repo.root, false).unwrap().branch.behind;
+    assert_eq!(behind(), 0, "not fetched yet");
+    assert_eq!(remote::fetch(&repo.root).unwrap(), Some(1), "origin/main");
+    assert_eq!(behind(), 2);
+    assert_eq!(remote::fetch(&repo.root).unwrap(), Some(0));
 }
 
 #[test]

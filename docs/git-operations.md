@@ -1,10 +1,10 @@
 # Files, Diffs, and Git Operations
 
 > Status: Current
-> Read when: Changing the file pane, the diff pane, commit, push / pull, or
-> worktree removal.
+> Read when: Changing the file pane, the diff pane, commit, push / pull /
+> fetch, or worktree removal.
 > Entry points: `src/ui/files.rs`, `src/ui/commit_files.rs`,
-> `src/ui/diff_view.rs`, `src/ui/sync.rs`,
+> `src/ui/diff_view.rs`, `src/ui/sync.rs`, `src/ui/fetch.rs`,
 > `src/git/{diff,ops,remote}.rs`, `src/ui/overlays/{commit,confirm}.rs`,
 > `src/ui/render/{files,diff}.rs`
 
@@ -301,7 +301,9 @@ working tree is rescanned afterwards.
 
 Both act on the selected repository or worktree and run in the background.
 The row shows `push…` / `pull…` until they finish; one operation per working
-tree runs at a time. The tree is rescanned afterwards.
+tree runs at a time, and neither starts while the repository has a fetch
+queued or running (footer `A fetch is still running here`). The tree is
+rescanned afterwards.
 
 - `P` Push opens a confirmation with Push focused:
   - With an upstream: `Push N commits on <branch> to <upstream>?` and up to 5
@@ -326,6 +328,40 @@ tree runs at a time. The tree is rescanned afterwards.
   `<name>: pulled fast-forward, <stat>` / `already up to date`. Failure: an
   error dialog with git's message.
 
+## Fetch
+
+Plain `git fetch` (`git::remote::fetch`): the remote of HEAD's upstream, else
+`origin`, with the user's own fetch settings (`fetch.prune`, refspecs). A
+repository without a remote is skipped without running `git fetch`. Same
+network rules as push / pull: no credential prompt, 120 s limit, the
+slow-HTTP abort.
+Scheduling lives in `src/ui/fetch.rs` (`App::start_fetch`,
+`App::refresh_and_fetch`).
+
+- `ctrl+f` (every pane; palette Fetch) fetches the repository of the selected
+  row. A worktree row fetches its repository: the remote-tracking refs are
+  shared, so the repository and all its worktrees update. On a group header it
+  fetches every repository of the group (the filter does not narrow it).
+- `ctrl+u` (palette Refresh All) reloads the list, starts the rescan, then
+  fetches every listed repository. The timed rescan, the focus rescan, and the
+  rescan after a `!` command never fetch.
+- At most 8 fetches run at once (`FETCH_JOBS`), each on its own thread, so
+  scans never wait behind the network. The rest wait in a queue.
+- A queued or running fetch shows `fetch…` on the repository row and on a
+  folded group header. A repository with a push or pull running in it or one
+  of its worktrees is not fetched (`ctrl+f`: footer `A push is still running
+  here`; `ctrl+u` / a group: skipped).
+- Each fetched repository is rescanned (its worktrees follow), which updates
+  `↓N`.
+- One repository (`ctrl+f` on a repository or worktree row): footer
+  `<name>: fetched, N refs updated` / `fetched, nothing new` /
+  `no remote to fetch from`; failure: an error dialog with git's message.
+- Several repositories (`ctrl+u`, a group) form one round, reported when its
+  last fetch finishes: `Fetched N repositories`, or
+  `Fetch failed in K of N repositories: a, b, c and M more` (no dialog;
+  `ctrl+f` on a named repository shows its error). Requests made while a round
+  runs join it.
+
 ## Worktree removal
 
 `ctrl+d` / `delete` on a worktree row opens Remove Worktree with Cancel
@@ -340,12 +376,15 @@ focused:
 
 ## Not offered
 
-Fetch on its own, force push, merge or rebase pulls, checkout, stage /
-unstage, discarding everything at once, and branch operations.
+Force push, merge or rebase pulls, fetch with options (`--all`, `--prune`),
+checkout, stage / unstage, discarding everything at once, and branch
+operations.
 
 ## Verification
 
 - `git/tests.rs` covers every operation against temporary repositories and a
-  local bare remote; `ui/tests.rs` covers the dialogs and keys end to end.
-- Manual push / pull checks use a scratch repository with a bare remote only
+  local bare remote; `ui/tests.rs`, `ui/sync_tests.rs`, and
+  `ui/fetch_tests.rs` cover the dialogs and keys end to end.
+- Manual push / pull / fetch checks use a scratch repository with a bare
+  remote only
   ([testing.md](./testing.md)).

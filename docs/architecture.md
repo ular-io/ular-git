@@ -23,7 +23,7 @@
 | `git/graph.rs` | Graph layout: lanes, joints, and lane colors per commit row (pure) |
 | `git/diff.rs` | Diff loading (file sections, untracked, conflict, `git show`), line classification and numbering, line limit |
 | `git/ops.rs` | Commit, worktree remove / prune |
-| `git/remote.rs` | Push, pull `--ff-only`, default remote; network env and timeout |
+| `git/remote.rs` | Push, pull `--ff-only`, fetch, default remote; network env and timeout |
 | `git/discover.rs` | Folder → repository roots |
 | `store.rs`, `store/shared.rs` | `repos.json`: groups, repositories, cooperative transactions, native directory notifications |
 | `cache.rs` | Status cache file |
@@ -39,6 +39,7 @@
 | `ui/files.rs`, `ui/diff_view.rs`, `ui/history_view.rs` | File-pane items (files, history commits, `… more`) and selection; latest-wins diff and history loaders |
 | `ui/commit_files.rs` | Commit view of the file pane: one commit's files, its cursor and keys |
 | `ui/sync.rs` | Push / pull from the UI |
+| `ui/fetch.rs` | Fetch queue (`ctrl+f`, `ctrl+u`): at most 8 at once, rounds summed up in one footer line |
 | `ui/input.rs`, `ui/keys.rs` | Key routing; header / help hints |
 | `ui/render/` | Frame, pane layout, header, panes |
 | `ui/overlays/` | Dialogs: add repository, groups, confirm, commit, Open With, help, theme, message |
@@ -64,6 +65,8 @@ run_loop: poll_background (apply every Patch) ─► tick (timers) ─► draw o
   queued one; results of older generations are dropped).
 - Writes (commit, push, pull, worktree removal): a one-off thread, then a
   rescan of the affected tree.
+- Fetches: queued in `App::fetch`; at most 8 one-off threads at once, outside
+  the scan pool, each followed by a rescan of its repository.
 
 ## Runtime
 

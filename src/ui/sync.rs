@@ -1,7 +1,8 @@
 //! Push (`P`, after a confirmation) and pull (`p`, fast-forward only) of the
 //! selected working tree. Both run in the background; the repository row
 //! shows `push…` / `pull…` until they finish, and one operation per working
-//! tree runs at a time.
+//! tree runs at a time. A fetch of the repository ([`super::fetch`]) holds
+//! both in the repository and its worktrees.
 
 use super::overlays::confirm::{ConfirmAction, ConfirmDialog};
 use super::overlays::message::MessageKind;
@@ -27,7 +28,7 @@ impl RemoteOp {
 /// Commits listed in the push confirmation.
 const SHOWN_COMMITS: usize = 5;
 
-fn folder_name(path: &std::path::Path) -> String {
+pub(crate) fn folder_name(path: &std::path::Path) -> String {
     path.file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default()
@@ -44,11 +45,18 @@ impl App {
             );
             return None;
         };
-        if let Some(running) = self.remote_ops.get(&target) {
-            self.notify(
-                Level::Info,
-                format!("A {} is still running here", running.label()),
-            );
+        // A fetch of the repository writes the remote-tracking refs every
+        // worktree's push and pull write too.
+        let repo = self
+            .current_repo_index()
+            .map(|i| self.store.repos[i].path.clone());
+        let running = self
+            .remote_ops
+            .get(&target)
+            .map(|op| op.label())
+            .or_else(|| repo.filter(|r| self.fetching(r)).map(|_| "fetch"));
+        if let Some(running) = running {
+            self.notify(Level::Info, format!("A {running} is still running here"));
             return None;
         }
         let Some(status) = self.current_tree().and_then(|t| t.status.as_ref()) else {

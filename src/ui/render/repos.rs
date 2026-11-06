@@ -216,9 +216,24 @@ pub(super) fn draw_repos(f: &mut Frame, app: &App, area: Rect) {
                         Span::styled(label, fill.fg(th.muted)),
                     ];
                     // An open group's rows carry their own badges; a folded
-                    // group shows the changed files and commits it hides.
+                    // group shows the changed files and commits it hides, led
+                    // by `fetch…` while one of its repositories fetches.
                     let right = if *collapsed {
-                        group_badges(*changed, *ahead, *behind, fill, th)
+                        let mut right = group_badges(*changed, *ahead, *behind, fill, th);
+                        let fetching = app
+                            .store
+                            .repos
+                            .iter()
+                            .any(|r| r.group == *name && app.fetching(&r.path));
+                        if fetching {
+                            let mut lead = vec![Span::styled("fetch…", fill.fg(th.accent))];
+                            if !right.is_empty() {
+                                lead.push(Span::styled(" ", fill));
+                            }
+                            lead.append(&mut right);
+                            right = lead;
+                        }
+                        right
                     } else {
                         Vec::new()
                     };
@@ -303,14 +318,17 @@ fn group_badges(
     out
 }
 
-/// A running push / pull leads the badges (`push…`).
+/// A running push / pull, or a queued or running fetch, leads the badges
+/// (`push…`).
 fn with_op(app: &App, path: &std::path::Path, badges: Vec<Span<'static>>) -> Vec<Span<'static>> {
-    let Some(op) = app.remote_ops.get(path) else {
-        return badges;
+    let label = match app.remote_ops.get(path) {
+        Some(op) => op.label(),
+        None if app.fetching(path) => "fetch",
+        None => return badges,
     };
     let th = &app.theme;
     let mut out = vec![
-        Span::styled(format!("{}…", op.label()), Style::default().fg(th.accent)),
+        Span::styled(format!("{label}…"), Style::default().fg(th.accent)),
         Span::raw(" "),
     ];
     out.extend(badges);

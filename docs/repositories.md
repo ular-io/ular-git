@@ -18,7 +18,8 @@
 - An open group header shows nothing on the right; its rows carry their own
   badges. A folded group shows the totals of its repositories and their
   worktrees: `Ⓜ N` changed files, `↑N` commits to push, `↓N` commits to pull
-  (as of the last fetch), each only when not zero. No repository count.
+  (as of the last fetch), each only when not zero, led by `fetch…` while any
+  of its repositories has a fetch queued or running. No repository count.
 - Each repository's linked worktrees follow it, indented with `├` / `└`,
   showing the folder name and branch. The main worktree is the repository row
   itself.
@@ -30,8 +31,11 @@
 Right-aligned, in this order: `push…` / `pull…` while one runs, `!N`
 conflicts, `Ⓜ N` other changed files, `↑N` ahead, `↓N` behind, `Ⓢ N` stashes,
 `…` not scanned yet, `✗` the last scan failed (the previous status stays
-shown). A clean tree (none of the above) shows no badge. `↓N` reflects the
-last fetch; ular-git does not fetch on its own.
+shown). A clean tree (none of the above) shows no badge. `fetch…` leads a
+repository row while its fetch is queued or running. `↓N` reflects the last
+fetch: ular-git fetches only on `ctrl+u` and `ctrl+f`
+([git-operations.md](./git-operations.md) §Fetch), never on the timed or
+focus rescans.
 
 ## Filter
 
@@ -88,6 +92,9 @@ repository row, below first, never to a group header (`App::place_cursor`).
   filter is applied. Fold state persists in `repos.json`.
 - `enter` on a repository or worktree row opens Open With (see
   [architecture.md](./architecture.md) §Runtime); `→` / `l` move to Files.
+- `ctrl+f` fetches the selected repository (a worktree row: its repository);
+  on a group header, every repository of the group
+  ([git-operations.md](./git-operations.md) §Fetch).
 - Palette only: Fold / Unfold All Groups.
 
 ## Order
@@ -156,7 +163,8 @@ repository row, below first, never to a group header (`App::place_cursor`).
   window and processed by the event loop (idle wake-up is at most 1 s, plus
   backend notification latency). Only an actual list change rebuilds rows;
   newly listed repositories are scanned without rescanning unchanged entries.
-- `ctrl+u` and palette Refresh All reload the list and rescan Git state.
+- `ctrl+u` and palette Refresh All reload the list, rescan Git state, and
+  fetch every repository ([git-operations.md](./git-operations.md) §Fetch).
   Terminal focus also reloads the list, even inside the existing 5 s Git scan
   throttle. The periodic Git scan does not reload the list.
 - Reloads preserve selection by path and keep filters and dialog input. If a
@@ -202,8 +210,8 @@ repository row, below first, never to a group header (`App::place_cursor`).
   - at launch (after the cache is shown);
   - every `refresh_interval_secs` (default 60, `0` = off), only after the
     previous round has finished;
-  - on `ctrl+u`, after a `!` command, and when the terminal regains focus (at
-    most once per 5 s).
+  - on `ctrl+u` (which then fetches every repository), after a `!` command,
+    and when the terminal regains focus (at most once per 5 s).
 - Resting the cursor on a working tree for 300 ms rescans it ahead of the
   queue when its status came from the cache or is older than 3 s.
 - Selecting a repository never waits on git: the file list comes from the last

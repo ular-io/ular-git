@@ -328,7 +328,7 @@ fn dot_on_the_repo_pane_toggles_the_pending_only_view() {
     assert_eq!(app.filter_label().as_deref(), Some("pending"));
     let rows = screen(&app, 160, 20);
     assert!(shows(&rows, "Repos[pending: 1/2]"), "{rows:#?}");
-    assert!(shows(&rows, "<.>     Show All"));
+    assert!(shows(&rows, "<.>      Show All"));
 
     // `.` on the diff toggles line wrap; `0` on the repos clears the view.
     app.press(&[key(KeyCode::Right), key(KeyCode::Right), ch('.')]);

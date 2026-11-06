@@ -1,4 +1,4 @@
-//! Push and pull: the only network operations.
+//! Push, pull, and fetch: the only network operations.
 //!
 //! They run in the background with no terminal to prompt on, so every
 //! credential prompt is disabled: HTTPS relies on the credential helper
@@ -12,7 +12,7 @@ use std::path::Path;
 use std::process::Stdio;
 use std::time::{Duration, Instant};
 
-/// Longest a push or pull may run.
+/// Longest a push, pull, or fetch may run.
 pub const TIMEOUT: Duration = Duration::from_secs(120);
 
 /// Where a branch without an upstream would be pushed.
@@ -95,6 +95,19 @@ pub fn pull(dir: &Path) -> anyhow::Result<String> {
         })
         .unwrap_or_else(|| "pulled".into());
     Ok(summary)
+}
+
+/// Plain `git fetch`: the remote of HEAD's upstream, else `origin`, with the
+/// user's own fetch settings (`fetch.prune`, refspecs). Returns how many
+/// remote-tracking refs changed, or `None` when the repository has no remote.
+pub fn fetch(dir: &Path) -> anyhow::Result<Option<usize>> {
+    let remotes = run_ok(dir, &["remote"])?;
+    if remotes.iter().all(u8::is_ascii_whitespace) {
+        return Ok(None);
+    }
+    let out = run_network(dir, &["fetch"])?;
+    // One `<old>..<new>  <ref> -> <remote ref>` line per changed ref.
+    Ok(Some(out.lines().filter(|l| l.contains(" -> ")).count()))
 }
 
 /// Runs a network git command with prompts disabled and a time limit.

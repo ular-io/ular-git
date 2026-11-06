@@ -22,6 +22,7 @@ pub enum CommandId {
     DiscardFile,
     Push,
     Pull,
+    Fetch,
     OpenWith,
     FilterRepos,
     TogglePendingOnly,
@@ -221,8 +222,16 @@ pub const COMMANDS: &[CommandSpec] = &[
         "pull",
         "Pull",
         Some("p"),
-        ["update", "download", "fetch", "remote", "fast-forward"],
+        ["update", "download", "remote", "fast-forward"],
         Some("git pull --ff-only: take upstream commits when no merge is needed")
+    ),
+    cmd!(
+        Fetch,
+        "fetch",
+        "Fetch",
+        Some("ctrl+f"),
+        ["download", "remote", "upstream", "behind", "group"],
+        Some("git fetch the selected repository, or every repository of the selected group")
     ),
     cmd!(
         OpenWith,
@@ -273,8 +282,8 @@ pub const COMMANDS: &[CommandSpec] = &[
         "refresh-all",
         "Refresh All",
         Some("ctrl+u"),
-        ["rescan", "reload", "update", "status"],
-        Some("Reload list and rescan repositories")
+        ["rescan", "reload", "update", "status", "fetch"],
+        Some("Reload list, rescan, and fetch every repository")
     ),
     cmd!(
         ToggleWrap,

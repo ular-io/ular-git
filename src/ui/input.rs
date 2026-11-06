@@ -79,9 +79,13 @@ impl App {
         }
     }
 
-    /// `c` / `P` / `p` on the selected working tree; every pane header lists
-    /// them.
+    /// `c` / `P` / `p` / `ctrl+f` on the selected working tree; every pane
+    /// header lists them.
     fn on_key_tree_ops(&mut self, key: &KeyEvent) -> bool {
+        if ctrl(key, 'f') {
+            self.start_fetch();
+            return true;
+        }
         match plain(key) {
             Some('c') => self.open_commit(),
             Some('P') => self.open_push(),
@@ -95,7 +99,7 @@ impl App {
     /// pane count (help only).
     fn on_key_global(&mut self, key: &KeyEvent) {
         if ctrl(key, 'u') {
-            self.refresh_all(false);
+            self.refresh_and_fetch();
             return;
         }
         let Some(c) = plain(key) else {

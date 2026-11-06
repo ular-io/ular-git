@@ -130,15 +130,17 @@ The theme set is shared with ular-s7s; these roles were renamed for git:
 - Common keys (`:` `!` `ctrl+u` `?` `q` in the common column, plus the pane
   count `1` / `2` / `3` / `\` in help only) work in every pane. Every other
   key works only in a pane whose header lists it: `/` `0` `+` on Repos, `>`
-  on Files (not a commit's file list), `s` on Diff; `c` `P` `p` are listed on
-  all three. `.` differs per pane: Pending Only on Repos, history date /
-  author on Files (not a commit's file list), line wrap on Diff. While a filter is applied, Repos shows `0` Clear Filter in place
+  on Files (not a commit's file list), `s` on Diff; `c` `P` `p` `ctrl+f` are
+  listed on all three (`ctrl+f` reads `Fetch Group` on a group header). `.`
+  differs per pane: Pending Only on Repos, history date / author on Files
+  (not a commit's file list), line wrap on Diff. While a filter is applied, Repos shows `0` Clear Filter in place
   of `/` (help keeps `/`). The palette runs any command whatever the focus.
   Labels follow the selected row (`ctrl+d` reads `Remove Worktree` on a
   worktree, `Delete Group` on a group); keys that do nothing there are left
   out.
 - At most five rows per header column. Movement keys (`↑↓`, `pgup` / `pgdn`,
-  `g` / `G`, arrows) and the Repos reorder keys (`alt+↑↓`) are left to help.
+  `g` / `G`, arrows), the Repos reorder keys (`alt+↑↓`), and `enter` on Repos
+  (Open With…, Fold / Unfold Group) are left to help.
 - Help is a centered box: the focused pane's keys, then Anywhere and Dialogs;
   two columns when wide, one when narrow, scrolling with a scrollbar when it
   does not fit. It takes every key; `esc`, `?`, or `q` closes it.

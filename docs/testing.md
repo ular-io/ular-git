@@ -21,7 +21,7 @@ stage.
 | Status / worktree parsing | `git/status.rs`, `git/worktree.rs` unit tests, `git/tests.rs` | — |
 | Diff loading or classification | `git/diff.rs` unit tests, `git/tests.rs` | Look at a commit, an untracked file, and a staged + unstaged file |
 | Commit, worktree removal | `git/tests.rs`, `ui/tests.rs` | Scratch repository only |
-| Push / pull | `git/tests.rs`, `ui/tests.rs` (local bare remote) | Scratch repository with a bare remote only — never a real repository |
+| Push / pull / fetch | `git/tests.rs`, `ui/sync_tests.rs`, `ui/fetch_tests.rs` (local bare remote) | Scratch repository with a bare remote only — never a real repository; `ctrl+u` / `ctrl+f` only with a sandbox `HOME` listing scratch repositories |
 | Shared repository list | `store/shared/tests.rs`, `ui/store_sync_tests.rs`, `runtime/tests.rs` | Two simultaneous sandbox instances: create, rename, move, fold; CLI add; external atomic replacement; immediate quit after a list edit and during Add discovery; absent first-run list; rapid Enter/left/right; peer fold while inspecting a diff; stale group-name dialog |
 | Repository rows, groups, filter | `ui/tree_tests.rs`, `ui/tests.rs` | Real terminal |
 | Layout, header, panes, dialogs, help | `ui/render/tests.rs` | Real terminal at 160 / 100 / 56 columns |
@@ -56,9 +56,10 @@ tmux kill-session -t ular-git
 ```
 
 - A sandbox `HOME` still reads the real repositories it was given. Before
-  pressing `c`, `P`, `p`, or `ctrl+d`, make sure the selected row is a scratch
-  repository.
-- For push / pull, create a scratch repository and a bare remote:
+  pressing `c`, `P`, `p`, `ctrl+f`, or `ctrl+d`, make sure the selected row is
+  a scratch repository (or a group of them); `ctrl+u` fetches every listed
+  repository, so list only scratch repositories before pressing it.
+- For push / pull / fetch, create a scratch repository and a bare remote:
 
   ```bash
   git init -q --bare /tmp/ular-git-remote.git

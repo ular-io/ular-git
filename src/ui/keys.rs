@@ -28,22 +28,14 @@ impl App {
     pub fn pane_hints(&self) -> [Vec<Hint>; 2] {
         match self.focus {
             Pane::Repos => {
-                let (enter, edit, remove) = match self.current_row() {
-                    Some(Row::Group {
-                        collapsed, name, ..
-                    }) => (
-                        if *collapsed {
-                            "Unfold Group"
-                        } else {
-                            "Fold Group"
-                        },
+                let (fetch, edit, remove) = match self.current_row() {
+                    Some(Row::Group { name, .. }) => (
+                        "Fetch Group",
                         if name.is_some() { "Rename Group" } else { "" },
                         if name.is_some() { "Delete Group" } else { "" },
                     ),
-                    Some(Row::Worktree { .. }) => {
-                        ("Open With…", "Move to Group", "Remove Worktree")
-                    }
-                    _ => ("Open With…", "Move to Group", "Remove Repository"),
+                    Some(Row::Worktree { .. }) => ("Fetch", "Move to Group", "Remove Worktree"),
+                    _ => ("Fetch", "Move to Group", "Remove Repository"),
                 };
                 // While filtered, `0` takes the `/` row; help keeps `/`.
                 let filter = if self.filter_clearable() {
@@ -64,11 +56,12 @@ impl App {
                 } else {
                     "Pending Only"
                 };
+                // `enter` (Open With, fold) is left to help for Fetch.
                 let second = vec![
-                    h("enter", enter),
                     h("c", "Commit"),
                     h("P", "Push"),
                     h("p", "Pull"),
+                    h("ctrl+f", fetch),
                     h(".", changed),
                 ];
                 [first, second]
@@ -88,7 +81,7 @@ impl App {
                     }
                     col
                 },
-                vec![h("P", "Push"), h("p", "Pull")],
+                vec![h("P", "Push"), h("p", "Pull"), h("ctrl+f", "Fetch")],
             ],
             Pane::Diff => [
                 vec![
@@ -103,7 +96,7 @@ impl App {
                         },
                     ),
                 ],
-                vec![h("P", "Push"), h("p", "Pull")],
+                vec![h("P", "Push"), h("p", "Pull"), h("ctrl+f", "Fetch")],
             ],
         }
     }
@@ -131,11 +124,20 @@ impl App {
         }
     }
 
-    /// Movement keys of the focused pane, left out of the header for space.
+    /// Keys of the focused pane left out of the header for space: movement,
+    /// and `enter` on Repos.
     pub fn pane_help_only(&self) -> Vec<Hint> {
         match self.focus {
             Pane::Repos => {
+                let enter = match self.current_row() {
+                    Some(Row::Group {
+                        collapsed: true, ..
+                    }) => "Unfold Group",
+                    Some(Row::Group { .. }) => "Fold Group",
+                    _ => "Open With…",
+                };
                 let mut keys = vec![
+                    h("enter", enter),
                     h("↑↓ / j k", "Move"),
                     h("pgup / pgdn", "Move a page"),
                     h("home / g", "First row"),
@@ -203,7 +205,7 @@ pub fn anywhere() -> Vec<Hint> {
         h("\\", "Next pane count: 3 → 2 → 1 → 3"),
         h(":", "Quick command (every command)"),
         h("!", "Run a shell command in the repository"),
-        h("ctrl+u", "Reload list and rescan repositories"),
+        h("ctrl+u", "Reload list, rescan, and fetch every repository"),
         h("?", "Open / close help"),
         h("q / ctrl+c", "Quit (press twice)"),
     ]
