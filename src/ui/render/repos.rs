@@ -242,8 +242,17 @@ pub(super) fn draw_repos(f: &mut Frame, app: &App, area: Rect) {
                 Row::Repo { idx, nested, .. } => {
                     let repo = &app.store.repos[*idx];
                     let tree = app.statuses.get(&repo.path);
-                    let indent = if *nested { "   " } else { " " };
-                    let left = vec![Span::raw(format!("{indent}{}", repo.name()))];
+                    // The unlisted repository is always ungrouped; its `*`
+                    // takes the one-cell indent, so widths stay the same.
+                    let left = if app.is_unlisted(&repo.path) {
+                        vec![
+                            Span::styled("*", Style::default().fg(th.accent)),
+                            Span::raw(repo.name()),
+                        ]
+                    } else {
+                        let indent = if *nested { "   " } else { " " };
+                        vec![Span::raw(format!("{indent}{}", repo.name()))]
+                    };
                     let right = with_op(
                         app,
                         &repo.path,

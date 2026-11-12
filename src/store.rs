@@ -129,6 +129,15 @@ impl RepoStore {
         true
     }
 
+    /// Moves a repository to the front of the list: the top of its group
+    /// (of the whole list when it is ungrouped).
+    pub fn move_to_front(&mut self, path: &Path) {
+        if let Some(i) = self.repos.iter().position(|r| r.path == path) {
+            let repo = self.repos.remove(i);
+            self.repos.insert(0, repo);
+        }
+    }
+
     pub fn remove_repo(&mut self, path: &Path) -> bool {
         let before = self.repos.len();
         self.repos.retain(|r| r.path != path);

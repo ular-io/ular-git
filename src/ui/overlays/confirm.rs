@@ -81,6 +81,10 @@ impl App {
                 ok_focused: false,
                 action: ConfirmAction::DeleteGroup(name),
             },
+            Row::Repo { path, .. } if self.is_unlisted(&path) => {
+                self.hide_unlisted();
+                return;
+            }
             Row::Repo { idx, .. } => {
                 let path = self.store.repos[idx].path.clone();
                 ConfirmDialog {

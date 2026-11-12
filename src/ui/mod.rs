@@ -22,10 +22,12 @@ pub mod scan;
 mod store_sync;
 pub mod sync;
 pub mod tree;
+mod unlisted;
 
 pub use components::input::TextInput;
 pub use diff_view::DiffView;
 pub use notice::{Level, Notice};
+pub use unlisted::OpenTarget;
 
 use crate::config::Config;
 use crate::store::RepoStore;
@@ -169,14 +171,22 @@ pub struct App {
     pub should_quit: bool,
     pub(crate) quit_armed: bool,
     pub terminal_request: Option<TerminalRequest>,
-    /// Folder the app was launched from (prefills Add Repository).
+    /// Folder the app was launched from, or the one given on the command
+    /// line (prefills Add Repository).
     pub(crate) launch_dir: Option<PathBuf>,
+    /// Repository given on the command line that the list does not hold:
+    /// shown first this session, never saved ([`unlisted`]).
+    pub(crate) unlisted: Option<PathBuf>,
+    /// Command-line linked worktree to select once its repository's scan
+    /// lists it.
+    pub(crate) open_pending: Option<OpenTarget>,
 }
 
 impl App {
     /// Builds the app from the persisted store and status cache (both skipped
-    /// in unit tests) and starts the scan workers.
-    pub fn new(cfg: Config) -> Self {
+    /// in unit tests), selects `open` (`ular-git <dir>`), and starts the scan
+    /// workers.
+    pub fn new(cfg: Config, open: Option<OpenTarget>) -> Self {
         let (store, store_path, load_error, initially_loaded) = if cfg!(test) {
             (RepoStore::default(), None, None, false)
         } else {
@@ -218,6 +228,9 @@ impl App {
             app.notify(Level::Error, err);
         }
         app.rebuild_rows();
+        if let Some(open) = open {
+            app.open_tree(open);
+        }
         app.scan_all();
         app
     }
@@ -274,6 +287,8 @@ impl App {
             quit_armed: false,
             terminal_request: None,
             launch_dir: None,
+            unlisted: None,
+            open_pending: None,
         }
     }
 
@@ -345,6 +360,7 @@ impl App {
                 .unwrap_or(0)
         });
         self.place_cursor(key.as_ref(), fallback, before);
+        self.follow_open_worktree();
     }
 
     /// Puts the cursor on `key` (after rows were rebuilt elsewhere).

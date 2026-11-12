@@ -4,7 +4,7 @@
 > Read when: Changing the repository pane, groups, filter, adding or removing
 > repositories, worktree rows, scanning, or the status cache.
 > Entry points: `src/ui/tree.rs`, `src/ui/scan.rs`, `src/store.rs`,
-> `src/cache.rs`, `src/git/{status,worktree,discover}.rs`,
+> `src/ui/unlisted.rs`, `src/cache.rs`, `src/git/{status,worktree,discover}.rs`,
 > `src/ui/overlays/{add_repo,group}.rs`, `src/ui/store_sync.rs`,
 > `src/store/shared.rs`
 
@@ -138,6 +138,40 @@ repository row, below first, never to a group header (`App::place_cursor`).
   Only the list changes; nothing on disk is touched.
 - CLI: `ular-git --add <dir>` applies the same resolution, saves, and exits.
 
+## Opening a folder
+
+`ular-git <dir>` (`ular-git .`) starts with a repository selected
+(`git::discover::open_target`, then `App::open_tree` in `src/ui/unlisted.rs`).
+It cannot be combined with `--add`.
+
+- `<dir>` is a working tree root or a folder inside one → that repository; a
+  linked worktree → its worktree row under the owning repository. Until the
+  repository's scan (or the cache) lists the worktree, the repository row is
+  selected; the cursor moves to the worktree row when it appears, unless the
+  selection changed meanwhile (`App::follow_open_worktree`).
+- A folder outside any repository, a missing path, or a file exits with an
+  error before the terminal is taken; when repositories exist below the
+  folder, the error counts them and points to `--add`.
+- A listed repository is selected where it is. Inside a folded group it stays
+  visible locally, like a peer's fold (the shared fold state is unchanged).
+- A repository that is not listed is shown for this session only: first in
+  the list (top of the ungrouped block), marked `*` in the accent color in
+  place of the one-cell indent. It is scanned, cached, and fetched like any
+  other (`ctrl+u` includes it). It lives at index 0 of the in-memory store and
+  is never written: `App::accept_store` attaches it to every store read from
+  the file (`App::attach_unlisted`), and the in-memory write path strips it
+  (`App::listed_store`).
+- Selecting it (or one of its worktrees) shows `* Not in the list: + adds it,
+  ctrl+e adds it to a group` in the footer.
+- `+` prefills its path; adding it Ungrouped puts it at the top of the list
+  (`RepoStore::move_to_front`), where it was shown. `ctrl+e` Move to Group
+  adds it to the chosen group (or `[NEW GROUP]`) at the end
+  (`RepoStore::file_repo` with `register`). Another instance listing it also
+  turns it into an ordinary row.
+- `ctrl+d` hides it for the rest of the session without a confirmation
+  (`App::hide_unlisted`); nothing on disk changes. `alt+↑` / `alt+↓` do
+  nothing on it and say why.
+
 ## Shared list and simultaneous instances
 
 - Every list mutation runs off the input thread, in request order within an
@@ -236,6 +270,9 @@ repository row, below first, never to a group header (`App::place_cursor`).
   recovery, fast fold keys, first-run reloads, peer folds, real dialog conflicts,
   quit during discovery, non-blocking lock wait), `runtime/tests.rs` (input
   suppression while quitting).
+- Opening a folder: `ui/unlisted_tests.rs` (marker and order, folded group,
+  linked worktree after the scan, `+` / `ctrl+e` / `ctrl+d` / `alt+↑↓`,
+  reloads), `git/discover.rs` tests (`open_target`).
 - Unit tests: `ui/tree_tests.rs` (row shapes), `store.rs` (order, version 1
   migration), `ui/pane_keys_tests.rs` (`alt+↑↓`), `cache.rs`,
   `git/status.rs`, `git/worktree.rs`.

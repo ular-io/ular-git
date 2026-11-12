@@ -62,7 +62,12 @@ cargo install --path .     # installs the `ular-git` executable
 ```bash
 ular-git --add ~/code   # add every repository below a folder (or one repository)
 ular-git                # start the TUI
+ular-git .              # start with the repository of this folder selected
 ```
+
+`ular-git <dir>` selects that repository (or linked worktree) in the list. A
+repository that is not in the list is shown first, marked `*`, for this
+session only; `+` (or `ctrl+e` to a group) adds it, `ctrl+d` hides it.
 
 `+` in the TUI does the same as `--add`: give it a repository, a folder inside
 one, a linked worktree (resolved to its repository), or a parent folder

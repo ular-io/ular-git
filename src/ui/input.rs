@@ -313,6 +313,12 @@ impl App {
         ) {
             return;
         }
+        if let Some(Row::Repo { path, .. }) = &row {
+            if self.is_unlisted(path) {
+                self.notify(Level::Info, "Not in the list, so it has no place to move");
+                return;
+            }
+        }
         if self.list_filtered() {
             self.notify(
                 Level::Info,

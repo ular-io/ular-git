@@ -69,7 +69,7 @@ impl App {
     fn add_repo_prefill(&self) -> String {
         if let Some(dir) = &self.launch_dir {
             if let Ok(root) = discover::main_repo(dir) {
-                if !self.store.contains(&root) {
+                if !self.store.contains(&root) || self.is_unlisted(&root) {
                     return crate::config::collapse_home(&root);
                 }
             }
@@ -183,6 +183,7 @@ impl App {
                 return;
             }
         };
+        let unlisted = self.unlisted.clone();
         self.change_store(
             move |store| {
                 store.require_group(group.as_deref())?;
@@ -191,6 +192,10 @@ impl App {
                     .filter(|root| store.add_repo((*root).clone(), group.clone()))
                     .cloned()
                     .collect();
+                // The unlisted repository stays where it was shown.
+                if let Some(path) = unlisted.filter(|p| group.is_none() && added.contains(p)) {
+                    store.move_to_front(&path);
+                }
                 Ok((roots, added))
             },
             |app, (roots, added)| {

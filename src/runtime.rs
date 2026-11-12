@@ -45,6 +45,11 @@ FILES:  ~/.config/ular-git/repos.json   repository list and groups (managed by u
         ~/.config/ular-git/themes/*.toml custom themes"
 )]
 struct Cli {
+    /// Open with this repository selected (a folder inside one, or a linked
+    /// worktree, works too). One that is not in the list is shown first,
+    /// marked `*`, for this session only; `+` adds it.
+    #[arg(value_name = "DIR", conflicts_with = "add")]
+    dir: Option<std::path::PathBuf>,
     /// Add this folder (a repository, or every repository below it) to the list and exit.
     #[arg(long, value_name = "DIR")]
     add: Option<std::path::PathBuf>,
@@ -55,9 +60,11 @@ pub fn run() -> Result<()> {
     if let Some(dir) = cli.add {
         return add_from_cli(&dir);
     }
+    // Resolved before the terminal is taken so a bad folder is a plain error.
+    let open = cli.dir.as_deref().map(open_target).transpose()?;
     install_panic_hook();
     crate::scratch::sweep_stale();
-    let mut app = App::new(Config::load());
+    let mut app = App::new(Config::load(), open);
     let mut session = TerminalSession::enter()?;
     let run_result = run_loop(&mut session, &mut app);
     let restore_result = session.suspend();
@@ -82,6 +89,14 @@ fn add_from_cli(dir: &std::path::Path) -> Result<()> {
     })?;
     println!("ular-git: added {added} repositories");
     Ok(())
+}
+
+/// `ular-git <dir>`: the repository and working tree to select.
+fn open_target(dir: &std::path::Path) -> Result<ui::OpenTarget> {
+    let canonical =
+        std::fs::canonicalize(dir).map_err(|e| anyhow::anyhow!("{}: {e}", dir.display()))?;
+    let (repo, tree) = crate::git::discover::open_target(&canonical)?;
+    Ok(ui::OpenTarget { repo, tree })
 }
 
 /// Waits for the first event, drains whatever else is queued, then draws

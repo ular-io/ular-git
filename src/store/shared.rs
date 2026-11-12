@@ -83,6 +83,31 @@ impl RepoStore {
         );
         Ok(())
     }
+
+    /// Files `repo` under `group` (Move to Group). With `register`, a
+    /// repository that is not listed (opened by `ular-git <dir>`) is added
+    /// instead; as Ungrouped it goes to the top of the list, where it was
+    /// shown. Returns whether it was added.
+    pub fn file_repo(
+        &mut self,
+        repo: &Path,
+        group: Option<String>,
+        register: bool,
+    ) -> anyhow::Result<bool> {
+        if register && !self.contains(repo) {
+            self.require_group(group.as_deref())?;
+            let top = group.is_none();
+            self.add_repo(repo.to_path_buf(), group);
+            if top {
+                self.move_to_front(repo);
+            }
+            return Ok(true);
+        }
+        self.require_repo(repo)?;
+        self.require_group(group.as_deref())?;
+        self.set_group(repo, group);
+        Ok(false)
+    }
 }
 
 /// Watch the parent, because writers and editors replace the file on save.

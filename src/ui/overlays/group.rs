@@ -174,10 +174,13 @@ impl App {
         }
         let (purpose, assign) = (d.purpose.clone(), d.assign.clone());
         d.pending = true;
+        let register = assign.as_deref().is_some_and(|r| self.is_unlisted(r));
         self.change_store_with_error(
             move |store| {
                 if let Some(repo) = &assign {
-                    store.require_repo(repo)?;
+                    if !register {
+                        store.require_repo(repo)?;
+                    }
                 }
                 match &purpose {
                     NamePurpose::New => store.add_group(&name),
@@ -185,7 +188,7 @@ impl App {
                 }
                 .map_err(anyhow::Error::msg)?;
                 if let Some(repo) = &assign {
-                    store.set_group(repo, Some(name.clone()));
+                    store.file_repo(repo, Some(name.clone()), register)?;
                 }
                 Ok((purpose, assign, name))
             },
@@ -236,17 +239,23 @@ impl App {
                 match d.options.get(d.cursor).cloned() {
                     None => self.open_group_name(NamePurpose::New, String::new(), Some(d.repo)),
                     Some(group) => {
+                        let register = self.is_unlisted(&d.repo);
                         self.change_store(
                             move |store| {
-                                store.require_repo(&d.repo)?;
-                                store.require_group(group.as_deref())?;
-                                store.set_group(&d.repo, group.clone());
-                                Ok((d.repo, group))
+                                let added = store.file_repo(&d.repo, group.clone(), register)?;
+                                Ok((d.repo, group, added))
                             },
-                            |app, (repo, group)| {
+                            |app, (repo, group, added)| {
                                 app.select_row_key(Some(&RowKey::Repo(repo)));
-                                let to = group.unwrap_or_else(|| "Ungrouped".into());
-                                app.notify(Level::Ok, format!("Moved to {to}"));
+                                let text = match (added, group) {
+                                    (true, None) => "Added to the list".to_string(),
+                                    (true, Some(to)) => format!("Added to {to}"),
+                                    (false, to) => format!(
+                                        "Moved to {}",
+                                        to.unwrap_or_else(|| "Ungrouped".into())
+                                    ),
+                                };
+                                app.notify(Level::Ok, text);
                             },
                         );
                     }

@@ -9,6 +9,7 @@
 | Command | Path |
 | --- | --- |
 | `ular-git` | `runtime::run` → `App::new` (load list + status cache, start scan pool) → `TerminalSession::enter` → `run_loop` |
+| `ular-git <dir>` | `runtime::open_target` → `git::discover::open_target` (before the terminal is taken; a bad folder exits with an error) → `App::new(cfg, Some(OpenTarget))` → `App::open_tree` ([repositories.md](./repositories.md) §Opening a folder) |
 | `ular-git --add <dir>` | `runtime::add_from_cli` → `git::discover::repos_for` → `RepoStore::save`, then exit (no TUI) |
 
 ## Module map
@@ -24,7 +25,7 @@
 | `git/diff.rs` | Diff loading (file sections, untracked, conflict, `git show`), line classification and numbering, line limit |
 | `git/ops.rs` | Commit, worktree remove / prune |
 | `git/remote.rs` | Push, pull `--ff-only`, fetch, default remote; network env and timeout |
-| `git/discover.rs` | Folder → repository roots |
+| `git/discover.rs` | Folder → repository roots (`repos_for`), `ular-git <dir>` target (`open_target`) |
 | `store.rs`, `store/shared.rs` | `repos.json`: groups, repositories, cooperative transactions, native directory notifications |
 | `cache.rs` | Status cache file |
 | `config.rs` | `config.toml` (including the Open With app lists), app paths, atomic writes |
@@ -36,6 +37,7 @@
 | `ui/store_sync.rs` | Serialized background list transactions and watcher reloads; preserve UI selection |
 | `ui/scan.rs` | Scan scheduling, focus rescan, auto rescan, cache load / save |
 | `ui/tree.rs` | Repository pane rows (pure) |
+| `ui/unlisted.rs` | `ular-git <dir>`: initial selection, the session-only unlisted repository (attached to every accepted store, stripped from in-memory writes) |
 | `ui/files.rs`, `ui/diff_view.rs`, `ui/history_view.rs` | File-pane items (files, history commits, `… more`) and selection; latest-wins diff and history loaders |
 | `ui/commit_files.rs` | Commit view of the file pane: one commit's files, its cursor and keys |
 | `ui/sync.rs` | Push / pull from the UI |

@@ -227,6 +227,8 @@ impl App {
         self.diff.clear();
         self.scan.focus_due = Some(Instant::now() + FOCUS_DEBOUNCE);
         self.refresh_files();
+        self.open_pending = None;
+        self.hint_unlisted();
     }
 
     /// `ctrl+u` / terminal focus: reload the shared list and rescan Git state.

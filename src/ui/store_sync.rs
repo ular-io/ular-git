@@ -88,7 +88,7 @@ impl App {
         failed: impl FnOnce(&mut App, String) + Send + 'static,
     ) {
         let Some(path) = self.store_path.clone() else {
-            let mut store = self.store.clone();
+            let mut store = self.listed_store();
             match edit(&mut store) {
                 Ok(value) => {
                     self.accept_store(store);
@@ -228,7 +228,8 @@ impl App {
             || self.store_sync.discoveries > 0
     }
 
-    fn accept_store(&mut self, store: RepoStore) {
+    pub(super) fn accept_store(&mut self, mut store: RepoStore) {
+        self.attach_unlisted(&mut store);
         if self.store == store {
             return;
         }
