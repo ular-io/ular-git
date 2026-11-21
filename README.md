@@ -54,7 +54,8 @@ The Rust toolchain is pinned in `rust-toolchain.toml`:
 ```bash
 git clone https://github.com/ular-io/ular-git.git
 cd ular-git
-cargo install --path .     # installs the `ular-git` executable
+cargo build --release
+mkdir -p ~/.local/bin && install -m 755 target/release/ular-git ~/.local/bin/ular-git
 ```
 
 ## Usage

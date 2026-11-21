@@ -8,7 +8,7 @@
 
 ```bash
 scripts/check.sh        # fmt --check → test → clippy -D warnings → build --release
-cargo install --path .  # replace the installed `ular-git`
+mkdir -p ~/.local/bin && install -m 755 target/release/ular-git ~/.local/bin/ular-git
 ```
 
 Both run after every change. `check.sh` fails fast and names the failing

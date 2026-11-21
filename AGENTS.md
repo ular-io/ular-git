@@ -73,7 +73,8 @@ active documentation.
 
 Every code change must pass `scripts/check.sh` (`cargo fmt --all -- --check`,
 `cargo test -q`, `cargo clippy --all-targets --all-features -- -D warnings`,
-`cargo build --release`) and then be installed with `cargo install --path .`
+`cargo build --release`) and then install `target/release/ular-git` to
+`~/.local/bin/ular-git` (`mkdir -p ~/.local/bin && install -m 755 target/release/ular-git ~/.local/bin/ular-git`)
 so the next `ular-git` launch runs it. A running instance keeps the old binary
 until it is restarted; say so when reporting.
 [testing.md](./docs/testing.md) is the authoritative matrix; the essentials:
