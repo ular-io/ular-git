@@ -5,7 +5,6 @@ edition = "2021"
 description = "k9s-style TUI to watch many git repositories, their worktrees, changed files, and diffs at a glance"
 license = "MIT"
 repository = "https://github.com/ular-io/ular-git"
-homepage = "https://github.com/ular-io/ular-git"
 
 [[bin]]
 name = "ular-git"
@@ -16,8 +15,8 @@ name = "ular_git"
 path = "src/lib.rs"
 
 [dependencies]
-ratatui = "0.29"
-crossterm = "0.28"
+ratatui = "0.30"
+crossterm = "0.29"
 unicode-width = "0.2"
 unicode-segmentation = "1"
 serde = { version = "1", features = ["derive"] }

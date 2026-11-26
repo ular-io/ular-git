@@ -120,9 +120,8 @@ pub fn build_rows(
             .iter()
             .map(|g| (Some(g.name.clone()), Vec::new())),
     );
-    for i in 0..store.repos.len() {
-        let group = store.repos[i].group.clone();
-        if let Some(slot) = by_group.iter_mut().find(|(g, _)| *g == group) {
+    for (i, repo) in store.repos.iter().enumerate() {
+        if let Some(slot) = by_group.iter_mut().find(|(g, _)| *g == repo.group) {
             slot.1.push(i);
         }
     }
