@@ -53,8 +53,7 @@ active documentation.
   edits**. New files: at most 500 lines. An edited file that would go over is
   split in the same change by responsibility (tests by topic), not by line
   count.
-- Do the split as its own commit before the behavior change: moves only, no
-  logic edits, `scripts/check.sh` passing.
+- Do the split first: moves only, no logic edits, `scripts/check.sh` passing.
 - Find over-limit files with
   `find src -name '*.rs' -exec wc -l {} + | awk '$1 > 500 && $2 != "total"'`.
 
