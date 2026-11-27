@@ -101,6 +101,9 @@ git commit -m "chore: release ular-git v0.1.0"
 git push origin main
 ```
 
+`brew style` turns on Homebrew developer mode; run `brew developer off`
+afterwards.
+
 If Homebrew refuses to load the formula from an untrusted tap, run
 `brew trust --formula ular-io/tap/ular-git` and retry.
 
