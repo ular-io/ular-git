@@ -16,7 +16,7 @@
 
 | Module | Owns |
 | --- | --- |
-| `git/mod.rs` | `git_command` (shared env: `GIT_OPTIONAL_LOCKS=0`, `GIT_TERMINAL_PROMPT=0`, no pager), `scan`, status types |
+| `git/mod.rs` | `git_command` (shared env: `GIT_OPTIONAL_LOCKS=0`, `GIT_TERMINAL_PROMPT=0`, no pager, English messages via `LC_MESSAGES=C` with `LC_ALL` removed), `scan`, status types |
 | `git/status.rs` | `status --porcelain=v2 --branch -z` parsing, unpushed log, stash count |
 | `git/worktree.rs` | `worktree list --porcelain -z` parsing |
 | `git/history.rs` | History: `git log --topo-order` commits with parents |

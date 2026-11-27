@@ -60,7 +60,7 @@ active documentation.
 ### Layers
 
 - `git/` knows git and nothing about the UI. Every call goes through
-  `git::git_command` (optional locks off, no prompts, no pager); network calls
+  `git::git_command` (optional locks off, no prompts, no pager, English messages); network calls
   go through `git::remote::run_network`.
 - `ui/` key handlers never run git. Background work returns a `Patch`
   applied in `App::poll_background`.

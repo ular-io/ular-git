@@ -151,6 +151,10 @@ pub(crate) fn git_command(dir: &Path) -> Command {
         .env("GIT_OPTIONAL_LOCKS", "0")
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_PAGER", "cat")
+        // Output is parsed by its English text; LC_ALL would override
+        // LC_MESSAGES, and LANG keeps a UTF-8 ctype for hooks.
+        .env_remove("LC_ALL")
+        .env("LC_MESSAGES", "C")
         .stdin(Stdio::null());
     cmd
 }
