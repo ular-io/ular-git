@@ -6,7 +6,6 @@
 
 ## Confirmed unimplemented behavior
 
-- No Homebrew release yet; `docs/releasing.md` describes the first one.
 - Commit messages are a single line (no body editor).
 
 ## Deferred ideas — not committed

@@ -1,6 +1,6 @@
 [package]
 name = "ular-git"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "k9s-style TUI to watch many git repositories, their worktrees, changed files, and diffs at a glance"
 license = "MIT"

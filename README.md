@@ -75,7 +75,7 @@ one, a linked worktree (resolved to its repository), or a parent folder
 (every repository up to three levels below it is added).
 
 Multiple instances share the repository list and groups automatically, including
-order and fold state. `ctrl+u` reloads the list and rescans Git state. Selection
+order and fold state. `ctrl+u` reloads the list, rescans Git state, and fetches. Selection
 and filters stay local to each instance. A peer folding a group keeps the
 repository or worktree being inspected visible locally until you move away.
 Restart every running instance after
@@ -100,12 +100,13 @@ upgrading so all writers use the same locking protocol.
 | `←` `→` / `enter` (group header) | Fold / unfold a group (`enter` toggles) |
 | `c` | Commit (staged only, or all changes including untracked files) |
 | `P`, `p` | Push (asks first), pull (fast-forward only) |
+| `ctrl+f` | Fetch the selected repository, or every repository of the selected group |
 | `.` (Files pane) | History rows: date → date and author → author → subject only, with the selected commit's date and author on a second line (remembered) |
 | `.` (Diff pane) | Toggle diff line wrap |
 | `>` (Files pane) | History labels: none → branches → branches and tags → tags (remembered) |
 | `s` (Diff pane) | Side-by-side diff when the diff pane is 120+ columns wide, or always unified (remembered) |
 | `:`, `!` | Quick command palette, shell command in the selected repository |
-| `ctrl+u` | Reload the repository list and rescan every repository |
+| `ctrl+u` | Reload the repository list, rescan, and fetch every repository |
 | `?` | Help for the focused pane |
 | `q` / `ctrl+c` (twice) | Quit |
 
