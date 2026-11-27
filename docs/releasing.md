@@ -14,7 +14,11 @@ formula `Formula/ular-git.rb`.
 
 ## Prerequisites
 
-- Rust toolchain (pinned by `rust-toolchain.toml`).
+- Rust via rustup (pinned by `rust-toolchain.toml`). `release.sh` runs
+  `rustup target add` for both macOS targets; Homebrew's `rust` formula ships
+  only the host target and cannot build `x86_64-apple-darwin`. Use
+  `brew install rustup` (keg-only, so put `$(brew --prefix rustup)/bin` first
+  on `PATH`).
 - GitHub CLI (`gh auth status` must pass for an account that can push to
   `ular-io/ular-git` and `ular-io/homebrew-tap`).
 - `shasum` (standard on macOS).
